@@ -1,5 +1,7 @@
+version: "2"
+
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck
     - govet
@@ -15,18 +17,18 @@ linters:
     - exhaustive
     - nilerr
 
-linters-settings:
-  revive:
-    rules:
-      - name: exported
-        arguments:
-          - disableStutteringCheck
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-  exhaustive:
-    default-signifies-exhaustive: true
+  settings:
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - disableStutteringCheck
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+    exhaustive:
+      default-signifies-exhaustive: true
 
 issues:
   max-same-issues: 5
