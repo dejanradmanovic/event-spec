@@ -1,0 +1,61 @@
+$schema: "https://event-spec.io/schemas/event/v1"
+
+name: product_viewed
+display_name: "Product Viewed"
+description: |
+  Fired when a user views the detail page of a product.
+version: "1-2-0"
+changelog: "Added optional coupon_code property"
+status: active
+namespace: ecommerce
+tags: [ product, ecommerce, funnel ]
+owner: "growth-team@example.com"
+type: track
+
+event_name: "Product Viewed"
+
+properties:
+  product_id:
+    type: string
+    required: true
+    description: "The SKU or database ID of the product"
+  product_name:
+    type: string
+    required: true
+  category:
+    type: string
+    required: true
+    enum: [ clothing, electronics, books, home, sports, other ]
+  price:
+    type: number
+    required: true
+    minimum: 0
+  currency:
+    type: string
+    required: false
+    pattern: "^[A-Z]{3}$"
+    default: "USD"
+  coupon_code:
+    type: string
+    required: false
+
+context_properties:
+  - user_id
+  - session_id
+  - platform
+
+provider_overrides:
+  ga4:
+    event_name: "view_item"
+    property_map:
+      product_id: item_id
+      product_name: item_name
+      category: item_category
+
+destinations: []
+
+sampling:
+  strategy: user_id_hash
+  rate: 0.1
+
+property_priority: event_wins

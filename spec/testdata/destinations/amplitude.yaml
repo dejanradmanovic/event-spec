@@ -1,0 +1,7 @@
+name: amplitude
+provider: amplitude
+config:
+  api_key: "${AMPLITUDE_API_KEY}"
+  secret_type: env_var
+  proxy_url: "https://analytics.example.com/amp"
+  proxy_mode: reverse_proxy
