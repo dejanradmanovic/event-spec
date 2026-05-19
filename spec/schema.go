@@ -87,25 +87,25 @@ type SamplingConfig struct {
 
 // EventDef is the parsed representation of an event spec YAML file.
 type EventDef struct {
-	Schema            string                       `yaml:"$schema"`
-	Name              string                       `yaml:"name"`
-	DisplayName       string                       `yaml:"display_name,omitempty"`
-	Description       string                       `yaml:"description,omitempty"`
-	Version           string                       `yaml:"version"`
-	Changelog         string                       `yaml:"changelog,omitempty"`
-	Status            EventStatus                  `yaml:"status"`
-	Namespace         string                       `yaml:"namespace"`
-	Tags              []string                     `yaml:"tags,omitempty"`
-	Owner             string                       `yaml:"owner,omitempty"`
-	Type              EventType                    `yaml:"type"`
-	EventName         string                       `yaml:"event_name"`
-	Required          bool                         `yaml:"required,omitempty"`
-	Properties        map[string]PropertyDef       `yaml:"properties"`
-	ContextProperties []string                     `yaml:"context_properties,omitempty"`
-	ProviderOverrides map[string]ProviderOverride  `yaml:"provider_overrides,omitempty"`
-	Destinations      []string                     `yaml:"destinations,omitempty"`
-	Sampling          *SamplingConfig              `yaml:"sampling,omitempty"`
-	PropertyPriority  PropertyPriority             `yaml:"property_priority,omitempty"`
+	Schema            string                      `yaml:"$schema"`
+	Name              string                      `yaml:"name"`
+	DisplayName       string                      `yaml:"display_name,omitempty"`
+	Description       string                      `yaml:"description,omitempty"`
+	Version           string                      `yaml:"version"`
+	Changelog         string                      `yaml:"changelog,omitempty"`
+	Status            EventStatus                 `yaml:"status"`
+	Namespace         string                      `yaml:"namespace"`
+	Tags              []string                    `yaml:"tags,omitempty"`
+	Owner             string                      `yaml:"owner,omitempty"`
+	Type              EventType                   `yaml:"type"`
+	EventName         string                      `yaml:"event_name"`
+	Required          bool                        `yaml:"required,omitempty"`
+	Properties        map[string]PropertyDef      `yaml:"properties"`
+	ContextProperties []string                    `yaml:"context_properties,omitempty"`
+	ProviderOverrides map[string]ProviderOverride `yaml:"provider_overrides,omitempty"`
+	Destinations      []string                    `yaml:"destinations,omitempty"`
+	Sampling          *SamplingConfig             `yaml:"sampling,omitempty"`
+	PropertyPriority  PropertyPriority            `yaml:"property_priority,omitempty"`
 
 	// SourcePath is populated by the loader, not present in YAML.
 	SourcePath string `yaml:"-"`

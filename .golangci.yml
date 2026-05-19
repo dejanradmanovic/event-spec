@@ -1,21 +1,19 @@
-version: "2"
-
 linters:
-  default: none
+  disable-all: true
   enable:
-    - errcheck       # unchecked errors
-    - govet          # suspicious constructs
-    - ineffassign    # assignments that are never used
-    - staticcheck    # megacheck suite
-    - unused         # unused code
-    - misspell       # spelling errors in comments and strings
-    - gofmt          # formatting
-    - revive         # broad set of style rules (golint successor)
-    - gocritic       # opinionated style and performance checks
-    - bodyclose      # HTTP response body not closed
-    - noctx          # HTTP requests without context
-    - exhaustive     # missing cases in switch on enum types
-    - nilerr         # return nil instead of err
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - gofmt
+    - revive
+    - gocritic
+    - bodyclose
+    - noctx
+    - exhaustive
+    - nilerr
 
 linters-settings:
   revive:
@@ -27,9 +25,6 @@ linters-settings:
     enabled-tags:
       - diagnostic
       - style
-    disabled-checks:
-      - hugeParam        # premature; revisit when profiling shows it matters
-      - rangeValCopy     # same
   exhaustive:
     default-signifies-exhaustive: true
 
