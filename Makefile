@@ -39,7 +39,7 @@ install-tools:
 
 ## hooks: install git hooks via lefthook
 hooks:
-	lefthook install
+	@lefthook install 2>/dev/null || $(GOPATH)/bin/lefthook install
 
 ## help: list available targets
 help:
