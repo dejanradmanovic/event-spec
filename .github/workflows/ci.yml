@@ -57,7 +57,7 @@ jobs:
           cache: true
 
       - name: Cache golangci-lint binary
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/go/bin/golangci-lint
           # Invalidate when go.mod changes (new Go version or new deps
