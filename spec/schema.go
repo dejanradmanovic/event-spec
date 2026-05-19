@@ -3,6 +3,7 @@ package spec
 // EventStatus is the lifecycle state of an event spec.
 type EventStatus string
 
+// Valid EventStatus values.
 const (
 	StatusDraft      EventStatus = "draft"
 	StatusActive     EventStatus = "active"
@@ -13,6 +14,7 @@ const (
 // EventType is the analytics call type.
 type EventType string
 
+// Valid EventType values.
 const (
 	TypeTrack    EventType = "track"
 	TypePage     EventType = "page"
@@ -24,6 +26,7 @@ const (
 // PropertyType is the JSON Schema-compatible property type.
 type PropertyType string
 
+// Valid PropertyType values.
 const (
 	PropertyTypeString  PropertyType = "string"
 	PropertyTypeNumber  PropertyType = "number"
@@ -36,6 +39,7 @@ const (
 // SamplingStrategy determines how sampling decisions are made.
 type SamplingStrategy string
 
+// Valid SamplingStrategy values.
 const (
 	SamplingUserIDHash SamplingStrategy = "user_id_hash"
 	SamplingRandom     SamplingStrategy = "random"
@@ -45,6 +49,7 @@ const (
 // PropertyPriority controls context vs event property collision resolution.
 type PropertyPriority string
 
+// Valid PropertyPriority values.
 const (
 	PriorityEventWins   PropertyPriority = "event_wins"
 	PriorityContextWins PropertyPriority = "context_wins"
