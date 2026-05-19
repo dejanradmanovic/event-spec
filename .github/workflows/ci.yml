@@ -65,7 +65,7 @@ jobs:
           key: golangci-lint-${{ runner.os }}-go${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.mod') }}
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
           install-mode: goinstall   # build with the project's Go version (avoids go1.24 vs go1.26 mismatch)
