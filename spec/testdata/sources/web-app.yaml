@@ -1,0 +1,14 @@
+name: web-app
+platform: web
+language: typescript
+events:
+  - ecommerce/**
+  - auth/user_signed_up
+destinations:
+  - amplitude
+  - posthog
+output:
+  path: ./src/analytics/generated
+  package: "@my-company/analytics"
+version_pinning:
+  ecommerce/product_viewed: "1-2-0"

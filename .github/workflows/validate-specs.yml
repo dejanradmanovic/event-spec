@@ -1,0 +1,36 @@
+name: Validate Specs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'specs/**'
+      - 'sources/**'
+      - 'destinations/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'specs/**'
+      - 'sources/**'
+      - 'destinations/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate event specs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build CLI
+        run: go build -o event-spec ./cmd/event-spec
+
+      - name: Validate specs
+        run: ./event-spec validate ./specs --strict

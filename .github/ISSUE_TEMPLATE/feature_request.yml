@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest an improvement or new capability
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem does this solve? What are you trying to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What would you like to see? Include API sketches or CLI examples if helpful.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you considered and why you ruled them out.
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Suggested phase
+      description: Which implementation phase does this fit into?
+      options:
+        - P1 — Core Infrastructure
+        - P2 — Full Go Feature Set
+        - P3 — Language Breadth
+        - P4 — Ecosystem Maturity
+        - Not sure
