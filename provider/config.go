@@ -8,6 +8,7 @@ import (
 // SecretType controls how the provider resolves its API key.
 type SecretType string
 
+// Supported SecretType values.
 const (
 	SecretEnvVar SecretType = "env_var" // read from environment variable
 	SecretFile   SecretType = "file"    // read from file path
@@ -18,6 +19,7 @@ const (
 // ProxyMode controls how HTTP traffic is routed to the provider's API.
 type ProxyMode string
 
+// Supported ProxyMode values.
 const (
 	ProxyDirect       ProxyMode = "direct"        // no proxy
 	ProxyReverseProxy ProxyMode = "reverse_proxy" // send to your domain, proxy to provider
@@ -27,6 +29,7 @@ const (
 // OverflowPolicy controls what happens when the event queue is full.
 type OverflowPolicy string
 
+// Supported OverflowPolicy values.
 const (
 	OverflowDropOldest OverflowPolicy = "drop_oldest" // discard the oldest buffered event
 	OverflowDropNewest OverflowPolicy = "drop_newest" // discard the incoming event
