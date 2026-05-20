@@ -69,7 +69,7 @@ func WriteScaffoldFile(path string, content []byte) error {
 func toDisplayName(name string) string {
 	words := strings.Split(name, "_")
 	for i, w := range words {
-		if len(w) == 0 {
+		if w == "" {
 			continue
 		}
 		words[i] = strings.ToUpper(w[:1]) + w[1:]
