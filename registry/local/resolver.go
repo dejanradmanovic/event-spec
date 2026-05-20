@@ -167,19 +167,19 @@ func (r *Resolver) PublishEvent(_ context.Context, _ spec.EventDef) error {
 }
 
 // Diff returns the detected changes between two versions of an event.
-// The underlying computation is provided by the event-spec diff command (Phase 2);
-// this method validates that both versions exist in the index.
 func (r *Resolver) Diff(_ context.Context, namespace, name, from, to string) ([]spec.Change, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	if _, ok := r.events[eventKey(namespace, name, from)]; !ok {
+	fromDef, ok := r.events[eventKey(namespace, name, from)]
+	if !ok {
 		return nil, fmt.Errorf("event %s/%s@%s: %w", namespace, name, from, registry.ErrNotFound)
 	}
-	if _, ok := r.events[eventKey(namespace, name, to)]; !ok {
+	toDef, ok := r.events[eventKey(namespace, name, to)]
+	if !ok {
 		return nil, fmt.Errorf("event %s/%s@%s: %w", namespace, name, to, registry.ErrNotFound)
 	}
-	return nil, nil
+	return spec.Diff(fromDef, toDef), nil
 }
 
 // containsAll reports whether tags contains every element of required.
