@@ -2,17 +2,17 @@
 
 import { Client, TrackOptions } from '@event-spec/analytics';
 export * from './product_viewed';
+export * from './session_started';
 
 import { ProductViewedProperties, productViewed } from './product_viewed';
+import { sessionStarted } from './session_started';
 
 export class EventSpec {
     constructor(private readonly client: Client) {}
 
-    productViewed(props: ProductViewedProperties, opts?: TrackOptions): Promise<void> {
-        return productViewed(this.client, props, opts);
-    }
+    readonly productViewed = (props: ProductViewedProperties, opts?: TrackOptions) =>
+        productViewed(this.client, props, opts);
 
-    sessionStarted(opts?: TrackOptions): Promise<void> {
-        return this.client.track({ name: 'Session Started' }, opts);
-    }
+    readonly sessionStarted = (opts?: TrackOptions) =>
+        sessionStarted(this.client, opts);
 }

@@ -44,15 +44,15 @@ func TestGenerate_NoPropsEventGoHasFile(t *testing.T) {
 	}
 }
 
-func TestGenerate_NoPropsEventTSHasNoFile(t *testing.T) {
+func TestGenerate_NoPropsEventTSHasFile(t *testing.T) {
 	events := []*spec.EventDef{testSessionStartedEvent()}
 	outDir := t.TempDir()
 	e := &codegen.Engine{}
 	if err := e.Generate(events, "typescript", outDir, "", ""); err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(outDir, "session_started.ts")); err == nil {
-		t.Error("expected no session_started.ts for a no-props event")
+	if _, err := os.Stat(filepath.Join(outDir, "session_started.ts")); err != nil {
+		t.Errorf("expected session_started.ts to be generated: %v", err)
 	}
 }
 

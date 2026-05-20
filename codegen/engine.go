@@ -92,9 +92,6 @@ func (e *Engine) generateTypeScript(td TemplateData, outDir string) error {
 	}
 
 	for _, ev := range td.Events {
-		if !ev.HasProps {
-			continue
-		}
 		if err := renderFile(evtTmpl, ev, filepath.Join(outDir, ev.NameRaw+".ts")); err != nil {
 			return fmt.Errorf("render ts event %s: %w", ev.NameRaw, err)
 		}
