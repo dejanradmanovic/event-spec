@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"event-spec/codegen"
 	_ "event-spec/codegen/golang"
@@ -18,9 +19,47 @@ func newGenerateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "generate",
+		Use:   "generate [source]",
 		Short: "Generate typed event wrappers from spec files",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var workspace, sourceName string
+
+			if len(args) > 0 {
+				sourceName = args[0]
+				cfg, err := spec.LoadWorkspaceConfig("event-spec.yaml")
+				if err != nil {
+					return fmt.Errorf("read event-spec.yaml: %w", err)
+				}
+				workspace = cfg.Workspace
+
+				if !cmd.Flags().Changed("specs-dir") && cfg.SpecsDir != "" {
+					specsDir = cfg.SpecsDir
+				}
+
+				sourcesDir := cfg.SourcesDir
+				if sourcesDir == "" {
+					sourcesDir = "./sources"
+				}
+				src, err := spec.LoadSourceDef(filepath.Join(sourcesDir, sourceName+".yaml"))
+				if err != nil {
+					return fmt.Errorf("load source %q: %w", sourceName, err)
+				}
+				if !cmd.Flags().Changed("lang") {
+					lang = src.Language
+				}
+				if !cmd.Flags().Changed("out") && src.Output.Path != "" {
+					out = src.Output.Path
+				}
+			}
+
+			if lang == "" {
+				return fmt.Errorf("--lang is required when no source is specified")
+			}
+			if out == "" {
+				out = "./generated"
+			}
+
 			defs, errs := spec.WalkEventDefs(specsDir)
 			if len(errs) > 0 {
 				for _, e := range errs {
@@ -32,7 +71,7 @@ func newGenerateCmd() *cobra.Command {
 				return fmt.Errorf("no event specs found in %s", specsDir)
 			}
 
-			if err := codegen.Run(defs, lang, out, "", ""); err != nil {
+			if err := codegen.Run(defs, lang, out, workspace, sourceName); err != nil {
 				return err
 			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "generated %d event(s) to %s\n", len(defs), out)
@@ -40,10 +79,9 @@ func newGenerateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&lang, "lang", "", "target language: go, typescript")
+	cmd.Flags().StringVar(&lang, "lang", "", "target language: go, typescript (overrides source config)")
 	cmd.Flags().StringVar(&specsDir, "specs-dir", "./specs", "directory containing event spec YAML files")
-	cmd.Flags().StringVar(&out, "out", "./generated", "output directory for generated files")
-	_ = cmd.MarkFlagRequired("lang")
+	cmd.Flags().StringVar(&out, "out", "", "output directory for generated files (overrides source config)")
 
 	return cmd
 }

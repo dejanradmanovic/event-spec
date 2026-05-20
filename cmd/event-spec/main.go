@@ -19,5 +19,6 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage: true,
 	}
 	root.AddCommand(newGenerateCmd())
+	root.AddCommand(newValidateCmd())
 	return root
 }
