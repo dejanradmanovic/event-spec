@@ -15,6 +15,7 @@ func TestValidationHook_Before_validEvent_passesThrough(t *testing.T) {
 	hc := trackHC("Product Viewed", map[string]any{
 		"product_id":   "SKU-123",
 		"product_name": "Widget",
+		"category":     "electronics",
 		"price":        29.99,
 	})
 
@@ -32,6 +33,7 @@ func TestValidationHook_Before_invalidPropertyType_rejectsEvent(t *testing.T) {
 	hc := trackHC("Product Viewed", map[string]any{
 		"product_id":   "SKU-123",
 		"product_name": "Widget",
+		"category":     "electronics",
 		"price":        "not-a-number", // string instead of number
 	})
 
@@ -116,6 +118,7 @@ func TestValidationHook_Before_rawMapMessage_validatesProperties(t *testing.T) {
 		Message: map[string]any{
 			"product_id":   "SKU-456",
 			"product_name": "Gadget",
+			"category":     "books",
 			"price":        "oops", // wrong type via raw map
 		},
 	}
@@ -123,6 +126,64 @@ func TestValidationHook_Before_rawMapMessage_validatesProperties(t *testing.T) {
 	_, err := h.Before(context.Background(), hc, nil)
 	if err == nil {
 		t.Fatal("expected validation error for invalid raw map property, got nil")
+	}
+	var verr *validation.ValidationError
+	if !errors.As(err, &verr) {
+		t.Fatalf("error type: got %T, want *validation.ValidationError", err)
+	}
+}
+
+func TestValidationHook_Before_enumViolation_rejectsEvent(t *testing.T) {
+	h := validation.New(lookupFor(productViewedDef()))
+	hc := trackHC("Product Viewed", map[string]any{
+		"product_id":   "SKU-123",
+		"product_name": "Widget",
+		"category":     "furniture", // not in enum
+		"price":        29.99,
+	})
+
+	_, err := h.Before(context.Background(), hc, nil)
+	if err == nil {
+		t.Fatal("expected validation error for enum violation, got nil")
+	}
+	var verr *validation.ValidationError
+	if !errors.As(err, &verr) {
+		t.Fatalf("error type: got %T, want *validation.ValidationError", err)
+	}
+}
+
+func TestValidationHook_Before_patternViolation_rejectsEvent(t *testing.T) {
+	h := validation.New(lookupFor(productViewedDef()))
+	hc := trackHC("Product Viewed", map[string]any{
+		"product_id":   "SKU-123",
+		"product_name": "Widget",
+		"category":     "electronics",
+		"price":        29.99,
+		"currency":     "usd", // lowercase violates ^[A-Z]{3}$
+	})
+
+	_, err := h.Before(context.Background(), hc, nil)
+	if err == nil {
+		t.Fatal("expected validation error for pattern violation, got nil")
+	}
+	var verr *validation.ValidationError
+	if !errors.As(err, &verr) {
+		t.Fatalf("error type: got %T, want *validation.ValidationError", err)
+	}
+}
+
+func TestValidationHook_Before_minimumViolation_rejectsEvent(t *testing.T) {
+	h := validation.New(lookupFor(productViewedDef()))
+	hc := trackHC("Product Viewed", map[string]any{
+		"product_id":   "SKU-123",
+		"product_name": "Widget",
+		"category":     "electronics",
+		"price":        -1.0, // below minimum: 0
+	})
+
+	_, err := h.Before(context.Background(), hc, nil)
+	if err == nil {
+		t.Fatal("expected validation error for minimum violation, got nil")
 	}
 	var verr *validation.ValidationError
 	if !errors.As(err, &verr) {
@@ -160,23 +221,20 @@ func productViewedDef() *spec.EventDef {
 		Name:      "product_viewed",
 		EventName: "Product Viewed",
 		Namespace: "ecommerce",
-		Version:   "1-0-0",
+		Version:   "1-2-0",
 		Status:    spec.StatusActive,
 		Type:      spec.TypeTrack,
 		Properties: map[string]spec.PropertyDef{
-			"product_id": {
+			"product_id":   {Type: spec.PropertyTypeString, Required: true},
+			"product_name": {Type: spec.PropertyTypeString, Required: true},
+			"category": {
 				Type:     spec.PropertyTypeString,
 				Required: true,
+				Enum:     []string{"clothing", "electronics", "books", "home", "sports", "other"},
 			},
-			"product_name": {
-				Type:     spec.PropertyTypeString,
-				Required: true,
-			},
-			"price": {
-				Type:     spec.PropertyTypeNumber,
-				Required: true,
-				Minimum:  &minPrice,
-			},
+			"price":       {Type: spec.PropertyTypeNumber, Required: true, Minimum: &minPrice},
+			"currency":    {Type: spec.PropertyTypeString, Required: false, Pattern: "^[A-Z]{3}$"},
+			"coupon_code": {Type: spec.PropertyTypeString, Required: false},
 		},
 	}
 }
