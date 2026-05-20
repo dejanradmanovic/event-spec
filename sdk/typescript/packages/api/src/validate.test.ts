@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { ValidationHook, ValidationError } from './validate';
-import type { EventSchema } from './validate';
+import { describe, it, expect, vi } from 'vitest';
+import { ValidationHook, ValidationError, DeletedEventError } from './validate';
+import type { EventSchema, Logger } from './validate';
 import type { HookContext } from './hooks';
 
 function makeHC(eventName: string, properties: Record<string, unknown> = {}): HookContext {
@@ -103,5 +103,67 @@ describe('ValidationHook', () => {
     await expect(hook.before(makeHC('Purchase', { amount: -1 }))).rejects.toThrow(ValidationError);
     const result = await hook.before(makeHC('Purchase', { amount: 0 }));
     expect(result).toBeNull();
+  });
+
+  describe('status gating', () => {
+    const baseSchema: EventSchema = {
+      eventName: 'ButtonClicked',
+      properties: { label: { type: 'string', required: true } },
+    };
+
+    it('throws DeletedEventError for deleted events', async () => {
+      const deletedSchema: EventSchema = { ...baseSchema, status: 'deleted' };
+      const hook = new ValidationHook(() => deletedSchema);
+      await expect(hook.before(makeHC('ButtonClicked', { label: 'ok' }))).rejects.toThrow(
+        DeletedEventError,
+      );
+    });
+
+    it('DeletedEventError carries eventName', async () => {
+      const deletedSchema: EventSchema = { ...baseSchema, status: 'deleted' };
+      const hook = new ValidationHook(() => deletedSchema);
+      let caught: unknown;
+      try {
+        await hook.before(makeHC('ButtonClicked', {}));
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(DeletedEventError);
+      expect((caught as DeletedEventError).eventName).toBe('ButtonClicked');
+    });
+
+    it('emits a deprecation warning for deprecated events and proceeds', async () => {
+      const deprecatedSchema: EventSchema = { ...baseSchema, status: 'deprecated' };
+      const logger: Logger = { warn: vi.fn() };
+      const hook = new ValidationHook(() => deprecatedSchema, logger);
+      const result = await hook.before(makeHC('ButtonClicked', { label: 'ok' }));
+      expect(result).toBeNull();
+      expect(logger.warn).toHaveBeenCalledOnce();
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('deprecated'),
+        expect.objectContaining({ event: 'ButtonClicked' }),
+      );
+    });
+
+    it('skips deprecation warning silently when no logger is provided', async () => {
+      const deprecatedSchema: EventSchema = { ...baseSchema, status: 'deprecated' };
+      const hook = new ValidationHook(() => deprecatedSchema);
+      const result = await hook.before(makeHC('ButtonClicked', { label: 'ok' }));
+      expect(result).toBeNull();
+    });
+
+    it('passes through draft events without blocking', async () => {
+      const draftSchema: EventSchema = { ...baseSchema, status: 'draft' };
+      const hook = new ValidationHook(() => draftSchema);
+      const result = await hook.before(makeHC('ButtonClicked', { label: 'ok' }));
+      expect(result).toBeNull();
+    });
+
+    it('passes through active events normally', async () => {
+      const activeSchema: EventSchema = { ...baseSchema, status: 'active' };
+      const hook = new ValidationHook(() => activeSchema);
+      const result = await hook.before(makeHC('ButtonClicked', { label: 'ok' }));
+      expect(result).toBeNull();
+    });
   });
 });
