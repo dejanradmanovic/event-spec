@@ -214,7 +214,7 @@ func (c *Client) notifyNoopProviders() {
 func (c *Client) dispatchAll(ctx context.Context, operation, eventName, eventStatus string, properties map[string]any, fn providerFn, opts []TrackOption) (DispatchResult, error) {
 	to := resolveOptions(opts)
 	isDraft := eventStatus == EventStatusDraft
-	if (to.noop || isDraft) && !(isDraft && c.allowDraft) {
+	if (to.noop || isDraft) && (!isDraft || !c.allowDraft) {
 		c.notifyNoopProviders()
 		return DispatchResult{}, nil
 	}
