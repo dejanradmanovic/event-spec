@@ -17,7 +17,7 @@ var update = flag.Bool("update", false, "update golden files instead of comparin
 func TestGenerate_Go(t *testing.T) {
 	events := testEvents()
 	outDir := t.TempDir()
-	if err := codegen.Run(events, "go", outDir, "test-workspace", "test-source"); err != nil {
+	if err := codegen.Run(events, "go", outDir, "test-workspace", "test-source", ""); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	compareOrUpdate(t, outDir, filepath.Join("testdata", "golden", "go"))
@@ -26,7 +26,7 @@ func TestGenerate_Go(t *testing.T) {
 func TestGenerate_TypeScript(t *testing.T) {
 	events := testEvents()
 	outDir := t.TempDir()
-	if err := codegen.Run(events, "typescript", outDir, "test-workspace", "test-source"); err != nil {
+	if err := codegen.Run(events, "typescript", outDir, "test-workspace", "test-source", ""); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	compareOrUpdate(t, outDir, filepath.Join("testdata", "golden", "typescript"))
@@ -35,7 +35,7 @@ func TestGenerate_TypeScript(t *testing.T) {
 func TestGenerate_NoPropsEventGoHasFile(t *testing.T) {
 	events := []*spec.EventDef{testSessionStartedEvent()}
 	outDir := t.TempDir()
-	if err := codegen.Run(events, "go", outDir, "", ""); err != nil {
+	if err := codegen.Run(events, "go", outDir, "", "", ""); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(outDir, "session_started.go")); err != nil {
@@ -46,7 +46,7 @@ func TestGenerate_NoPropsEventGoHasFile(t *testing.T) {
 func TestGenerate_NoPropsEventTSHasFile(t *testing.T) {
 	events := []*spec.EventDef{testSessionStartedEvent()}
 	outDir := t.TempDir()
-	if err := codegen.Run(events, "typescript", outDir, "", ""); err != nil {
+	if err := codegen.Run(events, "typescript", outDir, "", "", ""); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(outDir, "session_started.ts")); err != nil {
@@ -55,7 +55,7 @@ func TestGenerate_NoPropsEventTSHasFile(t *testing.T) {
 }
 
 func TestGenerate_UnsupportedLang(t *testing.T) {
-	if err := codegen.Run(nil, "cobol", t.TempDir(), "", ""); err == nil {
+	if err := codegen.Run(nil, "cobol", t.TempDir(), "", "", ""); err == nil {
 		t.Error("expected error for unsupported language")
 	}
 }

@@ -9,7 +9,7 @@ import (
 
 // buildTemplateData converts a slice of EventDef into template-ready data.
 // Events are sorted by name for deterministic output.
-func buildTemplateData(events []*spec.EventDef, lc LangConfig, workspace, source string) TemplateData {
+func buildTemplateData(events []*spec.EventDef, lc LangConfig, workspace, source, pkg string) TemplateData {
 	sorted := make([]*spec.EventDef, len(events))
 	copy(sorted, events)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Name < sorted[j].Name })
@@ -17,6 +17,7 @@ func buildTemplateData(events []*spec.EventDef, lc LangConfig, workspace, source
 	td := TemplateData{
 		Workspace:   workspace,
 		Source:      source,
+		Package:     pkg,
 		GeneratedAt: time.Now().UTC(),
 		Lang:        lc,
 	}
