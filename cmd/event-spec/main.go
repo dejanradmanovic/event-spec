@@ -23,6 +23,7 @@ func newRootCmd() *cobra.Command {
 		Short:        "Provider-agnostic analytics codegen and governance CLI",
 		SilenceUsage: true,
 	}
+	root.AddCommand(newPullCmd())
 	root.AddCommand(newGenerateCmd())
 	root.AddCommand(newValidateCmd())
 	root.AddCommand(newDiffCmd())
