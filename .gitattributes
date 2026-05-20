@@ -1,0 +1,11 @@
+# Normalize line endings to LF for all text files.
+# Prevents gofmt CRLF/LF mismatches on Windows (git autocrlf converts
+# checked-out files to CRLF, but gofmt always produces LF output).
+* text=auto eol=lf
+
+# Treat binaries as binary (no line-ending conversion).
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
