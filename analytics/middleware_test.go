@@ -34,7 +34,7 @@ func TestAnalyticsMiddleware_injectsTransactionContext(t *testing.T) {
 
 	wrapped := analytics.AnalyticsMiddleware(extract)(handler)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	req.Header.Set("X-User-ID", "user-42")
 	req.Header.Set("X-Session-ID", "sess-99")
 	req.Header.Set("X-Request-ID", "req-abc")

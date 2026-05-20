@@ -37,6 +37,7 @@ func NewCaptureProvider(name string) *CaptureProvider {
 	return &CaptureProvider{name: name}
 }
 
+// Metadata returns provider metadata identifying this capture provider.
 func (c *CaptureProvider) Metadata() provider.ProviderMetadata {
 	return provider.ProviderMetadata{
 		Name:    c.name,
@@ -51,8 +52,10 @@ func (c *CaptureProvider) Metadata() provider.ProviderMetadata {
 	}
 }
 
+// Hooks returns nil; CaptureProvider registers no hooks.
 func (c *CaptureProvider) Hooks() []hooks.Hook { return nil }
 
+// Track records the message and returns TrackErr.
 func (c *CaptureProvider) Track(_ context.Context, msg provider.TrackMessage) error {
 	c.mu.Lock()
 	c.Tracks = append(c.Tracks, msg)
@@ -60,6 +63,7 @@ func (c *CaptureProvider) Track(_ context.Context, msg provider.TrackMessage) er
 	return c.TrackErr
 }
 
+// Identify records the message and returns IdentifyErr.
 func (c *CaptureProvider) Identify(_ context.Context, msg provider.IdentifyMessage) error {
 	c.mu.Lock()
 	c.Identifies = append(c.Identifies, msg)
@@ -67,6 +71,7 @@ func (c *CaptureProvider) Identify(_ context.Context, msg provider.IdentifyMessa
 	return c.IdentifyErr
 }
 
+// Group records the message and returns GroupErr.
 func (c *CaptureProvider) Group(_ context.Context, msg provider.GroupMessage) error {
 	c.mu.Lock()
 	c.Groups = append(c.Groups, msg)
@@ -74,6 +79,7 @@ func (c *CaptureProvider) Group(_ context.Context, msg provider.GroupMessage) er
 	return c.GroupErr
 }
 
+// Page records the message and returns PageErr.
 func (c *CaptureProvider) Page(_ context.Context, msg provider.PageMessage) error {
 	c.mu.Lock()
 	c.Pages = append(c.Pages, msg)
@@ -81,6 +87,7 @@ func (c *CaptureProvider) Page(_ context.Context, msg provider.PageMessage) erro
 	return c.PageErr
 }
 
+// Alias records the message and returns AliasErr.
 func (c *CaptureProvider) Alias(_ context.Context, msg provider.AliasMessage) error {
 	c.mu.Lock()
 	c.Aliases = append(c.Aliases, msg)
@@ -88,6 +95,7 @@ func (c *CaptureProvider) Alias(_ context.Context, msg provider.AliasMessage) er
 	return c.AliasErr
 }
 
+// Flush increments FlushCalls and returns nil.
 func (c *CaptureProvider) Flush(_ context.Context) error {
 	c.mu.Lock()
 	c.FlushCalls++
@@ -95,6 +103,7 @@ func (c *CaptureProvider) Flush(_ context.Context) error {
 	return nil
 }
 
+// Shutdown increments ShutdownCalls and returns nil.
 func (c *CaptureProvider) Shutdown(_ context.Context) error {
 	c.mu.Lock()
 	c.ShutdownCalls++
