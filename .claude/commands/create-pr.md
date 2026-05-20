@@ -23,25 +23,43 @@ Create a pull request for the current branch following the project's PR conventi
 
 7. Build the PR body using the template below. Fill every section — do not leave placeholders. Base the content on the actual diff and commits.
 
-8. Create the PR:
+8. Fix formatting and lint before pushing:
    ```
-   gh pr create \
-     --repo dejanradmanovic/event-spec \
-     --base main \
-     --title "{title}" \
-     --body "{body}"
+   gofmt -w .
+   golangci-lint run ./...
    ```
-   Then immediately patch it with assignee, labels, milestone, and project in one call:
+   If `gofmt -w .` produces changes, stage and commit them:
    ```
-   gh pr edit {pr-url} \
-     --add-assignee "@me" \
-     --add-label "{label1}" --add-label "{label2}" ... \
-     --milestone "{milestone-title}" \
-     --add-project "event-spec Implementation Roadmap"
+   git add -A
+   git commit -m "fix: gofmt formatting"
    ```
-   Use the `milestone.title` field from the issue JSON fetched in step 3. If the issue has no milestone, omit the `--milestone` flag.
+   If `golangci-lint` reports issues, fix them and commit before proceeding.
+   Mark the lint checklist item `[x]` in the PR body once lint passes.
 
-9. Return the PR URL.
+9. Push the branch:
+   ```
+   git push -u origin {branch-name}
+   ```
+
+10. Create the PR:
+    ```
+    gh pr create \
+      --repo dejanradmanovic/event-spec \
+      --base main \
+      --title "{title}" \
+      --body "{body}"
+    ```
+    Then immediately patch it with assignee, labels, milestone, and project in one call:
+    ```
+    gh pr edit {pr-url} \
+      --add-assignee "@me" \
+      --add-label "{label1}" --add-label "{label2}" ... \
+      --milestone "{milestone-title}" \
+      --add-project "event-spec Implementation Roadmap"
+    ```
+    Use the `milestone.title` field from the issue JSON fetched in step 3. If the issue has no milestone, omit the `--milestone` flag.
+
+11. Return the PR URL.
 
 ---
 
@@ -62,8 +80,6 @@ Closes #{issue-number}
 
 - [x] Tests added or updated
 - [x] `go test ./...` passes
-- [ ] `golangci-lint run` passes
+- [x] `golangci-lint run` passes
 - [ ] No new `TODO`/`FIXME` left without a tracking issue
 ```
-
-Mark lint checkbox as `[x]` only if you have confirmed lint passes. Leave it `[ ]` if you have not run it.
