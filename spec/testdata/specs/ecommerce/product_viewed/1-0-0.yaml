@@ -1,0 +1,34 @@
+$schema: "https://event-spec.io/schemas/event/v1"
+
+name: product_viewed
+display_name: "Product Viewed"
+description: |
+  Fired when a user views the detail page of a product.
+version: "1-0-0"
+changelog: "Initial version"
+status: active
+namespace: ecommerce
+tags: [ product, ecommerce ]
+owner: "growth-team@example.com"
+type: track
+
+event_name: "Product Viewed"
+
+properties:
+  product_id:
+    type: string
+    required: true
+    description: "The SKU or database ID of the product"
+  category:
+    type: string
+    required: true
+    enum: [ clothing, electronics, books ]
+  price:
+    type: number
+    required: true
+  currency:
+    type: string
+    required: false
+    default: "USD"
+
+destinations: []
