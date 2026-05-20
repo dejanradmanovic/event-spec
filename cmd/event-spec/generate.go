@@ -1,43 +1,49 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"os"
 
 	"event-spec/codegen"
 	_ "event-spec/codegen/golang"
 	_ "event-spec/codegen/typescript"
 	"event-spec/spec"
+	"github.com/spf13/cobra"
 )
 
-func runGenerate(args []string) {
-	fs := flag.NewFlagSet("generate", flag.ExitOnError)
-	lang := fs.String("lang", "", "target language: go, typescript")
-	specsDir := fs.String("specs-dir", "./specs", "directory containing event spec YAML files")
-	out := fs.String("out", "./generated", "output directory for generated files")
-	_ = fs.Parse(args)
+func newGenerateCmd() *cobra.Command {
+	var (
+		lang     string
+		specsDir string
+		out      string
+	)
 
-	if *lang == "" {
-		fmt.Fprintln(os.Stderr, "error: --lang is required (go, typescript)")
-		os.Exit(1)
+	cmd := &cobra.Command{
+		Use:   "generate",
+		Short: "Generate typed event wrappers from spec files",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			defs, errs := spec.WalkEventDefs(specsDir)
+			if len(errs) > 0 {
+				for _, e := range errs {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "error: %v\n", e)
+				}
+				return fmt.Errorf("failed to load specs from %s", specsDir)
+			}
+			if len(defs) == 0 {
+				return fmt.Errorf("no event specs found in %s", specsDir)
+			}
+
+			if err := codegen.Run(defs, lang, out, "", ""); err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "generated %d event(s) to %s\n", len(defs), out)
+			return nil
+		},
 	}
 
-	defs, errs := spec.WalkEventDefs(*specsDir)
-	if len(errs) > 0 {
-		for _, e := range errs {
-			fmt.Fprintf(os.Stderr, "error: %v\n", e)
-		}
-		os.Exit(1)
-	}
-	if len(defs) == 0 {
-		fmt.Fprintf(os.Stderr, "no event specs found in %s\n", *specsDir)
-		os.Exit(1)
-	}
+	cmd.Flags().StringVar(&lang, "lang", "", "target language: go, typescript")
+	cmd.Flags().StringVar(&specsDir, "specs-dir", "./specs", "directory containing event spec YAML files")
+	cmd.Flags().StringVar(&out, "out", "./generated", "output directory for generated files")
+	_ = cmd.MarkFlagRequired("lang")
 
-	if err := codegen.Run(defs, *lang, *out, "", ""); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("generated %d event(s) to %s\n", len(defs), *out)
+	return cmd
 }
