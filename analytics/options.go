@@ -55,6 +55,14 @@ func WithNoop() TrackOption {
 	}
 }
 
+// WithDraftDispatch allows draft events to reach real providers on this client.
+// Useful in dev/staging environments to preview draft events in analytics tools.
+func WithDraftDispatch(allow bool) ClientOption {
+	return func(c *Client) {
+		c.allowDraft = allow
+	}
+}
+
 func resolveOptions(opts []TrackOption) *trackOptions {
 	to := &trackOptions{}
 	for _, opt := range opts {

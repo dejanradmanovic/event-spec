@@ -14,11 +14,11 @@ type WishlistSharedProperties struct {
 }
 
 func (es *EventSpec) WishlistShared(ctx context.Context, props WishlistSharedProperties, opts ...core.TrackOption) error {
-	// Draft: this event is not yet active. Dispatches to noop by default.
-	// Remove draft status in the spec to enable real dispatch.
+	// Draft: dispatches to noop unless the client has WithDraftDispatch(true).
 	opts = append([]core.TrackOption{core.WithNoop()}, opts...)
 	return es.client.Track(ctx, core.Event{
-		Name: "Wishlist Shared",
+		Name:   "Wishlist Shared",
+		Status: core.EventStatusDraft,
 		Properties: map[string]any{
 			"wishlist_id": props.WishlistId,
 		},

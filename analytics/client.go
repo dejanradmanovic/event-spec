@@ -14,11 +14,12 @@ import (
 // Client is the primary API surface for sending analytics events.
 // Create one with NewClient; use the package-level functions for the global singleton.
 type Client struct {
-	mu        sync.RWMutex
-	providers []provider.Provider
-	hooks     []hooks.Hook        // client-level hooks (run after global api-hooks)
-	clientCtx AnalyticsContext    // level-3 context
-	txCtx     *TransactionContext // level-2 context (set by WithTransaction)
+	mu         sync.RWMutex
+	providers  []provider.Provider
+	hooks      []hooks.Hook        // client-level hooks (run after global api-hooks)
+	clientCtx  AnalyticsContext    // level-3 context
+	txCtx      *TransactionContext // level-2 context (set by WithTransaction)
+	allowDraft bool                // when true, draft events reach real providers
 }
 
 // AddProvider appends providers to this client's provider list.
@@ -40,10 +41,11 @@ func (c *Client) SetContext(ctx AnalyticsContext) {
 func (c *Client) WithTransaction(txCtx TransactionContext) *Client {
 	c.mu.RLock()
 	clone := &Client{
-		providers: c.providers,
-		hooks:     c.hooks,
-		clientCtx: c.clientCtx,
-		txCtx:     &txCtx,
+		providers:  c.providers,
+		hooks:      c.hooks,
+		clientCtx:  c.clientCtx,
+		allowDraft: c.allowDraft,
+		txCtx:      &txCtx,
 	}
 	c.mu.RUnlock()
 	return clone
@@ -59,7 +61,7 @@ func (c *Client) Track(ctx context.Context, event Event, opts ...TrackOption) er
 
 // TrackDetailed dispatches a track event and returns full per-provider outcomes.
 func (c *Client) TrackDetailed(ctx context.Context, event Event, opts ...TrackOption) (DispatchResult, error) {
-	return c.dispatchAll(ctx, "track", event.Name, event.Properties,
+	return c.dispatchAll(ctx, "track", event.Name, event.Status, event.Properties,
 		func(ctx context.Context, p provider.Provider, msgID string, ts time.Time, env *hooks.EventEnvelope) error {
 			return p.Track(ctx, provider.TrackMessage{
 				MessageID:      msgID,
@@ -75,7 +77,7 @@ func (c *Client) TrackDetailed(ctx context.Context, event Event, opts ...TrackOp
 
 // Identify sends an identify call to all configured providers.
 func (c *Client) Identify(ctx context.Context, userID string, traits map[string]any, opts ...TrackOption) error {
-	_, err := c.dispatchAll(ctx, "identify", "$identify", traits,
+	_, err := c.dispatchAll(ctx, "identify", "$identify", "", traits,
 		func(ctx context.Context, p provider.Provider, msgID string, ts time.Time, env *hooks.EventEnvelope) error {
 			uid := userID
 			if env.Context.UserID != "" {
@@ -100,7 +102,7 @@ func (c *Client) Group(ctx context.Context, groupID string, traits map[string]an
 		props[k] = v
 	}
 	props["group_id"] = groupID
-	_, err := c.dispatchAll(ctx, "group", "$group", props,
+	_, err := c.dispatchAll(ctx, "group", "$group", "", props,
 		func(ctx context.Context, p provider.Provider, msgID string, ts time.Time, env *hooks.EventEnvelope) error {
 			gid := groupID
 			if v, ok := env.Properties["group_id"]; ok {
@@ -126,7 +128,7 @@ func (c *Client) Page(ctx context.Context, name string, props map[string]any, op
 		p[k] = v
 	}
 	p["name"] = name
-	_, err := c.dispatchAll(ctx, "page", "$page", p,
+	_, err := c.dispatchAll(ctx, "page", "$page", "", p,
 		func(ctx context.Context, prov provider.Provider, msgID string, ts time.Time, env *hooks.EventEnvelope) error {
 			pname := name
 			if v, ok := env.Properties["name"]; ok {
@@ -147,7 +149,7 @@ func (c *Client) Page(ctx context.Context, name string, props map[string]any, op
 
 // Alias sends an alias call to all configured providers.
 func (c *Client) Alias(ctx context.Context, userID, previousID string, opts ...TrackOption) error {
-	_, err := c.dispatchAll(ctx, "alias", "$alias", nil,
+	_, err := c.dispatchAll(ctx, "alias", "$alias", "", nil,
 		func(ctx context.Context, p provider.Provider, msgID string, ts time.Time, env *hooks.EventEnvelope) error {
 			return p.Alias(ctx, provider.AliasMessage{
 				MessageID:      msgID,
@@ -182,6 +184,25 @@ func (c *Client) Flush(ctx context.Context) error {
 // providerFn is the per-provider call executed concurrently during dispatch.
 type providerFn func(ctx context.Context, p provider.Provider, msgID string, ts time.Time, env *hooks.EventEnvelope) error
 
+// noopCallNotifier is implemented by providers that want to observe noop dispatches.
+// Used by testutil.CaptureProvider to count noop calls in tests.
+type noopCallNotifier interface {
+	OnNoopCall()
+}
+
+// notifyNoopProviders calls OnNoopCall on any registered provider that opts in.
+func (c *Client) notifyNoopProviders() {
+	c.mu.RLock()
+	ps := make([]provider.Provider, len(c.providers))
+	copy(ps, c.providers)
+	c.mu.RUnlock()
+	for _, p := range ps {
+		if n, ok := p.(noopCallNotifier); ok {
+			n.OnNoopCall()
+		}
+	}
+}
+
 // dispatchAll is the core event-processing pipeline shared by Track, Identify, Group, Page, Alias.
 //
 // Processing order:
@@ -190,9 +211,11 @@ type providerFn func(ctx context.Context, p provider.Provider, msgID string, ts 
 //  3. Dispatch concurrently to each provider via fn
 //  4. Run After/Error/Finally per provider in reverse hook order
 //  5. Aggregate into DispatchResult
-func (c *Client) dispatchAll(ctx context.Context, operation, eventName string, properties map[string]any, fn providerFn, opts []TrackOption) (DispatchResult, error) {
+func (c *Client) dispatchAll(ctx context.Context, operation, eventName, eventStatus string, properties map[string]any, fn providerFn, opts []TrackOption) (DispatchResult, error) {
 	to := resolveOptions(opts)
-	if to.noop {
+	isDraft := eventStatus == EventStatusDraft
+	if (to.noop || isDraft) && !(isDraft && c.allowDraft) {
+		c.notifyNoopProviders()
 		return DispatchResult{}, nil
 	}
 	merged := c.mergeContextChain(ctx, to.contextOverride)

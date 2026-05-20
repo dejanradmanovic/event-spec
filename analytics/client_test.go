@@ -596,3 +596,84 @@ func TestFlush(t *testing.T) {
 		t.Errorf("FlushCalls: got %d, want 1", cap.FlushCalls)
 	}
 }
+
+// ---- draft-event dispatch behavior ----
+
+func TestTrack_draftEvent_noopByDefault(t *testing.T) {
+	cap := testutil.NewCaptureProvider("cap")
+	client := analytics.NewClient(analytics.WithProviders(cap))
+
+	err := client.Track(context.Background(), analytics.Event{
+		Name:   "Wishlist Shared",
+		Status: analytics.EventStatusDraft,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cap.Tracks) != 0 {
+		t.Errorf("expected 0 track calls for draft event, got %d", len(cap.Tracks))
+	}
+	if cap.NoopCalls != 1 {
+		t.Errorf("expected 1 noop notification, got %d", cap.NoopCalls)
+	}
+}
+
+func TestTrack_draftEvent_withDraftDispatch(t *testing.T) {
+	cap := testutil.NewCaptureProvider("cap")
+	client := analytics.NewClient(
+		analytics.WithProviders(cap),
+		analytics.WithDraftDispatch(true),
+	)
+
+	err := client.Track(context.Background(), analytics.Event{
+		Name:   "Wishlist Shared",
+		Status: analytics.EventStatusDraft,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cap.Tracks) != 1 {
+		t.Errorf("expected 1 track call with WithDraftDispatch(true), got %d", len(cap.Tracks))
+	}
+	if cap.NoopCalls != 0 {
+		t.Errorf("expected 0 noop notifications with WithDraftDispatch(true), got %d", cap.NoopCalls)
+	}
+}
+
+func TestTrack_draftEvent_withNoopAndDraftDispatch_draftWins(t *testing.T) {
+	cap := testutil.NewCaptureProvider("cap")
+	client := analytics.NewClient(
+		analytics.WithProviders(cap),
+		analytics.WithDraftDispatch(true),
+	)
+
+	// Simulate what codegen emits: prepend WithNoop() but Status=draft.
+	// WithDraftDispatch(true) should still route to real providers.
+	err := client.Track(context.Background(), analytics.Event{
+		Name:   "Wishlist Shared",
+		Status: analytics.EventStatusDraft,
+	}, analytics.WithNoop())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cap.Tracks) != 1 {
+		t.Errorf("expected 1 track call: WithDraftDispatch overrides WithNoop for draft, got %d", len(cap.Tracks))
+	}
+}
+
+func TestTrack_withNoop_alwaysNoop(t *testing.T) {
+	cap := testutil.NewCaptureProvider("cap")
+	client := analytics.NewClient(analytics.WithProviders(cap))
+
+	err := client.Track(context.Background(), analytics.Event{Name: "Active Event"},
+		analytics.WithNoop())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cap.Tracks) != 0 {
+		t.Errorf("expected 0 track calls with WithNoop(), got %d", len(cap.Tracks))
+	}
+	if cap.NoopCalls != 1 {
+		t.Errorf("expected 1 noop notification, got %d", cap.NoopCalls)
+	}
+}

@@ -28,12 +28,12 @@ type {{.ParamsTypeName}} struct {
 {{end}}
 {{if .IsDeprecated}}// Deprecated: {{.Description}}
 {{end}}func (es *EventSpec) {{.MethodName}}(ctx context.Context{{if .HasProps}}, props {{.ParamsTypeName}}{{end}}, opts ...core.TrackOption) error {
-{{if .IsDraft}}	// Draft: this event is not yet active. Dispatches to noop by default.
-	// Remove draft status in the spec to enable real dispatch.
+{{if .IsDraft}}	// Draft: dispatches to noop unless the client has WithDraftDispatch(true).
 	opts = append([]core.TrackOption{core.WithNoop()}, opts...)
 {{end}}	return es.client.Track(ctx, core.Event{
 		Name: "{{.EventName}}",
-{{if .HasProps}}		Properties: map[string]any{
+{{if .IsDraft}}		Status: core.EventStatusDraft,
+{{end}}{{if .HasProps}}		Properties: map[string]any{
 {{range .RequiredProps}}			"{{.NameRaw}}": {{if .IsEnum}}string(props.{{.NameField}}){{else}}props.{{.NameField}}{{end}},
 {{end}}{{range .OptionalProps}}			"{{.NameRaw}}": props.{{.NameField}},
 {{end}}		},
