@@ -31,13 +31,15 @@ Create a pull request for the current branch following the project's PR conventi
      --title "{title}" \
      --body "{body}"
    ```
-   Then immediately patch it with assignee, labels, and project in one call:
+   Then immediately patch it with assignee, labels, milestone, and project in one call:
    ```
    gh pr edit {pr-url} \
      --add-assignee "@me" \
      --add-label "{label1}" --add-label "{label2}" ... \
+     --milestone "{milestone-title}" \
      --add-project "event-spec Implementation Roadmap"
    ```
+   Use the `milestone.title` field from the issue JSON fetched in step 3. If the issue has no milestone, omit the `--milestone` flag.
 
 9. Return the PR URL.
 
