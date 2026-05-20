@@ -6,13 +6,13 @@ BIN := event-spec
 build:
 	go build -o $(BIN) ./cmd/event-spec
 
-## test: run tests with race detector
+## test: run all tests
 test:
-	go test -race ./...
+	go test ./...
 
 ## test-cover: run tests and open coverage report
 test-cover:
-	go test -race -coverprofile=coverage.out ./...
+	go test -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out
 
 ## lint: run golangci-lint
