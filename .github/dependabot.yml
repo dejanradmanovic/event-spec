@@ -9,6 +9,26 @@ updates:
     labels:
       - dependencies
 
+  - package-ecosystem: npm
+    directory: /sdk/typescript
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    groups:
+      typescript-tooling:
+        patterns:
+          - 'typescript*'
+          - 'typescript-eslint'
+          - 'vite*'
+          - 'vitest*'
+          - '@vitest/*'
+          - 'eslint*'
+          - 'prettier*'
+          - 'vite-plugin-dts'
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
