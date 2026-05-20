@@ -1,6 +1,6 @@
 package typescript
 
-import "event-spec/spec"
+import "github.com/dejanradmanovic/event-spec/spec"
 
 // TSTypeMapper maps spec property types to TypeScript-native type strings.
 type TSTypeMapper struct{}

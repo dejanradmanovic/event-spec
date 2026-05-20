@@ -4,7 +4,7 @@ import (
 	"path"
 	"strings"
 
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // applySourceConfig filters defs by the event glob patterns declared in src,

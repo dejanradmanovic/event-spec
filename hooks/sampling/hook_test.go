@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"event-spec/hooks"
-	"event-spec/hooks/sampling"
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/hooks/sampling"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 func TestSamplingHook_Before_noSamplingConfig_passesThrough(t *testing.T) {

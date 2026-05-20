@@ -6,7 +6,7 @@ package analytics
 import (
 	"context"
 
-	core "event-spec/analytics"
+	core "github.com/dejanradmanovic/event-spec/analytics"
 )
 
 type ProductViewedCategory string

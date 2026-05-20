@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"event-spec/registry"
-	"event-spec/registry/local"
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/registry"
+	"github.com/dejanradmanovic/event-spec/registry/local"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // Config configures the remote git registry.

@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"event-spec/registry"
-	gitregistry "event-spec/registry/git"
-	"event-spec/registry/local"
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/registry"
+	gitregistry "github.com/dejanradmanovic/event-spec/registry/git"
+	"github.com/dejanradmanovic/event-spec/registry/local"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // openRegistry constructs a Registry from the workspace config.

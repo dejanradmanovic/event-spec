@@ -1,7 +1,7 @@
 // Package golang provides the Go codegen engine.
 package golang
 
-import "event-spec/codegen"
+import "github.com/dejanradmanovic/event-spec/codegen"
 
 // GoNamer converts all identifiers to PascalCase (Go convention).
 type GoNamer struct{}

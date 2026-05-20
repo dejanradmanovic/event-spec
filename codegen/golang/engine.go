@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"event-spec/codegen"
+	"github.com/dejanradmanovic/event-spec/codegen"
 )
 
 //go:embed templates/event.go.tmpl

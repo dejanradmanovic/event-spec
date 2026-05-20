@@ -1,4 +1,4 @@
-module event-spec
+module github.com/dejanradmanovic/event-spec
 
 go 1.26
 

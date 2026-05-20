@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // --- matchesEventPattern ---

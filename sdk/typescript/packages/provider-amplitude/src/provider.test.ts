@@ -7,8 +7,13 @@ import {
   mapGroupMessage,
   mapAliasMessage,
 } from './mapper';
-import { ErrUnsupportedOperation } from '@event-spec/api';
-import type { TrackMessage, IdentifyMessage, GroupMessage, AliasMessage } from '@event-spec/api';
+import { ErrUnsupportedOperation } from '@dejanradmanovic/event-spec-api';
+import type {
+  TrackMessage,
+  IdentifyMessage,
+  GroupMessage,
+  AliasMessage,
+} from '@dejanradmanovic/event-spec-api';
 
 const baseTrack: TrackMessage = {
   messageId: 'msg-1',

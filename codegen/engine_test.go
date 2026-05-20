@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"event-spec/codegen"
-	_ "event-spec/codegen/golang"
-	_ "event-spec/codegen/typescript"
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/codegen"
+	_ "github.com/dejanradmanovic/event-spec/codegen/golang"
+	_ "github.com/dejanradmanovic/event-spec/codegen/typescript"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 var update = flag.Bool("update", false, "update golden files instead of comparing")

@@ -1,5 +1,5 @@
 {
-  "name": "@event-spec/provider-amplitude",
+  "name": "@dejanradmanovic/event-spec-provider-amplitude",
   "version": "0.1.0",
   "description": "Amplitude analytics provider for event-spec — batched track via EventQueue, synchronous identify/group/alias",
   "type": "module",
@@ -21,6 +21,9 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "scripts": {
     "build": "vite build",
     "typecheck": "tsc --noEmit",
@@ -32,10 +35,10 @@
     "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "@event-spec/api": "workspace:*"
+    "@dejanradmanovic/event-spec-api": "workspace:*"
   },
   "devDependencies": {
-    "@event-spec/api": "workspace:*",
+    "@dejanradmanovic/event-spec-api": "workspace:*",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "eslint-config-prettier": "catalog:",

@@ -4,7 +4,7 @@ import { resolve } from 'path';
 export default defineConfig({
   resolve: {
     alias: {
-      '@event-spec/api': resolve(__dirname, '../api/src/index.ts'),
+      '@dejanradmanovic/event-spec-api': resolve(__dirname, '../api/src/index.ts'),
     },
   },
   test: {

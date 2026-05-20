@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 // compile-time check: *Provider satisfies provider.Provider.

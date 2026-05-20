@@ -3,7 +3,7 @@ package analytics
 import (
 	"context"
 
-	"event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/hooks"
 )
 
 // AnalyticsContext is a type alias for hooks.AnalyticsContext.

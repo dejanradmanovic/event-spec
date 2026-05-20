@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"event-spec/analytics"
-	"event-spec/testutil"
+	"github.com/dejanradmanovic/event-spec/analytics"
+	"github.com/dejanradmanovic/event-spec/testutil"
 )
 
 func TestAnalyticsMiddleware_injectsTransactionContext(t *testing.T) {

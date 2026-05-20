@@ -1,5 +1,5 @@
 {
-  "name": "@event-spec/api",
+  "name": "@dejanradmanovic/event-spec-api",
   "version": "0.1.0",
   "description": "TypeScript core runtime for event-spec analytics — Provider interface, Hook chain, Client dispatch, validation and sampling hooks",
   "type": "module",
@@ -21,6 +21,9 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "scripts": {
     "build": "vite build",
     "typecheck": "tsc --noEmit",

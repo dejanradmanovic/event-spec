@@ -1,4 +1,4 @@
-import { EventQueue, ErrUnsupportedOperation } from '@event-spec/api';
+import { EventQueue, ErrUnsupportedOperation } from '@dejanradmanovic/event-spec-api';
 import type {
   Provider,
   ProviderMetadata,
@@ -8,7 +8,7 @@ import type {
   GroupMessage,
   PageMessage,
   AliasMessage,
-} from '@event-spec/api';
+} from '@dejanradmanovic/event-spec-api';
 import type { AmplitudeConfig } from './config';
 import { DEFAULT_ENDPOINT } from './config';
 import { mapTrackMessage, mapIdentifyMessage, mapGroupMessage, mapAliasMessage } from './mapper';

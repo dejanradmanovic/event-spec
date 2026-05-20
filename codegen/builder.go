@@ -4,7 +4,7 @@ import (
 	"sort"
 	"time"
 
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // buildTemplateData converts a slice of EventDef into template-ready data.

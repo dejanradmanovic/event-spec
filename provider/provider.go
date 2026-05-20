@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/hooks"
 )
 
 // ErrUnsupportedOperation is returned by provider methods that have no equivalent

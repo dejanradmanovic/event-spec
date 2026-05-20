@@ -1,6 +1,6 @@
 package golang
 
-import "event-spec/spec"
+import "github.com/dejanradmanovic/event-spec/spec"
 
 // GoTypeMapper maps spec property types to Go-native type strings.
 type GoTypeMapper struct{}

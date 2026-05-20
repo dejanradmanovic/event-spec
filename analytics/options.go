@@ -1,8 +1,8 @@
 package analytics
 
 import (
-	"event-spec/hooks"
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 // trackOptions holds resolved per-invocation overrides.

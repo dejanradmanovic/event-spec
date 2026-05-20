@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 // TestRateLimiter_DefaultConfig verifies that a zero-value RateLimitConfig uses package

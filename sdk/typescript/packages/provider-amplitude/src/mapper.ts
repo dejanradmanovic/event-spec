@@ -4,7 +4,7 @@ import type {
   GroupMessage,
   AliasMessage,
   MessageContext,
-} from '@event-spec/api';
+} from '@dejanradmanovic/event-spec-api';
 
 const MAX_STRING_CHARS = 1024;
 

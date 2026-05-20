@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"event-spec/registry"
-	"event-spec/registry/git"
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/registry"
+	"github.com/dejanradmanovic/event-spec/registry/git"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 const schemaHeader = `$schema: "https://event-spec.io/schemas/event/v1"` + "\n"

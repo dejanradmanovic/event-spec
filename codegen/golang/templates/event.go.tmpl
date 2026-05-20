@@ -6,7 +6,7 @@ package analytics
 import (
 	"context"
 
-	core "event-spec/analytics"
+	core "github.com/dejanradmanovic/event-spec/analytics"
 )
 {{range $prop := .RequiredProps}}{{if $prop.IsEnum}}
 type {{$prop.EnumTypeName}} string

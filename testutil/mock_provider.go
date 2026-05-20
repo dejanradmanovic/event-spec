@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"event-spec/hooks"
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 // MockProvider is a configurable test double that returns preset errors and/or

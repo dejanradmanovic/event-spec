@@ -1,0 +1,64 @@
+name: Release — TypeScript SDK (api)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without leading v (e.g. 1.2.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Publish @dejanradmanovic/event-spec-api
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          package_json_file: sdk/typescript/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@dejanradmanovic'
+          cache: 'pnpm'
+          cache-dependency-path: sdk/typescript/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: sdk/typescript
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-api typecheck
+
+      - name: Lint
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-api lint
+
+      - name: Test
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-api test
+
+      - name: Build
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-api build
+
+      - name: Set version
+        working-directory: sdk/typescript/packages/api
+        run: npm version ${{ inputs.version }} --no-git-tag-version
+
+      - name: Publish
+        working-directory: sdk/typescript/packages/api
+        run: pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

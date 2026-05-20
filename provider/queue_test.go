@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 // collectFlushFunc returns a FlushFunc that appends each received batch to *collected.

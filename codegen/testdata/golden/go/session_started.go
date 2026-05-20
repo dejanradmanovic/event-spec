@@ -6,7 +6,7 @@ package analytics
 import (
 	"context"
 
-	core "event-spec/analytics"
+	core "github.com/dejanradmanovic/event-spec/analytics"
 )
 
 func (es *EventSpec) SessionStarted(ctx context.Context, opts ...core.TrackOption) error {

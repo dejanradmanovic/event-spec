@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"event-spec/hooks"
-	"event-spec/hooks/validation"
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/hooks/validation"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 func TestValidationHook_Before_validEvent_passesThrough(t *testing.T) {

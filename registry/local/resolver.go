@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"event-spec/registry"
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/registry"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // Config configures the git-backed registry paths.

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"event-spec/hooks"
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 // Provider sends analytics events to Amplitude via the batch HTTP API.

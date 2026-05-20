@@ -4,7 +4,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 const maxStringChars = 1024

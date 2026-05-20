@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"event-spec/analytics"
-	"event-spec/hooks"
-	"event-spec/testutil"
+	"github.com/dejanradmanovic/event-spec/analytics"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/testutil"
 )
 
 // resetGlobal clears all global analytics state between tests.

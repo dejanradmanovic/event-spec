@@ -1,7 +1,7 @@
 // Package typescript provides the TypeScript codegen engine.
 package typescript
 
-import "event-spec/codegen"
+import "github.com/dejanradmanovic/event-spec/codegen"
 
 // CamelCaseNamer uses camelCase for methods and fields, PascalCase for types (TypeScript convention).
 type CamelCaseNamer struct{}
