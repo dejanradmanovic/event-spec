@@ -149,10 +149,30 @@ type DestinationDef struct {
 	SourcePath string `yaml:"-"`
 }
 
+// Registry mode constants.
+const (
+	RegistryModeLocal  = "local"  // specs live on the local filesystem (same repo)
+	RegistryModeGit    = "git"    // specs live in a remote git repo; pull to local cache
+	RegistryModeServer = "server" // specs served by a registry REST API
+)
+
 // RegistryConfig configures the event registry backend.
+// Only the fields relevant to the active Mode are used; others are ignored.
 type RegistryConfig struct {
-	Mode string `yaml:"mode"` // git | server
-	URL  string `yaml:"url,omitempty"`
+	Mode string `yaml:"mode"` // local | git | server
+
+	// git mode: remote repository settings.
+	Remote   string `yaml:"remote,omitempty"`    // git clone URL of the shared tracking-plan repo
+	Branch   string `yaml:"branch,omitempty"`    // branch to track (default: main)
+	Ref      string `yaml:"ref,omitempty"`       // optional commit SHA or tag pin; empty = HEAD of Branch
+	CacheDir string `yaml:"cache_dir,omitempty"` // local clone path (default: ~/.event-spec/cache/<hash>)
+	// SpecsDir (git mode only) is the path to the specs directory within the remote repo.
+	// Resolved relative to the repo root. Defaults to "specs".
+	// In local mode, specs_dir is declared at the workspace level instead.
+	SpecsDir string `yaml:"specs_dir,omitempty"`
+
+	// server mode: REST API endpoint.
+	URL string `yaml:"url,omitempty"`
 }
 
 // WorkspaceConfig is the top-level event-spec.yaml configuration.
@@ -160,7 +180,7 @@ type WorkspaceConfig struct {
 	Version         int            `yaml:"version"`
 	Workspace       string         `yaml:"workspace"`
 	Registry        RegistryConfig `yaml:"registry"`
-	SpecsDir        string         `yaml:"specs_dir"`
-	SourcesDir      string         `yaml:"sources_dir"`
-	DestinationsDir string         `yaml:"destinations_dir"`
+	SpecsDir        string         `yaml:"specs_dir"`        // local and server modes only
+	SourcesDir      string         `yaml:"sources_dir"`      // always local to the consuming repo
+	DestinationsDir string         `yaml:"destinations_dir"` // always local to the consuming repo
 }

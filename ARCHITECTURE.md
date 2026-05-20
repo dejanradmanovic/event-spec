@@ -24,9 +24,9 @@ Scope: design consultation — this document is a blueprint for implementation.
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                     Event Registry                            │
-│   ┌─────────────────────┐   ┌──────────────────────────────┐│
-│   │ Git-backed YAML      │OR │ Registry Server (opt.)       ││
-│   │ (specs/ dir in repo) │   │ REST API + PostgreSQL/SQLite ││
+│   ┌─────────────────────┐   ┌──────────┐  ┌───────────────┐│
+│   │ local: specs/ in    │OR │ git:     │OR│ server:       ││
+│   │ this repo           │   │ remote   │  │ REST API + DB ││
 │   └──────────┬──────────┘   └──────────────┬───────────────┘│
 └──────────────┼──────────────────────────────┼────────────────┘
                └──────────────┬───────────────┘
@@ -290,16 +290,75 @@ my-tracking-plan/
 
 ### Workspace Config (`event-spec.yaml`)
 
+Three registry modes — `local`, `git`, `server` — are mutually exclusive. Only the fields
+relevant to the active mode are read; unrecognised fields are ignored.
+
+#### `mode: local` — specs live in this repo
+
 ```yaml
 version: 1
 workspace: "my-company"
 registry:
-  mode: git          # git | server
-  # url: https://registry.example.com   (server mode)
+  mode: local
 specs_dir: ./specs
 sources_dir: ./sources
 destinations_dir: ./destinations
 ```
+
+All paths are relative to `event-spec.yaml`. `event-spec pull` is a no-op in this mode.
+
+#### `mode: git` — specs live in a shared remote git repo
+
+```yaml
+version: 1
+workspace: "my-company"
+registry:
+  mode: git
+  remote: https://github.com/my-company/tracking-plan.git
+  branch: main      # branch to track (default: main)
+  ref: ""           # optional: pin to a specific commit SHA or tag; empty = HEAD of branch
+  cache_dir: ""     # local clone path (default: ~/.event-spec/cache/<workspace>)
+  specs_dir: ./specs   # path within the remote repo (default: ./specs)
+sources_dir: ./sources       # always local to the consuming repo
+destinations_dir: ./destinations   # always local to the consuming repo
+```
+
+`specs_dir` is resolved relative to the remote repo root. `sources_dir` and `destinations_dir`
+stay local so each consuming repo owns its own source/destination configs.
+
+`event-spec pull` clones or fetches the remote into `cache_dir`. All subsequent commands
+(`generate`, `validate`, `diff`, `audit`) read from the local cache — no network access
+required after pull. In CI, run `pull` once as a setup step.
+
+```
+my-tracking-plan/          ← shared git repo (github.com/my-company/tracking-plan)
+├── specs/
+│   ├── ecommerce/
+│   └── auth/
+
+web-app/                   ← consuming repo
+├── event-spec.yaml        (mode: git, remote: github.com/my-company/tracking-plan)
+├── sources/
+│   └── web-app.yaml
+└── destinations/
+    ├── amplitude.yaml
+    └── posthog.yaml
+```
+
+#### `mode: server` — specs served by a registry server
+
+```yaml
+version: 1
+workspace: "my-company"
+registry:
+  mode: server
+  url: https://registry.example.com
+sources_dir: ./sources
+destinations_dir: ./destinations
+```
+
+`specs_dir` is ignored — specs are fetched via the REST API. `event-spec pull` downloads
+a snapshot from `GET /v1/sources/{name}/pull` and caches it locally.
 
 ### Source Definition (`sources/web-app.yaml`)
 
@@ -840,6 +899,8 @@ export class EventSpec {
 ```
 event-spec init                 scaffold event-spec.yaml + specs/ structure
 event-spec pull [source-name]   fetch specs from registry (git or server)
+  --force   re-clone instead of fetch (useful after a force-push)
+  --ref     override the branch/tag/SHA declared in event-spec.yaml
 event-spec generate [source]    generate typed SDK wrappers for the source
   --lang    override language
   --out     override output path
@@ -1049,7 +1110,7 @@ Diff(ctx context.Context, namespace, name, from, to string) ([]spec.Change, erro
 
 Both git and server implementations satisfy this interface. The CLI doesn't know which mode it's in.
 
-### Git-Backed Registry
+### Local Registry (`mode: local`)
 
 - Walk `specs_dir` recursively for `*.yaml`
 - Validate `$schema` header, build in-memory index: `namespace/name/version → EventDef`
@@ -1058,7 +1119,19 @@ Both git and server implementations satisfy this interface. The CLI doesn't know
   - Sources can pin specific versions via `version_pinning` in source config
   - Default behavior: use highest active version
 - `fsnotify` watcher for hot-reload in dev mode
-- `PublishEvent` returns `ErrReadOnly` — use git commits to publish
+- `PublishEvent` returns `ErrReadOnly` — publish by committing YAML files to the repo
+
+### Git Registry (`mode: git`)
+
+`event-spec pull` manages a local clone in `cache_dir`:
+- First pull: `git clone --depth 1 <remote> --branch <branch> <cache_dir>`
+- Subsequent pulls: `git fetch origin && git checkout <ref-or-branch-head>`
+- `ref` pinning: if set, checkout that exact SHA/tag; fail loudly if it doesn't exist on `branch`
+- All other commands read from the cache — no network access required after pull
+- `PublishEvent` returns `ErrReadOnly` — publish by committing to the shared repo and pushing
+
+After pull, the in-memory index is built the same way as `mode: local` from the cached `specs_dir`.
+Hot-reload (`fsnotify`) is not available in git mode; re-run `pull` to pick up upstream changes.
 
 ### Registry Server (Optional Upgrade)
 
@@ -1362,7 +1435,7 @@ coverage on context merge, hook chain, dispatch results, and golden file tests f
 | Event versioning                      | SchemaVer `1-2-0` (hyphens)   | Visually distinct from SemVer; no ambiguity with file extensions; sorts cleanly                        |
 | `AnalyticsContext` storage                 | Value type + explicit merge   | No `context.Value` type assertions; merge logic is explicit and testable                               |
 | Multi-provider dispatch               | Concurrent goroutines         | Providers have independent I/O; serializing multiplies latency; `ctx.Done()` is the backstop           |
-| Registry primary mode                 | Git-backed                    | Zero infrastructure; diffs are first-class in PR review; `Registry` interface abstracts both modes     |
+| Registry modes                        | `local` / `git` / `server`    | `local`: zero infra, specs in same repo. `git`: shared tracking plan repo, pull-to-cache. `server`: REST API for multi-team governance. All three satisfy the same `Registry` interface. |
 | Provider overrides location           | Event spec YAML               | GA4/Mixpanel naming quirks encoded once, applied everywhere; no per-provider lookup table at runtime   |
 | Batching & queue                      | Per-provider queues           | Isolates slow providers; enables provider-specific batch sizes and flush intervals                     |
 | Retry strategy                        | Exponential backoff + jitter  | Industry standard; jitter prevents thundering herd; configurable per-provider                          |
