@@ -96,6 +96,64 @@ func WalkEventDefs(specsDir string) ([]*EventDef, []error) {
 	return defs, errs
 }
 
+// WalkSourceDefs walks sourcesDir recursively and returns all parsed SourceDef
+// files. If sourcesDir does not exist, both return values are nil.
+func WalkSourceDefs(sourcesDir string) ([]*SourceDef, []error) {
+	if _, err := os.Stat(sourcesDir); os.IsNotExist(err) {
+		return nil, nil
+	}
+	var defs []*SourceDef
+	var errs []error
+	err := filepath.WalkDir(sourcesDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".yaml") {
+			return nil
+		}
+		def, loadErr := LoadSourceDef(path)
+		if loadErr != nil {
+			errs = append(errs, loadErr)
+			return nil
+		}
+		defs = append(defs, def)
+		return nil
+	})
+	if err != nil {
+		errs = append(errs, fmt.Errorf("walk %s: %w", sourcesDir, err))
+	}
+	return defs, errs
+}
+
+// WalkDestinationDefs walks destinationsDir recursively and returns all parsed
+// DestinationDef files. If destinationsDir does not exist, both return values are nil.
+func WalkDestinationDefs(destinationsDir string) ([]*DestinationDef, []error) {
+	if _, err := os.Stat(destinationsDir); os.IsNotExist(err) {
+		return nil, nil
+	}
+	var defs []*DestinationDef
+	var errs []error
+	err := filepath.WalkDir(destinationsDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".yaml") {
+			return nil
+		}
+		def, loadErr := LoadDestinationDef(path)
+		if loadErr != nil {
+			errs = append(errs, loadErr)
+			return nil
+		}
+		defs = append(defs, def)
+		return nil
+	})
+	if err != nil {
+		errs = append(errs, fmt.Errorf("walk %s: %w", destinationsDir, err))
+	}
+	return defs, errs
+}
+
 // ParseSchemaVer parses a SchemaVer string like "1-2-0" into its components.
 func ParseSchemaVer(v string) (SchemaVer, error) {
 	parts := strings.Split(v, "-")
