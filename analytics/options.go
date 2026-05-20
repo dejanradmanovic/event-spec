@@ -9,6 +9,7 @@ import (
 type trackOptions struct {
 	contextOverride *AnalyticsContext
 	hints           hooks.HookHints
+	noop            bool
 }
 
 // ClientOption configures a Client at construction time.
@@ -43,6 +44,14 @@ func WithHooks(h ...hooks.Hook) ClientOption {
 func WithContextOverride(ac AnalyticsContext) TrackOption {
 	return func(o *trackOptions) {
 		o.contextOverride = &ac
+	}
+}
+
+// WithNoop prevents real delivery for this call — the event is silently dropped after
+// Before hooks run. Used in generated wrappers for draft events.
+func WithNoop() TrackOption {
+	return func(o *trackOptions) {
+		o.noop = true
 	}
 }
 

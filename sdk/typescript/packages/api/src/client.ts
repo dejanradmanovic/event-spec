@@ -55,6 +55,8 @@ export interface Event {
 export interface TrackOptions {
   contextOverride?: AnalyticsContext;
   hints?: HookHints;
+  /** When true, the event is silently dropped without dispatch. Used by generated draft-event wrappers. */
+  noop?: boolean;
 }
 
 export interface TransactionContext {
@@ -264,6 +266,9 @@ export class Client {
     opts: TrackOptions | undefined,
     fn: ProviderFn,
   ): Promise<DispatchResult> {
+    if (opts?.noop) {
+      return { success: [], failed: [], partialSuccess: false };
+    }
     const merged = this.mergeContextChain(opts);
     const allHooks = this.collectAllHooks();
     const chain = new HookChain(allHooks);

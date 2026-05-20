@@ -60,6 +60,46 @@ func TestGenerate_UnsupportedLang(t *testing.T) {
 	}
 }
 
+func TestGenerate_Go_StatusAware(t *testing.T) {
+	events := testStatusEvents()
+	outDir := t.TempDir()
+	if err := codegen.Run(events, "go", outDir, "test-workspace", "test-source", ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	compareOrUpdate(t, outDir, filepath.Join("testdata", "golden", "go_status"))
+}
+
+func TestGenerate_TypeScript_StatusAware(t *testing.T) {
+	events := testStatusEvents()
+	outDir := t.TempDir()
+	if err := codegen.Run(events, "typescript", outDir, "test-workspace", "test-source", ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	compareOrUpdate(t, outDir, filepath.Join("testdata", "golden", "typescript_status"))
+}
+
+func TestGenerate_DeletedEventAbsent_Go(t *testing.T) {
+	events := []*spec.EventDef{testDeletedEvent()}
+	outDir := t.TempDir()
+	if err := codegen.Run(events, "go", outDir, "", "", ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "legacy_pageview.go")); !os.IsNotExist(err) {
+		t.Error("deleted event should produce no Go file")
+	}
+}
+
+func TestGenerate_DeletedEventAbsent_TypeScript(t *testing.T) {
+	events := []*spec.EventDef{testDeletedEvent()}
+	outDir := t.TempDir()
+	if err := codegen.Run(events, "typescript", outDir, "", "", ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "legacy_pageview.ts")); !os.IsNotExist(err) {
+		t.Error("deleted event should produce no TypeScript file")
+	}
+}
+
 // compareOrUpdate either writes generated files over golden files (when -update),
 // or asserts that every golden file matches the corresponding generated file.
 func compareOrUpdate(t *testing.T, gotDir, goldenDir string) {
@@ -116,6 +156,14 @@ func testEvents() []*spec.EventDef {
 	}
 }
 
+func testStatusEvents() []*spec.EventDef {
+	return []*spec.EventDef{
+		testDeprecatedEvent(),
+		testDraftEvent(),
+		testDeletedEvent(),
+	}
+}
+
 func testProductViewedEvent() *spec.EventDef {
 	return &spec.EventDef{
 		Schema:      "https://event-spec.io/schemas/event/v1",
@@ -148,6 +196,53 @@ func testSessionStartedEvent() *spec.EventDef {
 		Status:      spec.StatusActive,
 		Namespace:   "core",
 		Type:        spec.TypeTrack,
+		Properties:  map[string]spec.PropertyDef{},
+	}
+}
+
+func testDeprecatedEvent() *spec.EventDef {
+	return &spec.EventDef{
+		Schema:      "https://event-spec.io/schemas/event/v1",
+		Name:        "checkout_abandoned",
+		DisplayName: "Checkout Abandoned",
+		EventName:   "Checkout Abandoned",
+		Version:     "2-0-0",
+		Status:      spec.StatusDeprecated,
+		Description: "Use checkout_started instead.",
+		Namespace:   "ecommerce",
+		Type:        spec.TypeTrack,
+		Properties: map[string]spec.PropertyDef{
+			"cart_id": {Type: spec.PropertyTypeString, Required: true},
+		},
+	}
+}
+
+func testDraftEvent() *spec.EventDef {
+	return &spec.EventDef{
+		Schema:      "https://event-spec.io/schemas/event/v1",
+		Name:        "wishlist_shared",
+		DisplayName: "Wishlist Shared",
+		EventName:   "Wishlist Shared",
+		Version:     "1-0-0",
+		Status:      spec.StatusDraft,
+		Namespace:   "ecommerce",
+		Type:        spec.TypeTrack,
+		Properties: map[string]spec.PropertyDef{
+			"wishlist_id": {Type: spec.PropertyTypeString, Required: true},
+		},
+	}
+}
+
+func testDeletedEvent() *spec.EventDef {
+	return &spec.EventDef{
+		Schema:      "https://event-spec.io/schemas/event/v1",
+		Name:        "legacy_pageview",
+		DisplayName: "Legacy Pageview",
+		EventName:   "Legacy Pageview",
+		Version:     "1-0-0",
+		Status:      spec.StatusDeleted,
+		Namespace:   "core",
+		Type:        spec.TypePage,
 		Properties:  map[string]spec.PropertyDef{},
 	}
 }

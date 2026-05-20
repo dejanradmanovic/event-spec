@@ -12,13 +12,14 @@ export interface {{.ParamsTypeName}} {
 {{end}}{{range .OptionalProps}}    {{.NameField}}?: {{.TypeNative}};
 {{end}}}
 {{end}}
-export function {{.MethodName}}(client: Client, {{if .HasProps}}props: {{.ParamsTypeName}}, {{end}}opts?: TrackOptions): Promise<void> {
+{{if .IsDeprecated}}/** @deprecated {{.Description}} */
+{{end}}export function {{.MethodName}}(client: Client, {{if .HasProps}}props: {{.ParamsTypeName}}, {{end}}opts?: TrackOptions): Promise<void> {
 {{if .HasProps}}    return client.track({
         name: '{{.EventName}}',
         properties: {
 {{range .RequiredProps}}            {{.NameRaw}}: props.{{.NameField}},
 {{end}}{{range .OptionalProps}}            {{.NameRaw}}: props.{{.NameField}},
 {{end}}        },
-    }, opts);
-{{else}}    return client.track({ name: '{{.EventName}}' }, opts);
+    }, {{if .IsDraft}}{ ...opts, noop: true }{{else}}opts{{end}});
+{{else}}    return client.track({ name: '{{.EventName}}' }, {{if .IsDraft}}{ ...opts, noop: true }{{else}}opts{{end}});
 {{end}}}
