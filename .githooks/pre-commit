@@ -7,7 +7,7 @@ if [ -z "$CHANGED" ]; then
   exit 0
 fi
 
-echo "sdk/typescript changes detected — running typecheck and lint..."
+echo "sdk/typescript changes detected — running typecheck, format check, and lint..."
 cd sdk/typescript || exit 1
 
 if ! command -v pnpm >/dev/null 2>&1; then

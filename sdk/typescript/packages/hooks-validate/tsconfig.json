@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "paths": {
+      "@event-spec/api": ["../api/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

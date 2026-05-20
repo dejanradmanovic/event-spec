@@ -268,23 +268,24 @@ export class Client {
     const allHooks = this.collectAllHooks();
     const chain = new HookChain(allHooks);
 
-    let hc: HookContext = {
-      operation,
-      eventName,
-      context: merged,
-    };
-
     let env: EventEnvelope = {
       eventName,
       properties: { ...properties },
       context: merged,
     };
 
+    let hc: HookContext = {
+      operation,
+      eventName,
+      context: merged,
+      message: env,
+    };
+
     // Before runs once, gating ALL providers. A thrown error cancels dispatch.
     const mutated = await chain.before(hc, opts?.hints);
     if (mutated !== null) {
       env = mutated;
-      hc = { ...hc, eventName: mutated.eventName, context: mutated.context };
+      hc = { ...hc, eventName: mutated.eventName, context: mutated.context, message: env };
     }
 
     const providers = [...this.providers];
