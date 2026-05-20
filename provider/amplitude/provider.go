@@ -75,14 +75,18 @@ func (p *Provider) Track(ctx context.Context, msg provider.TrackMessage) error {
 	return p.queue.Enqueue(ctx, provider.QueuedMessage{Op: "track", Track: &msg})
 }
 
-// Identify enqueues an identify call as an Amplitude $identify event.
+// Identify sends a $identify event synchronously. Identify bypasses the queue
+// so that user-profile state arrives at Amplitude before any subsequent Track
+// events that depend on it.
 func (p *Provider) Identify(ctx context.Context, msg provider.IdentifyMessage) error {
-	return p.queue.Enqueue(ctx, provider.QueuedMessage{Op: "identify", Identify: &msg})
+	return p.sendBatch(ctx, []amplitudeEvent{mapIdentifyMessage(msg)})
 }
 
-// Group enqueues a group call as an Amplitude $groupidentify event.
+// Group sends a $groupidentify event synchronously. Group bypasses the queue for
+// the same reason as Identify — group membership must be established before
+// subsequent Track events are attributed to the group.
 func (p *Provider) Group(ctx context.Context, msg provider.GroupMessage) error {
-	return p.queue.Enqueue(ctx, provider.QueuedMessage{Op: "group", Group: &msg})
+	return p.sendBatch(ctx, []amplitudeEvent{mapGroupMessage(msg)})
 }
 
 // Page returns ErrUnsupportedOperation; Amplitude has no native page concept.
@@ -90,9 +94,11 @@ func (p *Provider) Page(_ context.Context, _ provider.PageMessage) error {
 	return provider.ErrUnsupportedOperation
 }
 
-// Alias enqueues an alias call that links PreviousID to UserID in Amplitude.
+// Alias sends a $identify event synchronously, linking PreviousID to UserID.
+// Alias bypasses the queue because identity merges must precede all subsequent
+// events to avoid split-identity attribution.
 func (p *Provider) Alias(ctx context.Context, msg provider.AliasMessage) error {
-	return p.queue.Enqueue(ctx, provider.QueuedMessage{Op: "alias", Alias: &msg})
+	return p.sendBatch(ctx, []amplitudeEvent{mapAliasMessage(msg)})
 }
 
 // Flush synchronously drains all buffered events to Amplitude.
@@ -105,19 +111,13 @@ func (p *Provider) Shutdown(ctx context.Context) error {
 	return p.queue.Shutdown(ctx)
 }
 
-// flushBatch converts a batch of queued messages to amplitudeEvents and sends them.
+// flushBatch converts a batch of queued Track messages to amplitudeEvents and sends them.
+// Only Track events are queued; Identify, Group, and Alias bypass the queue entirely.
 func (p *Provider) flushBatch(ctx context.Context, batch []provider.QueuedMessage) error {
 	events := make([]amplitudeEvent, 0, len(batch))
 	for _, msg := range batch {
-		switch msg.Op {
-		case "track":
+		if msg.Op == "track" {
 			events = append(events, mapTrackMessage(*msg.Track))
-		case "identify":
-			events = append(events, mapIdentifyMessage(*msg.Identify))
-		case "group":
-			events = append(events, mapGroupMessage(*msg.Group))
-		case "alias":
-			events = append(events, mapAliasMessage(*msg.Alias))
 		}
 	}
 	if len(events) == 0 {

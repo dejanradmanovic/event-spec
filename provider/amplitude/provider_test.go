@@ -174,8 +174,9 @@ func TestTrackBatchPayload(t *testing.T) {
 	}
 }
 
-// TestIdentifyBatchPayload verifies the $identify event format.
-func TestIdentifyBatchPayload(t *testing.T) {
+// TestIdentifyPayload verifies the $identify event format and that Identify sends
+// synchronously — the request is captured without calling Flush.
+func TestIdentifyPayload(t *testing.T) {
 	srv, reqs := captureServer(t)
 	p := newProvider(t, srv)
 
@@ -188,9 +189,7 @@ func TestIdentifyBatchPayload(t *testing.T) {
 	if err := p.Identify(context.Background(), msg); err != nil {
 		t.Fatalf("Identify: %v", err)
 	}
-	if err := p.Flush(context.Background()); err != nil {
-		t.Fatalf("Flush: %v", err)
-	}
+	// No Flush — request must already be delivered synchronously.
 
 	ev := firstEvent(t, reqs)
 
@@ -214,8 +213,9 @@ func TestIdentifyBatchPayload(t *testing.T) {
 	}
 }
 
-// TestGroupBatchPayload verifies the $groupidentify event format.
-func TestGroupBatchPayload(t *testing.T) {
+// TestGroupPayload verifies the $groupidentify event format and that Group sends
+// synchronously — the request is captured without calling Flush.
+func TestGroupPayload(t *testing.T) {
 	srv, reqs := captureServer(t)
 	p := newProvider(t, srv)
 
@@ -229,9 +229,7 @@ func TestGroupBatchPayload(t *testing.T) {
 	if err := p.Group(context.Background(), msg); err != nil {
 		t.Fatalf("Group: %v", err)
 	}
-	if err := p.Flush(context.Background()); err != nil {
-		t.Fatalf("Flush: %v", err)
-	}
+	// No Flush — request must already be delivered synchronously.
 
 	ev := firstEvent(t, reqs)
 
@@ -258,9 +256,9 @@ func TestGroupBatchPayload(t *testing.T) {
 	}
 }
 
-// TestAliasBatchPayload verifies that an alias call sends a $identify event
-// linking PreviousID (device_id) to UserID.
-func TestAliasBatchPayload(t *testing.T) {
+// TestAliasPayload verifies that Alias sends a $identify event linking
+// PreviousID (device_id) to UserID synchronously — no Flush required.
+func TestAliasPayload(t *testing.T) {
 	srv, reqs := captureServer(t)
 	p := newProvider(t, srv)
 
@@ -273,9 +271,7 @@ func TestAliasBatchPayload(t *testing.T) {
 	if err := p.Alias(context.Background(), msg); err != nil {
 		t.Fatalf("Alias: %v", err)
 	}
-	if err := p.Flush(context.Background()); err != nil {
-		t.Fatalf("Flush: %v", err)
-	}
+	// No Flush — request must already be delivered synchronously.
 
 	ev := firstEvent(t, reqs)
 
