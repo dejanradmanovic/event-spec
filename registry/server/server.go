@@ -325,7 +325,7 @@ func (st *sqlStore) migrate() error {
 		ddl = sqliteDDL
 	}
 	for _, stmt := range splitStatements(ddl) {
-		if _, err := st.db.Exec(stmt); err != nil {
+		if _, err := st.db.ExecContext(context.Background(), stmt); err != nil {
 			preview := stmt
 			if len(preview) > 60 {
 				preview = preview[:60]
@@ -363,7 +363,7 @@ func (st *sqlStore) ListEvents(ctx context.Context, filter registry.ListFilter) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []spec.EventDef
 	for rows.Next() {
@@ -423,7 +423,7 @@ func (st *sqlStore) GetEvent(ctx context.Context, namespace, name, version strin
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var best *spec.EventDef
 	var bestVer spec.SchemaVer
@@ -563,7 +563,7 @@ func (st *sqlStore) ListAuditLog(ctx context.Context) ([]AuditEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var entries []AuditEntry
 	for rows.Next() {

@@ -107,7 +107,7 @@ func (c *Client) auth(req *http.Request) {
 }
 
 func (c *Client) get(ctx context.Context, u string, dst any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (c *Client) get(ctx context.Context, u string, dst any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	return c.decode(resp, dst)
 }
 
@@ -135,7 +135,7 @@ func (c *Client) post(ctx context.Context, u string, body, dst any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	return c.decode(resp, dst)
 }
 

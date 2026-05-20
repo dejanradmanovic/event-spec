@@ -147,7 +147,10 @@ func newTestSrv(t *testing.T) (*httptest.Server, *mockStore) {
 
 func get(t *testing.T, ts *httptest.Server, path, token string) *http.Response {
 	t.Helper()
-	req, _ := http.NewRequest(http.MethodGet, ts.URL+path, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, ts.URL+path, http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -161,7 +164,10 @@ func get(t *testing.T, ts *httptest.Server, path, token string) *http.Response {
 func postJSON(t *testing.T, ts *httptest.Server, path, token string, body any) *http.Response {
 	t.Helper()
 	b, _ := json.Marshal(body)
-	req, _ := http.NewRequest(http.MethodPost, ts.URL+path, bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, ts.URL+path, bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -171,16 +177,6 @@ func postJSON(t *testing.T, ts *httptest.Server, path, token string, body any) *
 		t.Fatal(err)
 	}
 	return resp
-}
-
-func decodeJSON[T any](t *testing.T, resp *http.Response) T {
-	t.Helper()
-	defer resp.Body.Close()
-	var v T
-	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
-		t.Fatalf("decode JSON: %v", err)
-	}
-	return v
 }
 
 // --- auth tests ---
