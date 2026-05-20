@@ -6,6 +6,7 @@ import "time"
 type TemplateData struct {
 	Workspace   string
 	Source      string
+	Package     string // output package name from source config (e.g. "@my-company/analytics")
 	GeneratedAt time.Time
 	Events      []EventTemplateData
 	Lang        LangConfig

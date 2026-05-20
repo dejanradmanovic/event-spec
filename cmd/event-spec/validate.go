@@ -15,11 +15,26 @@ func newValidateCmd() *cobra.Command {
 		Short: "Validate all event specs against their schema",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			specsDir := "./specs"
+			// Determine the specs directory. An explicit positional arg always
+			// wins; otherwise the workspace config (and its registry mode) decides.
+			var specsDir string
 			if len(args) > 0 {
 				specsDir = args[0]
+			} else {
+				cfg, cfgErr := spec.LoadWorkspaceConfig("event-spec.yaml")
+				if cfgErr == nil {
+					var err error
+					specsDir, err = resolveSpecsPath(cfg)
+					if err != nil {
+						return err
+					}
+				} else {
+					specsDir = "./specs"
+				}
 			}
 
+			// Walk the directory directly so that every parse error is collected
+			// and reported rather than stopping at the first problem.
 			defs, walkErrs := spec.WalkEventDefs(specsDir)
 
 			var errorCount, warnCount int
