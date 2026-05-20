@@ -3,18 +3,13 @@
 import { Client, TrackOptions } from '@event-spec/analytics';
 {{range .Events}}{{if .HasProps}}export * from './{{.NameRaw}}';
 {{end}}{{end}}
-{{range .Events}}{{if .HasProps}}import { {{.ParamsTypeName}} } from './{{.NameRaw}}';
+{{range .Events}}{{if .HasProps}}import { {{.ParamsTypeName}}, {{.MethodName}} } from './{{.NameRaw}}';
 {{end}}{{end}}
 export class EventSpec {
     constructor(private readonly client: Client) {}
 {{range .Events}}
     {{.MethodName}}({{if .HasProps}}props: {{.ParamsTypeName}}, {{end}}opts?: TrackOptions): Promise<void> {
-        return this.client.track({
-            name: '{{.EventName}}',
-{{if .HasProps}}            properties: {
-{{range .RequiredProps}}                {{.NameRaw}}: props.{{.NameField}},
-{{end}}{{range .OptionalProps}}                {{.NameRaw}}: props.{{.NameField}},
-{{end}}            },
-{{end}}        }, opts);
-    }
+{{if .HasProps}}        return {{.MethodName}}(this.client, props, opts);
+{{else}}        return this.client.track({ name: '{{.EventName}}' }, opts);
+{{end}}    }
 {{end}}}
