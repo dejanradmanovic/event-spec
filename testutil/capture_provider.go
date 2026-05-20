@@ -30,6 +30,7 @@ type CaptureProvider struct {
 
 	FlushCalls    int
 	ShutdownCalls int
+	NoopCalls     int
 }
 
 // NewCaptureProvider returns a CaptureProvider with the given name.
@@ -95,6 +96,13 @@ func (c *CaptureProvider) Alias(_ context.Context, msg provider.AliasMessage) er
 	return c.AliasErr
 }
 
+// OnNoopCall increments NoopCalls; called by the runtime when an event is dropped via noop.
+func (c *CaptureProvider) OnNoopCall() {
+	c.mu.Lock()
+	c.NoopCalls++
+	c.mu.Unlock()
+}
+
 // Flush increments FlushCalls and returns nil.
 func (c *CaptureProvider) Flush(_ context.Context) error {
 	c.mu.Lock()
@@ -131,4 +139,5 @@ func (c *CaptureProvider) Reset() {
 	c.Aliases = nil
 	c.FlushCalls = 0
 	c.ShutdownCalls = 0
+	c.NoopCalls = 0
 }

@@ -50,6 +50,7 @@ export interface DispatchResult {
 export interface Event {
   name: string;
   properties?: Record<string, unknown>;
+  status?: string;
 }
 
 export interface TrackOptions {
@@ -69,6 +70,7 @@ export interface ClientOptions {
   providers?: Provider[];
   context?: AnalyticsContext;
   hooks?: Hook[];
+  allowDraft?: boolean;
 }
 
 type ProviderFn = (p: Provider, msgId: string, ts: Date, env: EventEnvelope) => Promise<void>;
@@ -77,12 +79,14 @@ export class Client {
   private providers: Provider[];
   private clientCtx: AnalyticsContext;
   private readonly clientHooks: Hook[];
+  private readonly allowDraft: boolean;
   private txCtx: TransactionContext | undefined;
 
   constructor(opts: ClientOptions = {}) {
     this.providers = opts.providers ? [...opts.providers] : [];
     this.clientCtx = opts.context ?? {};
     this.clientHooks = opts.hooks ? [...opts.hooks] : [];
+    this.allowDraft = opts.allowDraft ?? false;
   }
 
   setProviders(...providers: Provider[]): void {
@@ -103,6 +107,7 @@ export class Client {
       providers: this.providers,
       context: this.clientCtx,
       hooks: this.clientHooks,
+      allowDraft: this.allowDraft,
     });
     clone.txCtx = tx;
     return clone;
@@ -116,6 +121,7 @@ export class Client {
     return this.dispatchAll(
       'track',
       event.name,
+      event.status,
       event.properties ?? {},
       opts,
       async (p, msgId, ts, env) => {
@@ -138,18 +144,25 @@ export class Client {
     traits: Record<string, unknown>,
     opts?: TrackOptions,
   ): Promise<void> {
-    await this.dispatchAll('identify', '$identify', traits, opts, async (p, msgId, ts, env) => {
-      const uid = env.context.userId || userId;
-      const msg: IdentifyMessage = {
-        messageId: msgId,
-        timestamp: ts,
-        userId: uid,
-        anonymousId: env.context.anonymousId ?? '',
-        traits: env.properties,
-        context: buildMessageContext(env.context),
-      };
-      await p.identify(msg);
-    });
+    await this.dispatchAll(
+      'identify',
+      '$identify',
+      undefined,
+      traits,
+      opts,
+      async (p, msgId, ts, env) => {
+        const uid = env.context.userId || userId;
+        const msg: IdentifyMessage = {
+          messageId: msgId,
+          timestamp: ts,
+          userId: uid,
+          anonymousId: env.context.anonymousId ?? '',
+          traits: env.properties,
+          context: buildMessageContext(env.context),
+        };
+        await p.identify(msg);
+      },
+    );
   }
 
   async group(
@@ -158,7 +171,7 @@ export class Client {
     opts?: TrackOptions,
   ): Promise<void> {
     const props = { ...traits, group_id: groupId };
-    await this.dispatchAll('group', '$group', props, opts, async (p, msgId, ts, env) => {
+    await this.dispatchAll('group', '$group', undefined, props, opts, async (p, msgId, ts, env) => {
       const gid =
         typeof env.properties['group_id'] === 'string' ? env.properties['group_id'] : groupId;
       const msg: GroupMessage = {
@@ -176,23 +189,30 @@ export class Client {
 
   async page(name: string, props: Record<string, unknown>, opts?: TrackOptions): Promise<void> {
     const pageProps = { ...props, name };
-    await this.dispatchAll('page', '$page', pageProps, opts, async (p, msgId, ts, env) => {
-      const pname = typeof env.properties['name'] === 'string' ? env.properties['name'] : name;
-      const msg: PageMessage = {
-        messageId: msgId,
-        timestamp: ts,
-        userId: env.context.userId ?? '',
-        anonymousId: env.context.anonymousId ?? '',
-        name: pname,
-        properties: env.properties,
-        context: buildMessageContext(env.context),
-      };
-      await p.page(msg);
-    });
+    await this.dispatchAll(
+      'page',
+      '$page',
+      undefined,
+      pageProps,
+      opts,
+      async (p, msgId, ts, env) => {
+        const pname = typeof env.properties['name'] === 'string' ? env.properties['name'] : name;
+        const msg: PageMessage = {
+          messageId: msgId,
+          timestamp: ts,
+          userId: env.context.userId ?? '',
+          anonymousId: env.context.anonymousId ?? '',
+          name: pname,
+          properties: env.properties,
+          context: buildMessageContext(env.context),
+        };
+        await p.page(msg);
+      },
+    );
   }
 
   async alias(userId: string, previousId: string, opts?: TrackOptions): Promise<void> {
-    await this.dispatchAll('alias', '$alias', {}, opts, async (p, msgId, ts, env) => {
+    await this.dispatchAll('alias', '$alias', undefined, {}, opts, async (p, msgId, ts, env) => {
       const msg: AliasMessage = {
         messageId: msgId,
         timestamp: ts,
@@ -262,11 +282,13 @@ export class Client {
   private async dispatchAll(
     operation: 'track' | 'identify' | 'group' | 'page' | 'alias',
     eventName: string,
+    eventStatus: string | undefined,
     properties: Record<string, unknown>,
     opts: TrackOptions | undefined,
     fn: ProviderFn,
   ): Promise<DispatchResult> {
-    if (opts?.noop) {
+    const isDraft = eventStatus === 'draft';
+    if ((opts?.noop || isDraft) && !(isDraft && this.allowDraft)) {
       return { success: [], failed: [], partialSuccess: false };
     }
     const merged = this.mergeContextChain(opts);

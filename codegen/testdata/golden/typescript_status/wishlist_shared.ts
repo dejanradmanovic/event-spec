@@ -10,6 +10,7 @@ export interface WishlistSharedProperties {
 export function wishlistShared(client: Client, props: WishlistSharedProperties, opts?: TrackOptions): Promise<void> {
     return client.track({
         name: 'Wishlist Shared',
+        status: 'draft',
         properties: {
             wishlist_id: props.wishlistId,
         },
