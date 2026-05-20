@@ -192,6 +192,9 @@ type providerFn func(ctx context.Context, p provider.Provider, msgID string, ts 
 //  5. Aggregate into DispatchResult
 func (c *Client) dispatchAll(ctx context.Context, operation, eventName string, properties map[string]any, fn providerFn, opts []TrackOption) (DispatchResult, error) {
 	to := resolveOptions(opts)
+	if to.noop {
+		return DispatchResult{}, nil
+	}
 	merged := c.mergeContextChain(ctx, to.contextOverride)
 	allHooks := c.collectAllHooks()
 

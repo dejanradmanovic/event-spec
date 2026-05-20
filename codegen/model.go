@@ -19,6 +19,9 @@ type EventTemplateData struct {
 	EventName      string // canonical event name sent to providers
 	Version        string // "1-0-0"
 	Description    string
+	Status         string // "draft" | "active" | "deprecated" | "deleted"
+	IsDeprecated   bool   // true when Status == "deprecated"
+	IsDraft        bool   // true when Status == "draft"
 	MethodName     string // language-adapted method name
 	ClassName      string // language-adapted type name for the event
 	ParamsTypeName string // "ProductViewedProperties"

@@ -8,7 +8,8 @@ import { Client, TrackOptions } from '@dejanradmanovic/event-spec-api';
 {{end}}{{end}}
 export class EventSpec {
     constructor(private readonly client: Client) {}
-{{range .Events}}
+{{range .Events}}{{if .IsDeprecated}}
+    /** @deprecated {{.Description}} */{{end}}
     readonly {{.MethodName}} = ({{if .HasProps}}props: {{.ParamsTypeName}}, {{end}}opts?: TrackOptions) =>
         {{.MethodName}}(this.client{{if .HasProps}}, props{{end}}, opts);
 {{end}}}

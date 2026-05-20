@@ -22,6 +22,9 @@ func buildTemplateData(events []*spec.EventDef, lc LangConfig, workspace, source
 		Lang:        lc,
 	}
 	for _, def := range sorted {
+		if def.Status == spec.StatusDeleted {
+			continue
+		}
 		td.Events = append(td.Events, buildEventData(def, lc))
 	}
 	return td
@@ -46,6 +49,9 @@ func buildEventData(def *spec.EventDef, lc LangConfig) EventTemplateData {
 		EventName:      eventName,
 		Version:        def.Version,
 		Description:    def.Description,
+		Status:         string(def.Status),
+		IsDeprecated:   def.Status == spec.StatusDeprecated,
+		IsDraft:        def.Status == spec.StatusDraft,
 		MethodName:     namer.MethodName(def.Name),
 		ClassName:      className,
 		ParamsTypeName: className + "Properties",
