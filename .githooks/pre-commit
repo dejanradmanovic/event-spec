@@ -15,7 +15,7 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 0
 fi
 
-pnpm typecheck && pnpm lint
+pnpm format:check && pnpm typecheck && pnpm lint
 STATUS=$?
 
 if [ $STATUS -ne 0 ]; then

@@ -20,7 +20,10 @@ describe('EventQueue', () => {
   it('flush drains up to batchSize items and calls onFlush', async () => {
     const flushed: string[][] = [];
     const q = new EventQueue<string>(
-      (items) => { flushed.push([...items]); return Promise.resolve(); },
+      (items) => {
+        flushed.push([...items]);
+        return Promise.resolve();
+      },
       // batchSize > item count so no auto-flush fires; only explicit flush is called
       { batchSize: 10, flushIntervalMs: 0 },
     );
@@ -35,7 +38,10 @@ describe('EventQueue', () => {
   it('auto-flush fires synchronously when batchSize threshold is reached', async () => {
     const flushed: string[][] = [];
     const q = new EventQueue<string>(
-      (items) => { flushed.push([...items]); return Promise.resolve(); },
+      (items) => {
+        flushed.push([...items]);
+        return Promise.resolve();
+      },
       { batchSize: 3, flushIntervalMs: 0 },
     );
     q.enqueue('a');
@@ -51,7 +57,10 @@ describe('EventQueue', () => {
   it('flushAll drains all items across multiple batches', async () => {
     const flushed: string[][] = [];
     const q = new EventQueue<string>(
-      (items) => { flushed.push([...items]); return Promise.resolve(); },
+      (items) => {
+        flushed.push([...items]);
+        return Promise.resolve();
+      },
       { batchSize: 2, flushIntervalMs: 0 },
     );
     q.enqueue('a');
@@ -64,16 +73,24 @@ describe('EventQueue', () => {
 
   it('flush is a no-op when queue is empty', async () => {
     let calls = 0;
-    const q = new EventQueue<string>(() => { calls++; return Promise.resolve(); }, { flushIntervalMs: 0 });
+    const q = new EventQueue<string>(
+      () => {
+        calls++;
+        return Promise.resolve();
+      },
+      { flushIntervalMs: 0 },
+    );
     await q.flush();
     expect(calls).toBe(0);
   });
 
   it('overflow drop_oldest drops the oldest item when full', () => {
-    const q = new EventQueue<number>(
-      () => Promise.resolve(),
-      { maxSize: 3, batchSize: 100, flushIntervalMs: 0, overflowPolicy: 'drop_oldest' },
-    );
+    const q = new EventQueue<number>(() => Promise.resolve(), {
+      maxSize: 3,
+      batchSize: 100,
+      flushIntervalMs: 0,
+      overflowPolicy: 'drop_oldest',
+    });
     q.enqueue(1);
     q.enqueue(2);
     q.enqueue(3);
@@ -82,7 +99,10 @@ describe('EventQueue', () => {
 
     const captured: number[][] = [];
     const q2 = new EventQueue<number>(
-      (items) => { captured.push([...items]); return Promise.resolve(); },
+      (items) => {
+        captured.push([...items]);
+        return Promise.resolve();
+      },
       { maxSize: 3, batchSize: 100, flushIntervalMs: 0, overflowPolicy: 'drop_oldest' },
     );
     q2.enqueue(1);
@@ -95,10 +115,12 @@ describe('EventQueue', () => {
   });
 
   it('overflow drop_newest silently drops the incoming item when full', () => {
-    const q = new EventQueue<number>(
-      () => Promise.resolve(),
-      { maxSize: 2, batchSize: 100, flushIntervalMs: 0, overflowPolicy: 'drop_newest' },
-    );
+    const q = new EventQueue<number>(() => Promise.resolve(), {
+      maxSize: 2,
+      batchSize: 100,
+      flushIntervalMs: 0,
+      overflowPolicy: 'drop_newest',
+    });
     q.enqueue(1);
     q.enqueue(2);
     q.enqueue(3); // dropped
@@ -108,7 +130,10 @@ describe('EventQueue', () => {
   it('timer triggers flushAll after interval elapses', async () => {
     const flushed: string[][] = [];
     const q = new EventQueue<string>(
-      (items) => { flushed.push([...items]); return Promise.resolve(); },
+      (items) => {
+        flushed.push([...items]);
+        return Promise.resolve();
+      },
       { flushIntervalMs: 1000, batchSize: 100 },
     );
     q.enqueue('x');
@@ -121,7 +146,10 @@ describe('EventQueue', () => {
   it('shutdown flushes remaining items and stops the timer', async () => {
     const flushed: string[][] = [];
     const q = new EventQueue<string>(
-      (items) => { flushed.push([...items]); return Promise.resolve(); },
+      (items) => {
+        flushed.push([...items]);
+        return Promise.resolve();
+      },
       { flushIntervalMs: 5000, batchSize: 100 },
     );
     q.enqueue('a');

@@ -1,10 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-  Client,
-  setGlobalContext,
-  setGlobalProvider,
-  addGlobalHooks,
-} from './client';
+import { Client, setGlobalContext, setGlobalProvider, addGlobalHooks } from './client';
 import type { DispatchResult, Event, TrackOptions } from './client';
 import { UnimplementedHook } from './hooks';
 import type { Hook, HookContext, HookHints, EventEnvelope } from './hooks';
@@ -39,20 +34,36 @@ class CaptureProvider implements Provider {
     };
   }
 
-  hooks(): Hook[] { return []; }
-  async track(msg: TrackMessage): Promise<void> { this.tracked.push(msg); }
-  async identify(msg: IdentifyMessage): Promise<void> { this.identified.push(msg); }
-  async group(msg: GroupMessage): Promise<void> { this.grouped.push(msg); }
-  async page(msg: PageMessage): Promise<void> { this.paged.push(msg); }
-  async alias(msg: AliasMessage): Promise<void> { this.aliased.push(msg); }
+  hooks(): Hook[] {
+    return [];
+  }
+  async track(msg: TrackMessage): Promise<void> {
+    this.tracked.push(msg);
+  }
+  async identify(msg: IdentifyMessage): Promise<void> {
+    this.identified.push(msg);
+  }
+  async group(msg: GroupMessage): Promise<void> {
+    this.grouped.push(msg);
+  }
+  async page(msg: PageMessage): Promise<void> {
+    this.paged.push(msg);
+  }
+  async alias(msg: AliasMessage): Promise<void> {
+    this.aliased.push(msg);
+  }
   async flush(): Promise<void> {}
   async shutdown(): Promise<void> {}
 }
 
 // FailingProvider always rejects track calls.
 class FailingProvider extends CaptureProvider {
-  constructor() { super('failing'); }
-  override async track(): Promise<void> { throw new Error('provider down'); }
+  constructor() {
+    super('failing');
+  }
+  override async track(): Promise<void> {
+    throw new Error('provider down');
+  }
 }
 
 beforeEach(() => {
@@ -217,11 +228,15 @@ describe('Hook chain integration', () => {
     const log: string[] = [];
 
     class LogHook extends UnimplementedHook {
-      constructor(private readonly id: string) { super(); }
+      constructor(private readonly id: string) {
+        super();
+      }
       override async after(_hc: HookContext, _result: unknown, _hints?: HookHints): Promise<void> {
         log.push(`${this.id}:after`);
       }
-      override finally(): void { log.push(`${this.id}:finally`); }
+      override finally(): void {
+        log.push(`${this.id}:finally`);
+      }
     }
 
     const client = new Client({ providers: [p], hooks: [new LogHook('h1'), new LogHook('h2')] });
@@ -233,12 +248,19 @@ describe('Hook chain integration', () => {
     const log: string[] = [];
 
     class LogHook extends UnimplementedHook {
-      constructor(private readonly id: string) { super(); }
-      override async before(): Promise<EventEnvelope | null> { log.push(`${this.id}:before`); return null; }
+      constructor(private readonly id: string) {
+        super();
+      }
+      override async before(): Promise<EventEnvelope | null> {
+        log.push(`${this.id}:before`);
+        return null;
+      }
     }
 
     class ProviderWithHook extends CaptureProvider {
-      override hooks(): Hook[] { return [new LogHook('prov')]; }
+      override hooks(): Hook[] {
+        return [new LogHook('prov')];
+      }
     }
 
     const p = new ProviderWithHook('p1');
@@ -301,7 +323,10 @@ describe('global API', () => {
     const log: string[] = [];
 
     class GlobalHook extends UnimplementedHook {
-      override async before(): Promise<EventEnvelope | null> { log.push('global:before'); return null; }
+      override async before(): Promise<EventEnvelope | null> {
+        log.push('global:before');
+        return null;
+      }
     }
 
     addGlobalHooks(new GlobalHook());

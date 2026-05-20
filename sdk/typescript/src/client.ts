@@ -1,5 +1,11 @@
 import { type AnalyticsContext, merge } from './context';
-import { HookChain, type Hook, type HookContext, type HookHints, type EventEnvelope } from './hooks';
+import {
+  HookChain,
+  type Hook,
+  type HookContext,
+  type HookHints,
+  type EventEnvelope,
+} from './hooks';
 import type {
   Provider,
   MessageContext,
@@ -16,7 +22,10 @@ let _globalHooks: Hook[] = [];
 let _globalClient: Client | null = null;
 
 function getGlobalContext(): AnalyticsContext {
-  return { ..._globalContext, attributes: _globalContext.attributes ? { ..._globalContext.attributes } : undefined };
+  return {
+    ..._globalContext,
+    attributes: _globalContext.attributes ? { ..._globalContext.attributes } : undefined,
+  };
 }
 
 function getGlobalHooks(): Hook[] {
@@ -60,12 +69,7 @@ export interface ClientOptions {
   hooks?: Hook[];
 }
 
-type ProviderFn = (
-  p: Provider,
-  msgId: string,
-  ts: Date,
-  env: EventEnvelope,
-) => Promise<void>;
+type ProviderFn = (p: Provider, msgId: string, ts: Date, env: EventEnvelope) => Promise<void>;
 
 export class Client {
   private providers: Provider[];
@@ -127,90 +131,75 @@ export class Client {
     );
   }
 
-  async identify(userId: string, traits: Record<string, unknown>, opts?: TrackOptions): Promise<void> {
-    await this.dispatchAll(
-      'identify',
-      '$identify',
-      traits,
-      opts,
-      async (p, msgId, ts, env) => {
-        const uid = env.context.userId || userId;
-        const msg: IdentifyMessage = {
-          messageId: msgId,
-          timestamp: ts,
-          userId: uid,
-          anonymousId: env.context.anonymousId ?? '',
-          traits: env.properties,
-          context: buildMessageContext(env.context),
-        };
-        await p.identify(msg);
-      },
-    );
+  async identify(
+    userId: string,
+    traits: Record<string, unknown>,
+    opts?: TrackOptions,
+  ): Promise<void> {
+    await this.dispatchAll('identify', '$identify', traits, opts, async (p, msgId, ts, env) => {
+      const uid = env.context.userId || userId;
+      const msg: IdentifyMessage = {
+        messageId: msgId,
+        timestamp: ts,
+        userId: uid,
+        anonymousId: env.context.anonymousId ?? '',
+        traits: env.properties,
+        context: buildMessageContext(env.context),
+      };
+      await p.identify(msg);
+    });
   }
 
-  async group(groupId: string, traits: Record<string, unknown>, opts?: TrackOptions): Promise<void> {
+  async group(
+    groupId: string,
+    traits: Record<string, unknown>,
+    opts?: TrackOptions,
+  ): Promise<void> {
     const props = { ...traits, group_id: groupId };
-    await this.dispatchAll(
-      'group',
-      '$group',
-      props,
-      opts,
-      async (p, msgId, ts, env) => {
-        const gid = typeof env.properties['group_id'] === 'string' ? env.properties['group_id'] : groupId;
-        const msg: GroupMessage = {
-          messageId: msgId,
-          timestamp: ts,
-          userId: env.context.userId ?? '',
-          anonymousId: env.context.anonymousId ?? '',
-          groupId: gid,
-          traits: env.properties,
-          context: buildMessageContext(env.context),
-        };
-        await p.group(msg);
-      },
-    );
+    await this.dispatchAll('group', '$group', props, opts, async (p, msgId, ts, env) => {
+      const gid =
+        typeof env.properties['group_id'] === 'string' ? env.properties['group_id'] : groupId;
+      const msg: GroupMessage = {
+        messageId: msgId,
+        timestamp: ts,
+        userId: env.context.userId ?? '',
+        anonymousId: env.context.anonymousId ?? '',
+        groupId: gid,
+        traits: env.properties,
+        context: buildMessageContext(env.context),
+      };
+      await p.group(msg);
+    });
   }
 
   async page(name: string, props: Record<string, unknown>, opts?: TrackOptions): Promise<void> {
     const pageProps = { ...props, name };
-    await this.dispatchAll(
-      'page',
-      '$page',
-      pageProps,
-      opts,
-      async (p, msgId, ts, env) => {
-        const pname = typeof env.properties['name'] === 'string' ? env.properties['name'] : name;
-        const msg: PageMessage = {
-          messageId: msgId,
-          timestamp: ts,
-          userId: env.context.userId ?? '',
-          anonymousId: env.context.anonymousId ?? '',
-          name: pname,
-          properties: env.properties,
-          context: buildMessageContext(env.context),
-        };
-        await p.page(msg);
-      },
-    );
+    await this.dispatchAll('page', '$page', pageProps, opts, async (p, msgId, ts, env) => {
+      const pname = typeof env.properties['name'] === 'string' ? env.properties['name'] : name;
+      const msg: PageMessage = {
+        messageId: msgId,
+        timestamp: ts,
+        userId: env.context.userId ?? '',
+        anonymousId: env.context.anonymousId ?? '',
+        name: pname,
+        properties: env.properties,
+        context: buildMessageContext(env.context),
+      };
+      await p.page(msg);
+    });
   }
 
   async alias(userId: string, previousId: string, opts?: TrackOptions): Promise<void> {
-    await this.dispatchAll(
-      'alias',
-      '$alias',
-      {},
-      opts,
-      async (p, msgId, ts, env) => {
-        const msg: AliasMessage = {
-          messageId: msgId,
-          timestamp: ts,
-          userId,
-          previousId,
-          context: buildMessageContext(env.context),
-        };
-        await p.alias(msg);
-      },
-    );
+    await this.dispatchAll('alias', '$alias', {}, opts, async (p, msgId, ts, env) => {
+      const msg: AliasMessage = {
+        messageId: msgId,
+        timestamp: ts,
+        userId,
+        previousId,
+        context: buildMessageContext(env.context),
+      };
+      await p.alias(msg);
+    });
   }
 
   async flush(): Promise<void> {
@@ -224,7 +213,7 @@ export class Client {
       }
     }
     if (errors.length > 0) {
-      throw new Error(`flush: ${errors.map(e => e.message).join(', ')}`);
+      throw new Error(`flush: ${errors.map((e) => e.message).join(', ')}`);
     }
   }
 
@@ -239,7 +228,7 @@ export class Client {
       }
     }
     if (errors.length > 0) {
-      throw new Error(`shutdown: ${errors.map(e => e.message).join(', ')}`);
+      throw new Error(`shutdown: ${errors.map((e) => e.message).join(', ')}`);
     }
   }
 
@@ -264,7 +253,7 @@ export class Client {
   private collectAllHooks(): Hook[] {
     const apiHooks = getGlobalHooks();
     const clientHooks = [...this.clientHooks];
-    const provHooks = this.providers.flatMap(p => p.hooks());
+    const provHooks = this.providers.flatMap((p) => p.hooks());
     return [...apiHooks, ...clientHooks, ...provHooks];
   }
 
@@ -343,14 +332,15 @@ export class Client {
     const failed: ProviderResult[] = [];
 
     for (const r of settled) {
-      const result = r.status === 'fulfilled'
-        ? r.value
-        : {
-            providerName: 'unknown',
-            state: 'failed' as DeliveryState,
-            error: r.reason instanceof Error ? r.reason : new Error(String(r.reason)),
-            latencyMs: 0,
-          };
+      const result =
+        r.status === 'fulfilled'
+          ? r.value
+          : {
+              providerName: 'unknown',
+              state: 'failed' as DeliveryState,
+              error: r.reason instanceof Error ? r.reason : new Error(String(r.reason)),
+              latencyMs: 0,
+            };
 
       if (result.error) {
         failed.push(result);
@@ -417,7 +407,9 @@ function generateMessageId(): string {
   }
   bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
   bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant bits
-  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
@@ -435,34 +427,74 @@ function buildMessageContext(ctx: AnalyticsContext): MessageContext {
     switch (k) {
       case 'ip_address':
       case 'ip':
-        if (typeof v === 'string') { mc.ipAddress = v; } else { extra[k] = v; }
+        if (typeof v === 'string') {
+          mc.ipAddress = v;
+        } else {
+          extra[k] = v;
+        }
         break;
       case 'user_agent':
-        if (typeof v === 'string') { mc.userAgent = v; } else { extra[k] = v; }
+        if (typeof v === 'string') {
+          mc.userAgent = v;
+        } else {
+          extra[k] = v;
+        }
         break;
       case 'locale':
-        if (typeof v === 'string') { mc.locale = v; } else { extra[k] = v; }
+        if (typeof v === 'string') {
+          mc.locale = v;
+        } else {
+          extra[k] = v;
+        }
         break;
       case 'timezone':
-        if (typeof v === 'string') { mc.timezone = v; } else { extra[k] = v; }
+        if (typeof v === 'string') {
+          mc.timezone = v;
+        } else {
+          extra[k] = v;
+        }
         break;
       case 'library':
-        if (isRecord(v)) { mc.library = v; } else { extra[k] = v; }
+        if (isRecord(v)) {
+          mc.library = v;
+        } else {
+          extra[k] = v;
+        }
         break;
       case 'app':
-        if (isRecord(v)) { mc.app = v; } else { extra[k] = v; }
+        if (isRecord(v)) {
+          mc.app = v;
+        } else {
+          extra[k] = v;
+        }
         break;
       case 'device':
-        if (isRecord(v)) { mc.device = v; } else { extra[k] = v; }
+        if (isRecord(v)) {
+          mc.device = v;
+        } else {
+          extra[k] = v;
+        }
         break;
       case 'os':
-        if (isRecord(v)) { mc.os = v; } else { extra[k] = v; }
+        if (isRecord(v)) {
+          mc.os = v;
+        } else {
+          extra[k] = v;
+        }
         break;
       case 'network':
-        if (isRecord(v)) { mc.network = v; } else { extra[k] = v; }
+        if (isRecord(v)) {
+          mc.network = v;
+        } else {
+          extra[k] = v;
+        }
         break;
       case 'screen':
-        if (isRecord(v)) { mc.screen = v; } else { extra[k] = v; }
+        if (isRecord(v)) {
+          mc.screen = v;
+        } else {
+          extra[k] = v;
+        }
         break;
       default:
         extra[k] = v;

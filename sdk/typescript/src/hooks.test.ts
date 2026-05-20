@@ -35,7 +35,9 @@ class Recorder extends UnimplementedHook {
 
 // CancelHook cancels the before chain by throwing.
 class CancelHook extends UnimplementedHook {
-  constructor(private readonly err: Error) { super(); }
+  constructor(private readonly err: Error) {
+    super();
+  }
 
   override async before(): Promise<EventEnvelope | null> {
     throw this.err;
@@ -44,7 +46,9 @@ class CancelHook extends UnimplementedHook {
 
 // RenameHook replaces EventName via the returned EventEnvelope.
 class RenameHook extends UnimplementedHook {
-  constructor(private readonly newName: string) { super(); }
+  constructor(private readonly newName: string) {
+    super();
+  }
 
   override async before(hc: HookContext): Promise<EventEnvelope | null> {
     return { eventName: this.newName, properties: {}, context: hc.context };
@@ -66,10 +70,7 @@ describe('HookChain.before', () => {
   it('cancellation stops subsequent hooks', async () => {
     const log: string[] = [];
     const sentinel = new Error('consent denied');
-    const chain = new HookChain([
-      new CancelHook(sentinel),
-      new Recorder('never', log),
-    ]);
+    const chain = new HookChain([new CancelHook(sentinel), new Recorder('never', log)]);
     await expect(chain.before(baseHC())).rejects.toThrow('consent denied');
     expect(log).toHaveLength(0);
   });
@@ -77,7 +78,10 @@ describe('HookChain.before', () => {
   it('mutation propagates eventName to subsequent hooks', async () => {
     let seen = '';
     const observer: Hook = {
-      async before(hc) { seen = hc.eventName; return null; },
+      async before(hc) {
+        seen = hc.eventName;
+        return null;
+      },
       async after() {},
       error() {},
       finally() {},

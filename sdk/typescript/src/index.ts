@@ -39,4 +39,3 @@ export {
   shutdown,
   track,
 } from './client';
-
