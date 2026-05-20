@@ -61,22 +61,52 @@ type Hook interface {
 	Finally(ctx context.Context, hc HookContext, result HookResult, hints HookHints)
 }
 
-// UnimplementedHook provides no-op implementations of all Hook methods.
-// Embed in your hook struct to only override the stages you need.
-type UnimplementedHook struct{}
+// Chain is a slice of hooks that implements the hook chain executor.
+//
+// Before runs in forward (governance-first) order: each non-nil *EventEnvelope returned by a
+// hook replaces the active event for all subsequent hooks. The first error cancels the chain.
+// After, Error, and Finally run in reverse order (provider → invocation → client → api).
+type Chain []Hook
 
-// Before is a no-op that allows the event to proceed unchanged.
-func (UnimplementedHook) Before(_ context.Context, _ HookContext, _ HookHints) (*EventEnvelope, error) {
-	return nil, nil
+// Before runs each hook's Before method in forward order, threading EventEnvelope mutations
+// through by updating hc for subsequent hooks. Returns the final mutated *EventEnvelope, or
+// nil if no hook mutated the event.
+func (c Chain) Before(ctx context.Context, hc HookContext, hints HookHints) (*EventEnvelope, error) {
+	var latest *EventEnvelope
+	for _, h := range c {
+		result, err := h.Before(ctx, hc, hints)
+		if err != nil {
+			return nil, err
+		}
+		if result != nil {
+			latest = result
+			hc.EventName = result.EventName
+			hc.Context = result.Context
+		}
+	}
+	return latest, nil
 }
 
-// After is a no-op. Override in your hook to react to successful provider delivery.
-func (UnimplementedHook) After(_ context.Context, _ HookContext, _ HookResult, _ HookHints) error {
+// After runs each hook's After method in reverse order (provider → client → api).
+func (c Chain) After(ctx context.Context, hc HookContext, result HookResult, hints HookHints) error {
+	for i := len(c) - 1; i >= 0; i-- {
+		if err := c[i].After(ctx, hc, result, hints); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-// Error is a no-op. Override in your hook to react to provider delivery failures.
-func (UnimplementedHook) Error(_ context.Context, _ HookContext, _ error, _ HookHints) {}
+// Error runs each hook's Error method in reverse order (provider → client → api).
+func (c Chain) Error(ctx context.Context, hc HookContext, err error, hints HookHints) {
+	for i := len(c) - 1; i >= 0; i-- {
+		c[i].Error(ctx, hc, err, hints)
+	}
+}
 
-// Finally is a no-op. Override in your hook for cleanup that always runs after dispatch.
-func (UnimplementedHook) Finally(_ context.Context, _ HookContext, _ HookResult, _ HookHints) {}
+// Finally runs each hook's Finally method in reverse order (provider → client → api).
+func (c Chain) Finally(ctx context.Context, hc HookContext, result HookResult, hints HookHints) {
+	for i := len(c) - 1; i >= 0; i-- {
+		c[i].Finally(ctx, hc, result, hints)
+	}
+}
