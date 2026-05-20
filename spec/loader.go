@@ -154,6 +154,17 @@ func WalkDestinationDefs(destinationsDir string) ([]*DestinationDef, []error) {
 	return defs, errs
 }
 
+// ParseEventDefBytes parses an event spec from raw YAML bytes.
+// sourcePath is stored in EventDef.SourcePath for error reporting.
+func ParseEventDefBytes(data []byte, sourcePath string) (*EventDef, error) {
+	var def EventDef
+	if err := yaml.Unmarshal(data, &def); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", sourcePath, err)
+	}
+	def.SourcePath = sourcePath
+	return &def, nil
+}
+
 // ParseSchemaVer parses a SchemaVer string like "1-2-0" into its components.
 func ParseSchemaVer(v string) (SchemaVer, error) {
 	parts := strings.Split(v, "-")
