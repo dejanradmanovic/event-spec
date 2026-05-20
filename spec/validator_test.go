@@ -10,7 +10,7 @@ func validProductViewedDef() *EventDef {
 	return &EventDef{
 		Schema:    "https://event-spec.io/schemas/event/v1",
 		Name:      "product_viewed",
-		Version:   "1-2-0",
+		Version:   "2-0-0",
 		Namespace: "ecommerce",
 		EventName: "Product Viewed",
 		Status:    StatusActive,
@@ -124,7 +124,7 @@ func TestValidateEventDef_invalidPropertyPriority(t *testing.T) {
 }
 
 func TestValidateEventDef_fromFile(t *testing.T) {
-	path := filepath.Join("testdata", "specs", "ecommerce", "product_viewed", "1-2-0.yaml")
+	path := filepath.Join("testdata", "specs", "ecommerce", "product_viewed", "2-0-0.yaml")
 	def, err := LoadEventDef(path)
 	if err != nil {
 		t.Fatalf("load: %v", err)

@@ -4,8 +4,8 @@ name: product_viewed
 display_name: "Product Viewed"
 description: |
   Fired when a user views the detail page of a product.
-version: "1-2-0"
-changelog: "Added optional coupon_code property"
+version: "2-0-0"
+changelog: "Added required product_name; expanded category enum; added coupon_code"
 status: active
 namespace: ecommerce
 tags: [ product, ecommerce, funnel ]

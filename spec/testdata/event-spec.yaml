@@ -1,0 +1,9 @@
+version: 1
+workspace: testdata
+
+registry:
+  mode: local
+
+specs_dir: ./specs
+sources_dir: ./sources
+destinations_dir: ./destinations

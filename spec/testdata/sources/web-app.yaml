@@ -11,4 +11,4 @@ output:
   path: ./src/analytics/generated
   package: "@my-company/analytics"
 version_pinning:
-  ecommerce/product_viewed: "1-2-0"
+  ecommerce/product_viewed: "1-0-0"

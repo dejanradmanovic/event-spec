@@ -1,0 +1,27 @@
+$schema: "https://event-spec.io/schemas/event/v1"
+name: product_viewed
+display_name: "Product Viewed"
+version: "1-1-0"
+status: active
+namespace: ecommerce
+type: track
+event_name: "Product Viewed"
+properties:
+  product_id:
+    type: string
+    required: true
+    description: "The SKU or database ID of the product"
+  price:
+    type: number
+    required: true
+  category:
+    type: string
+    required: true
+    enum:
+      - clothing
+      - electronics
+      - books
+      - home
+  currency:
+    type: string
+    required: false

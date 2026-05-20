@@ -7,7 +7,7 @@ import (
 )
 
 func TestLoadEventDef_valid(t *testing.T) {
-	path := filepath.Join("testdata", "specs", "ecommerce", "product_viewed", "1-2-0.yaml")
+	path := filepath.Join("testdata", "specs", "ecommerce", "product_viewed", "2-0-0.yaml")
 	def, err := LoadEventDef(path)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -16,8 +16,8 @@ func TestLoadEventDef_valid(t *testing.T) {
 	if def.Name != "product_viewed" {
 		t.Errorf("Name = %q, want %q", def.Name, "product_viewed")
 	}
-	if def.Version != "1-2-0" {
-		t.Errorf("Version = %q, want %q", def.Version, "1-2-0")
+	if def.Version != "2-0-0" {
+		t.Errorf("Version = %q, want %q", def.Version, "2-0-0")
 	}
 	if def.Namespace != "ecommerce" {
 		t.Errorf("Namespace = %q, want %q", def.Namespace, "ecommerce")
@@ -116,9 +116,9 @@ func TestLoadSourceDef(t *testing.T) {
 	if len(def.Events) != 2 {
 		t.Errorf("len(Events) = %d, want 2", len(def.Events))
 	}
-	if def.VersionPinning["ecommerce/product_viewed"] != "1-2-0" {
+	if def.VersionPinning["ecommerce/product_viewed"] != "1-0-0" {
 		t.Errorf("VersionPinning[ecommerce/product_viewed] = %q, want %q",
-			def.VersionPinning["ecommerce/product_viewed"], "1-2-0")
+			def.VersionPinning["ecommerce/product_viewed"], "1-0-0")
 	}
 }
 
@@ -143,8 +143,8 @@ func TestWalkEventDefs(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
-	if len(defs) != 1 {
-		t.Fatalf("len(defs) = %d, want 1", len(defs))
+	if len(defs) != 2 {
+		t.Fatalf("len(defs) = %d, want 2", len(defs))
 	}
 	if defs[0].Name != "product_viewed" {
 		t.Errorf("defs[0].Name = %q, want %q", defs[0].Name, "product_viewed")
