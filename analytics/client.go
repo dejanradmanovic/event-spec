@@ -186,7 +186,7 @@ type providerFn func(ctx context.Context, p provider.Provider, msgID string, ts 
 //
 // Processing order:
 //  1. Merge 4-level AnalyticsContext chain
-//  2. Run all Before hooks (api â†’ client â†’ provider, governance-first)
+//  2. Run all Before hooks (api → client → provider, governance-first)
 //  3. Dispatch concurrently to each provider via fn
 //  4. Run After/Error/Finally per provider in reverse hook order
 //  5. Aggregate into DispatchResult
@@ -201,7 +201,7 @@ func (c *Client) dispatchAll(ctx context.Context, operation, eventName string, p
 		Context:   merged,
 	}
 
-	// Run Before hooks â€” runs once, gates ALL providers.
+	// Run Before hooks — runs once, gates ALL providers.
 	env := &hooks.EventEnvelope{
 		EventName:  eventName,
 		Properties: cloneProperties(properties),
@@ -290,7 +290,7 @@ func (c *Client) dispatchAll(ctx context.Context, operation, eventName string, p
 }
 
 // mergeContextChain applies the 4-level precedence chain:
-// global (1) â†’ transaction/context.Context (2) â†’ WithTransaction (2b) â†’ client (3) â†’ invocation (4).
+// global (1) → transaction/context.Context (2) → WithTransaction (2b) → client (3) → invocation (4).
 func (c *Client) mergeContextChain(ctx context.Context, invocationOverride *AnalyticsContext) AnalyticsContext {
 	result := getGlobalContext() // level 1
 
@@ -398,7 +398,7 @@ func buildMessageContext(ctx AnalyticsContext) provider.MessageContext {
 				extra[k] = v
 			}
 
-		// Structured map fields â€” set at SDK init to describe the environment.
+		// Structured map fields — set at SDK init to describe the environment.
 		case "library":
 			if m, ok := v.(map[string]any); ok {
 				mc.Library = m

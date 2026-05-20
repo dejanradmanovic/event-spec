@@ -45,7 +45,7 @@ func TestQueue_BatchFlush(t *testing.T) {
 
 	cfg := provider.ProviderConfig{
 		BatchSize:     3,
-		FlushInterval: 10 * time.Second, // long interval â€” batch should fire first
+		FlushInterval: 10 * time.Second, // long interval — batch should fire first
 		MaxQueueSize:  100,
 	}
 	q := provider.NewQueue(cfg, collectFlushFunc(&mu, &collected))
@@ -124,7 +124,7 @@ func TestQueue_OverflowDropOldest(t *testing.T) {
 		}
 	}
 
-	// Enqueue D â€” should evict A (oldest).
+	// Enqueue D — should evict A (oldest).
 	if err := q.Enqueue(context.Background(), trackMsg("D")); err != nil {
 		t.Fatalf("Enqueue D: %v", err)
 	}
@@ -377,7 +377,7 @@ func TestQueue_DefaultConfig(t *testing.T) {
 		return nil
 	}
 
-	// Zero config â€” should not panic and should flush on interval.
+	// Zero config — should not panic and should flush on interval.
 	q := provider.NewQueue(provider.ProviderConfig{FlushInterval: 50 * time.Millisecond}, fn)
 	defer q.Shutdown(context.Background()) //nolint:errcheck
 

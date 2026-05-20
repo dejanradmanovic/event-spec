@@ -79,7 +79,7 @@ func TestValidationHook_Before_missingRequiredProperty_rejectsEvent(t *testing.T
 }
 
 func TestValidationHook_Before_unknownEvent_passesThrough(t *testing.T) {
-	// lookup always returns false â†’ no spec â†’ validation is skipped
+	// lookup always returns false → no spec → validation is skipped
 	noSpec := func(_ string) (*spec.EventDef, bool) { return nil, false }
 	h := validation.New(noSpec)
 	hc := trackHC("Legacy Raw Event", map[string]any{"arbitrary": 42})

@@ -96,7 +96,7 @@ type AliasMessage struct {
 }
 
 // Provider is the interface every analytics destination adapter must satisfy.
-// The single interface is intentional â€” providers that don't support a method
+// The single interface is intentional — providers that don't support a method
 // return ErrUnsupportedOperation rather than silently no-oping.
 type Provider interface {
 	Metadata() ProviderMetadata

@@ -14,7 +14,7 @@ import (
 )
 
 // openRegistry constructs a Registry from the workspace config.
-// For git mode the local cache must already exist â€” run 'event-spec pull' first.
+// For git mode the local cache must already exist — run 'event-spec pull' first.
 // For server mode an error is returned; the server client is not yet implemented.
 func openRegistry(cfg *spec.WorkspaceConfig) (registry.Registry, error) {
 	switch cfg.Registry.Mode {

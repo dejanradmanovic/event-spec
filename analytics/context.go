@@ -8,7 +8,7 @@ import (
 
 // AnalyticsContext is a type alias for hooks.AnalyticsContext.
 // Aliased here (not copied) so analytics.AnalyticsContext and hooks.AnalyticsContext
-// are the same type â€” no conversion needed when building HookContext.
+// are the same type — no conversion needed when building HookContext.
 type AnalyticsContext = hooks.AnalyticsContext
 
 // Merge combines base and override AnalyticsContexts.
@@ -40,7 +40,7 @@ type analyticsContextKey struct{}
 
 // WithAnalyticsContext stores a TransactionContext in a stdlib context.Context.
 // Retrieve it with TransactionContextFrom. This is the only analytics context level
-// stored in context.Context â€” used by AnalyticsMiddleware for per-request scope.
+// stored in context.Context — used by AnalyticsMiddleware for per-request scope.
 func WithAnalyticsContext(ctx context.Context, tx TransactionContext) context.Context {
 	return context.WithValue(ctx, analyticsContextKey{}, tx)
 }

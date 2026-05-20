@@ -80,10 +80,10 @@ func TestSamplingHook_Before_hashStrategy_distribution(t *testing.T) {
 		}
 	}
 
-	// At 50% rate, expect 40â€“60% kept (wide tolerance for hash distribution).
+	// At 50% rate, expect 40–60% kept (wide tolerance for hash distribution).
 	rate := float64(kept) / float64(trials)
 	if rate < 0.40 || rate > 0.60 {
-		t.Errorf("hash sampling at 50%% rate: %.1f%% kept over %d trials, want 40â€“60%%", rate*100, trials)
+		t.Errorf("hash sampling at 50%% rate: %.1f%% kept over %d trials, want 40–60%%", rate*100, trials)
 	}
 }
 
@@ -99,10 +99,10 @@ func TestSamplingHook_Before_randomStrategy_distribution(t *testing.T) {
 		}
 	}
 
-	// At 10% rate, expect 8â€“12% kept (Â±2% absolute tolerance over 10k trials).
+	// At 10% rate, expect 8–12% kept (±2% absolute tolerance over 10k trials).
 	rate := float64(kept) / float64(trials)
 	if rate < 0.08 || rate > 0.12 {
-		t.Errorf("random sampling at 10%% rate: %.2f%% kept over %d trials, want 8â€“12%%", rate*100, trials)
+		t.Errorf("random sampling at 10%% rate: %.2f%% kept over %d trials, want 8–12%%", rate*100, trials)
 	}
 }
 

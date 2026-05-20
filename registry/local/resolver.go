@@ -28,9 +28,9 @@ type Resolver struct {
 	cfg Config
 
 	mu     sync.RWMutex
-	events map[string]*spec.EventDef       // "namespace/name/version" â†’ EventDef
-	srcs   map[string]*spec.SourceDef      // name â†’ SourceDef
-	dsts   map[string]*spec.DestinationDef // name â†’ DestinationDef
+	events map[string]*spec.EventDef       // "namespace/name/version" → EventDef
+	srcs   map[string]*spec.SourceDef      // name → SourceDef
+	dsts   map[string]*spec.DestinationDef // name → DestinationDef
 }
 
 // New creates a Resolver and performs the initial index load from cfg.SpecsDir.
