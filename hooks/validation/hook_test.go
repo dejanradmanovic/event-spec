@@ -1,17 +1,22 @@
 package validation_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 
+	"github.com/dejanradmanovic/event-spec/analytics"
 	"github.com/dejanradmanovic/event-spec/hooks"
 	"github.com/dejanradmanovic/event-spec/hooks/validation"
 	"github.com/dejanradmanovic/event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/testutil"
 )
 
 func TestValidationHook_Before_validEvent_passesThrough(t *testing.T) {
-	h := validation.New(lookupFor(productViewedDef()))
+	h := validation.New(lookupFor(productViewedDef()), nil)
 	hc := trackHC("Product Viewed", map[string]any{
 		"product_id":   "SKU-123",
 		"product_name": "Widget",
@@ -29,7 +34,7 @@ func TestValidationHook_Before_validEvent_passesThrough(t *testing.T) {
 }
 
 func TestValidationHook_Before_invalidPropertyType_rejectsEvent(t *testing.T) {
-	h := validation.New(lookupFor(productViewedDef()))
+	h := validation.New(lookupFor(productViewedDef()), nil)
 	hc := trackHC("Product Viewed", map[string]any{
 		"product_id":   "SKU-123",
 		"product_name": "Widget",
@@ -58,7 +63,7 @@ func TestValidationHook_Before_invalidPropertyType_rejectsEvent(t *testing.T) {
 }
 
 func TestValidationHook_Before_missingRequiredProperty_rejectsEvent(t *testing.T) {
-	h := validation.New(lookupFor(productViewedDef()))
+	h := validation.New(lookupFor(productViewedDef()), nil)
 	hc := trackHC("Product Viewed", map[string]any{
 		"product_id": "SKU-123",
 		// product_name and price are required but absent
@@ -81,7 +86,7 @@ func TestValidationHook_Before_missingRequiredProperty_rejectsEvent(t *testing.T
 func TestValidationHook_Before_unknownEvent_passesThrough(t *testing.T) {
 	// lookup always returns false → no spec → validation is skipped
 	noSpec := func(_ string) (*spec.EventDef, bool) { return nil, false }
-	h := validation.New(noSpec)
+	h := validation.New(noSpec, nil)
 	hc := trackHC("Legacy Raw Event", map[string]any{"arbitrary": 42})
 
 	got, err := h.Before(context.Background(), hc, nil)
@@ -94,7 +99,7 @@ func TestValidationHook_Before_unknownEvent_passesThrough(t *testing.T) {
 }
 
 func TestValidationHook_Before_nilMessage_passesThrough(t *testing.T) {
-	h := validation.New(lookupFor(productViewedDef()))
+	h := validation.New(lookupFor(productViewedDef()), nil)
 	hc := hooks.HookContext{
 		Operation: "track",
 		EventName: "Product Viewed",
@@ -111,7 +116,7 @@ func TestValidationHook_Before_nilMessage_passesThrough(t *testing.T) {
 }
 
 func TestValidationHook_Before_rawMapMessage_validatesProperties(t *testing.T) {
-	h := validation.New(lookupFor(productViewedDef()))
+	h := validation.New(lookupFor(productViewedDef()), nil)
 	hc := hooks.HookContext{
 		Operation: "track",
 		EventName: "Product Viewed",
@@ -134,7 +139,7 @@ func TestValidationHook_Before_rawMapMessage_validatesProperties(t *testing.T) {
 }
 
 func TestValidationHook_Before_enumViolation_rejectsEvent(t *testing.T) {
-	h := validation.New(lookupFor(productViewedDef()))
+	h := validation.New(lookupFor(productViewedDef()), nil)
 	hc := trackHC("Product Viewed", map[string]any{
 		"product_id":   "SKU-123",
 		"product_name": "Widget",
@@ -153,7 +158,7 @@ func TestValidationHook_Before_enumViolation_rejectsEvent(t *testing.T) {
 }
 
 func TestValidationHook_Before_patternViolation_rejectsEvent(t *testing.T) {
-	h := validation.New(lookupFor(productViewedDef()))
+	h := validation.New(lookupFor(productViewedDef()), nil)
 	hc := trackHC("Product Viewed", map[string]any{
 		"product_id":   "SKU-123",
 		"product_name": "Widget",
@@ -173,7 +178,7 @@ func TestValidationHook_Before_patternViolation_rejectsEvent(t *testing.T) {
 }
 
 func TestValidationHook_Before_minimumViolation_rejectsEvent(t *testing.T) {
-	h := validation.New(lookupFor(productViewedDef()))
+	h := validation.New(lookupFor(productViewedDef()), nil)
 	hc := trackHC("Product Viewed", map[string]any{
 		"product_id":   "SKU-123",
 		"product_name": "Widget",
@@ -188,6 +193,117 @@ func TestValidationHook_Before_minimumViolation_rejectsEvent(t *testing.T) {
 	var verr *validation.ValidationError
 	if !errors.As(err, &verr) {
 		t.Fatalf("error type: got %T, want *validation.ValidationError", err)
+	}
+}
+
+func TestValidationHook_Before_deletedEvent_returnsErrDeletedEvent(t *testing.T) {
+	def := productViewedDef()
+	def.Status = spec.StatusDeleted
+	h := validation.New(lookupFor(def), nil)
+	hc := trackHC("Product Viewed", map[string]any{"product_id": "SKU-1"})
+
+	_, err := h.Before(context.Background(), hc, nil)
+	if err == nil {
+		t.Fatal("expected error for deleted event, got nil")
+	}
+	if !errors.Is(err, validation.ErrDeletedEvent) {
+		t.Errorf("errors.Is(err, ErrDeletedEvent) = false; err = %v", err)
+	}
+}
+
+func TestValidationHook_Before_deprecatedEvent_warnsAndProceed(t *testing.T) {
+	def := productViewedDef()
+	def.Status = spec.StatusDeprecated
+
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	h := validation.New(lookupFor(def), logger)
+	hc := trackHC("Product Viewed", map[string]any{
+		"product_id":   "SKU-1",
+		"product_name": "Widget",
+		"category":     "electronics",
+		"price":        9.99,
+	})
+
+	got, err := h.Before(context.Background(), hc, nil)
+	if err != nil {
+		t.Fatalf("unexpected error for deprecated event: %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil envelope for valid deprecated event, got %+v", got)
+	}
+	if !strings.Contains(buf.String(), "deprecated") {
+		t.Errorf("expected deprecation warning in log, got: %s", buf.String())
+	}
+}
+
+func TestValidationHook_Before_deprecatedEvent_nilLogger_noWarningPanic(t *testing.T) {
+	def := productViewedDef()
+	def.Status = spec.StatusDeprecated
+	h := validation.New(lookupFor(def), nil)
+	hc := trackHC("Product Viewed", map[string]any{
+		"product_id":   "SKU-1",
+		"product_name": "Widget",
+		"category":     "electronics",
+		"price":        9.99,
+	})
+
+	got, err := h.Before(context.Background(), hc, nil)
+	if err != nil {
+		t.Fatalf("unexpected error when logger is nil: %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil envelope, got %+v", got)
+	}
+}
+
+func TestValidationHook_Before_draftEvent_passesThrough(t *testing.T) {
+	def := productViewedDef()
+	def.Status = spec.StatusDraft
+	h := validation.New(lookupFor(def), nil)
+	hc := trackHC("Product Viewed", map[string]any{
+		"product_id":   "SKU-1",
+		"product_name": "Widget",
+		"category":     "electronics",
+		"price":        9.99,
+	})
+
+	got, err := h.Before(context.Background(), hc, nil)
+	if err != nil {
+		t.Fatalf("draft event must not be blocked: %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil envelope for draft event, got %+v", got)
+	}
+}
+
+func TestValidationHook_Integration_deletedEvent_blocksTrack(t *testing.T) {
+	def := productViewedDef()
+	def.Status = spec.StatusDeleted
+
+	cap := testutil.NewCaptureProvider("test")
+	client := analytics.NewClient(
+		analytics.WithProviders(cap),
+		analytics.WithHooks(validation.New(lookupFor(def), nil)),
+	)
+
+	err := client.Track(context.Background(), analytics.Event{
+		Name: "Product Viewed",
+		Properties: map[string]any{
+			"product_id":   "SKU-1",
+			"product_name": "Widget",
+			"category":     "electronics",
+			"price":        9.99,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error blocking Track for deleted event, got nil")
+	}
+	if !errors.Is(err, validation.ErrDeletedEvent) {
+		t.Errorf("errors.Is(err, ErrDeletedEvent) = false; err = %v", err)
+	}
+	if len(cap.Tracks) != 0 {
+		t.Errorf("expected no events delivered, got %d", len(cap.Tracks))
 	}
 }
 

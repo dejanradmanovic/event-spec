@@ -45,9 +45,11 @@ export { SampledError, SamplingHook } from './sampling';
 
 export type {
   PropertyType,
+  EventStatus,
   PropertySchema,
   EventSchema,
   SchemaLookup,
   ValidationViolation,
+  Logger,
 } from './validate';
-export { ValidationError, ValidationHook } from './validate';
+export { ValidationError, DeletedEventError, ValidationHook } from './validate';

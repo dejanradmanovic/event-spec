@@ -4,6 +4,8 @@ import type { HookContext, HookHints, EventEnvelope } from './hooks';
 
 export type PropertyType = 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
 
+export type EventStatus = 'active' | 'deprecated' | 'deleted' | 'draft';
+
 export interface PropertySchema {
   type: PropertyType;
   required?: boolean;
@@ -17,6 +19,7 @@ export interface PropertySchema {
 
 export interface EventSchema {
   eventName: string;
+  status?: EventStatus;
   properties: Record<string, PropertySchema>;
 }
 
@@ -25,6 +28,10 @@ export type SchemaLookup = (eventName: string) => EventSchema | undefined;
 export interface ValidationViolation {
   field: string;
   message: string;
+}
+
+export interface Logger {
+  warn(message: string, context?: Record<string, unknown>): void;
 }
 
 export class ValidationError extends Error {
@@ -38,7 +45,19 @@ export class ValidationError extends Error {
   }
 }
 
+// DeletedEventError is thrown by before() when the event's spec status is deleted.
+// Dispatch is blocked entirely to prevent silent data loss when a retired event
+// is still being called at a call site.
+export class DeletedEventError extends Error {
+  constructor(public readonly eventName: string) {
+    super(`event "${eventName}" is deleted and cannot be dispatched`);
+    this.name = 'DeletedEventError';
+  }
+}
+
 // ValidationHook validates event properties against a registered JSON Schema in the Before stage.
+// It also gates dispatch on the event's lifecycle status: deleted events are rejected with
+// DeletedEventError; deprecated events emit a structured warning log but proceed normally.
 // Events with no registered schema pass through unchanged, so this hook works alongside
 // codegen compile-time safety rather than replacing it.
 export class ValidationHook extends UnimplementedHook {
@@ -46,13 +65,25 @@ export class ValidationHook extends UnimplementedHook {
   // Cache compiled validators per event name to avoid recompiling on every call.
   private readonly cache = new Map<string, ReturnType<Ajv['compile']>>();
 
-  constructor(private readonly lookup: SchemaLookup) {
+  // logger is optional; if not provided, deprecation warnings are silently skipped.
+  constructor(
+    private readonly lookup: SchemaLookup,
+    private readonly logger?: Logger,
+  ) {
     super();
   }
 
   override async before(hc: HookContext, _hints?: HookHints): Promise<EventEnvelope | null> {
     const schema = this.lookup(hc.eventName);
     if (!schema) return null;
+
+    if (schema.status === 'deleted') {
+      throw new DeletedEventError(hc.eventName);
+    }
+
+    if (schema.status === 'deprecated' && this.logger) {
+      this.logger.warn('event is deprecated — update call sites', { event: hc.eventName });
+    }
 
     const properties = extractProperties(hc);
     if (properties === null) return null;
