@@ -2,8 +2,8 @@
 .claude/settings.local.json
 
 # Build output
-event-spec
-event-spec.exe
+/event-spec
+/event-spec.exe
 
 # Test coverage
 coverage.out
