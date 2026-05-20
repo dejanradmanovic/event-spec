@@ -457,6 +457,132 @@ func TestGlobalTrack(t *testing.T) {
 	}
 }
 
+// ---- MessageContext propagation ----
+
+func TestTrack_messageContextScalarFields(t *testing.T) {
+	cap := testutil.NewCaptureProvider("test")
+	client := analytics.NewClient(
+		analytics.WithProviders(cap),
+		analytics.WithContext(analytics.AnalyticsContext{
+			UserID: "user-1",
+			Attributes: map[string]any{
+				"ip_address": "1.2.3.4",
+				"user_agent": "Mozilla/5.0",
+				"locale":     "en-US",
+				"timezone":   "UTC",
+				"session_id": "sess-abc",
+			},
+		}),
+	)
+
+	if err := client.Track(context.Background(), analytics.Event{Name: "Page Loaded"}); err != nil {
+		t.Fatalf("Track: %v", err)
+	}
+
+	mc := cap.Tracks[0].MessageContext
+	if mc.IPAddress != "1.2.3.4" {
+		t.Errorf("IPAddress = %q, want 1.2.3.4", mc.IPAddress)
+	}
+	if mc.UserAgent != "Mozilla/5.0" {
+		t.Errorf("UserAgent = %q, want Mozilla/5.0", mc.UserAgent)
+	}
+	if mc.Locale != "en-US" {
+		t.Errorf("Locale = %q, want en-US", mc.Locale)
+	}
+	if mc.Timezone != "UTC" {
+		t.Errorf("Timezone = %q, want UTC", mc.Timezone)
+	}
+	if mc.Extra["session_id"] != "sess-abc" {
+		t.Errorf("Extra[session_id] = %v, want sess-abc", mc.Extra["session_id"])
+	}
+}
+
+func TestTrack_messageContextStructuredFields(t *testing.T) {
+	cap := testutil.NewCaptureProvider("test")
+	client := analytics.NewClient(
+		analytics.WithProviders(cap),
+		analytics.WithContext(analytics.AnalyticsContext{
+			Attributes: map[string]any{
+				"library": map[string]any{"name": "event-spec", "version": "0.1.0"},
+				"app":     map[string]any{"name": "MyApp", "version": "2.0"},
+				"device":  map[string]any{"type": "phone", "manufacturer": "Apple"},
+				"os":      map[string]any{"name": "iOS", "version": "17.0"},
+				"network": map[string]any{"wifi": true},
+				"screen":  map[string]any{"width": 390, "height": 844},
+				// wrong type for a known key — should fall back to Extra
+				"locale": map[string]any{"should": "be-a-string"},
+			},
+		}),
+	)
+
+	if err := client.Track(context.Background(), analytics.Event{Name: "App Opened"}); err != nil {
+		t.Fatalf("Track: %v", err)
+	}
+
+	mc := cap.Tracks[0].MessageContext
+	if mc.Library["name"] != "event-spec" {
+		t.Errorf("Library[name] = %v, want event-spec", mc.Library["name"])
+	}
+	if mc.App["name"] != "MyApp" {
+		t.Errorf("App[name] = %v, want MyApp", mc.App["name"])
+	}
+	if mc.Device["type"] != "phone" {
+		t.Errorf("Device[type] = %v, want phone", mc.Device["type"])
+	}
+	if mc.OS["name"] != "iOS" {
+		t.Errorf("OS[name] = %v, want iOS", mc.OS["name"])
+	}
+	if mc.Network["wifi"] != true {
+		t.Errorf("Network[wifi] = %v, want true", mc.Network["wifi"])
+	}
+	if mc.Screen["width"] != 390 {
+		t.Errorf("Screen[width] = %v, want 390", mc.Screen["width"])
+	}
+	// wrong-type "locale" should land in Extra, not in mc.Locale
+	if mc.Locale != "" {
+		t.Errorf("Locale = %q, want empty (wrong type should fall to Extra)", mc.Locale)
+	}
+	if mc.Extra["locale"] == nil {
+		t.Error("Extra[locale] missing — wrong-type known key should fall back to Extra")
+	}
+}
+
+func TestIdentify_messageContextFromAttributes(t *testing.T) {
+	cap := testutil.NewCaptureProvider("test")
+	client := analytics.NewClient(
+		analytics.WithProviders(cap),
+		analytics.WithContext(analytics.AnalyticsContext{
+			Attributes: map[string]any{"session_id": "sess-xyz", "ip_address": "9.8.7.6"},
+		}),
+	)
+
+	if err := client.Identify(context.Background(), "user-2", nil); err != nil {
+		t.Fatalf("Identify: %v", err)
+	}
+
+	mc := cap.Identifies[0].MessageContext
+	if mc.IPAddress != "9.8.7.6" {
+		t.Errorf("IPAddress = %q, want 9.8.7.6", mc.IPAddress)
+	}
+	if mc.Extra["session_id"] != "sess-xyz" {
+		t.Errorf("Extra[session_id] = %v, want sess-xyz", mc.Extra["session_id"])
+	}
+}
+
+func TestMessageContext_emptyAttributesProducesZeroValue(t *testing.T) {
+	cap := testutil.NewCaptureProvider("test")
+	client := analytics.NewClient(analytics.WithProviders(cap))
+
+	if err := client.Track(context.Background(), analytics.Event{Name: "Minimal"}); err != nil {
+		t.Fatalf("Track: %v", err)
+	}
+
+	mc := cap.Tracks[0].MessageContext
+	if mc.IPAddress != "" || mc.Locale != "" || mc.Extra != nil {
+		t.Errorf("expected zero-value MessageContext for empty attributes, got %+v", mc)
+	}
+}
+
 // ---- Flush ----
 
 func TestFlush(t *testing.T) {

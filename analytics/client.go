@@ -62,12 +62,13 @@ func (c *Client) TrackDetailed(ctx context.Context, event Event, opts ...TrackOp
 	return c.dispatchAll(ctx, "track", event.Name, event.Properties,
 		func(ctx context.Context, p provider.Provider, msgID string, ts time.Time, env *hooks.EventEnvelope) error {
 			return p.Track(ctx, provider.TrackMessage{
-				MessageID:   msgID,
-				Timestamp:   ts,
-				EventName:   env.EventName,
-				Properties:  env.Properties,
-				UserID:      env.Context.UserID,
-				AnonymousID: env.Context.AnonymousID,
+				MessageID:      msgID,
+				Timestamp:      ts,
+				EventName:      env.EventName,
+				Properties:     env.Properties,
+				UserID:         env.Context.UserID,
+				AnonymousID:    env.Context.AnonymousID,
+				MessageContext: buildMessageContext(env.Context),
 			})
 		}, opts)
 }
@@ -81,11 +82,12 @@ func (c *Client) Identify(ctx context.Context, userID string, traits map[string]
 				uid = env.Context.UserID
 			}
 			return p.Identify(ctx, provider.IdentifyMessage{
-				MessageID:   msgID,
-				Timestamp:   ts,
-				UserID:      uid,
-				AnonymousID: env.Context.AnonymousID,
-				Traits:      env.Properties,
+				MessageID:      msgID,
+				Timestamp:      ts,
+				UserID:         uid,
+				AnonymousID:    env.Context.AnonymousID,
+				Traits:         env.Properties,
+				MessageContext: buildMessageContext(env.Context),
 			})
 		}, opts)
 	return err
@@ -105,12 +107,13 @@ func (c *Client) Group(ctx context.Context, groupID string, traits map[string]an
 				gid = fmt.Sprintf("%v", v)
 			}
 			return p.Group(ctx, provider.GroupMessage{
-				MessageID:   msgID,
-				Timestamp:   ts,
-				UserID:      env.Context.UserID,
-				AnonymousID: env.Context.AnonymousID,
-				GroupID:     gid,
-				Traits:      env.Properties,
+				MessageID:      msgID,
+				Timestamp:      ts,
+				UserID:         env.Context.UserID,
+				AnonymousID:    env.Context.AnonymousID,
+				GroupID:        gid,
+				Traits:         env.Properties,
+				MessageContext: buildMessageContext(env.Context),
 			})
 		}, opts)
 	return err
@@ -130,12 +133,13 @@ func (c *Client) Page(ctx context.Context, name string, props map[string]any, op
 				pname = fmt.Sprintf("%v", v)
 			}
 			return prov.Page(ctx, provider.PageMessage{
-				MessageID:   msgID,
-				Timestamp:   ts,
-				UserID:      env.Context.UserID,
-				AnonymousID: env.Context.AnonymousID,
-				Name:        pname,
-				Properties:  env.Properties,
+				MessageID:      msgID,
+				Timestamp:      ts,
+				UserID:         env.Context.UserID,
+				AnonymousID:    env.Context.AnonymousID,
+				Name:           pname,
+				Properties:     env.Properties,
+				MessageContext: buildMessageContext(env.Context),
 			})
 		}, opts)
 	return err
@@ -146,10 +150,11 @@ func (c *Client) Alias(ctx context.Context, userID, previousID string, opts ...T
 	_, err := c.dispatchAll(ctx, "alias", "$alias", nil,
 		func(ctx context.Context, p provider.Provider, msgID string, ts time.Time, env *hooks.EventEnvelope) error {
 			return p.Alias(ctx, provider.AliasMessage{
-				MessageID:  msgID,
-				Timestamp:  ts,
-				UserID:     userID,
-				PreviousID: previousID,
+				MessageID:      msgID,
+				Timestamp:      ts,
+				UserID:         userID,
+				PreviousID:     previousID,
+				MessageContext: buildMessageContext(env.Context),
 			})
 		}, opts)
 	return err
@@ -349,6 +354,97 @@ func generateMessageID() string {
 	b[6] = (b[6] & 0x0f) | 0x40 // version 4
 	b[8] = (b[8] & 0x3f) | 0x80 // variant bits
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+// buildMessageContext converts the merged AnalyticsContext into a provider.MessageContext.
+//
+// String keys (ip_address/ip, user_agent, locale, timezone) are promoted to their typed
+// scalar fields. Map keys (library, app, device, os, network, screen) are promoted to
+// their typed map fields. Anything that does not match a known key, or that has the wrong
+// value type for a known key, lands in Extra so arbitrary context_properties flow through.
+func buildMessageContext(ctx AnalyticsContext) provider.MessageContext {
+	if len(ctx.Attributes) == 0 {
+		return provider.MessageContext{}
+	}
+
+	mc := provider.MessageContext{}
+	extra := make(map[string]any, len(ctx.Attributes))
+
+	for k, v := range ctx.Attributes {
+		switch k {
+		// Scalar string fields.
+		case "ip_address", "ip":
+			if s, ok := v.(string); ok {
+				mc.IPAddress = s
+			} else {
+				extra[k] = v
+			}
+		case "user_agent":
+			if s, ok := v.(string); ok {
+				mc.UserAgent = s
+			} else {
+				extra[k] = v
+			}
+		case "locale":
+			if s, ok := v.(string); ok {
+				mc.Locale = s
+			} else {
+				extra[k] = v
+			}
+		case "timezone":
+			if s, ok := v.(string); ok {
+				mc.Timezone = s
+			} else {
+				extra[k] = v
+			}
+
+		// Structured map fields — set at SDK init to describe the environment.
+		case "library":
+			if m, ok := v.(map[string]any); ok {
+				mc.Library = m
+			} else {
+				extra[k] = v
+			}
+		case "app":
+			if m, ok := v.(map[string]any); ok {
+				mc.App = m
+			} else {
+				extra[k] = v
+			}
+		case "device":
+			if m, ok := v.(map[string]any); ok {
+				mc.Device = m
+			} else {
+				extra[k] = v
+			}
+		case "os":
+			if m, ok := v.(map[string]any); ok {
+				mc.OS = m
+			} else {
+				extra[k] = v
+			}
+		case "network":
+			if m, ok := v.(map[string]any); ok {
+				mc.Network = m
+			} else {
+				extra[k] = v
+			}
+		case "screen":
+			if m, ok := v.(map[string]any); ok {
+				mc.Screen = m
+			} else {
+				extra[k] = v
+			}
+
+		default:
+			extra[k] = v
+		}
+	}
+
+	if len(extra) > 0 {
+		mc.Extra = extra
+	}
+	return mc
 }
 
 // cloneProperties returns a shallow copy of properties, or nil when src is nil.
