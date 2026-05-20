@@ -36,11 +36,12 @@ Teams couple instrumentation directly to a single vendor (Amplitude, Mixpanel, G
 | `sdk/typescript` — `@event-spec/provider-amplitude` | ✅ Done |
 | `spec/diff` — breaking-change computation | ✅ Done |
 | `cmd/event-spec diff` | ✅ Done |
-| `registry/git` — remote-repo pull and cache | ❌ Not yet |
+| `registry/git` — remote-repo pull and cache | ✅ Done |
+| `cmd/event-spec pull` | ✅ Done |
 | `registry/server` — REST API backend | ❌ Not yet |
 | `hooks/logging`, `hooks/otel` | ❌ Not yet |
 | `codegen/audit` — AST-based event usage scanning | ❌ Not yet |
-| `cmd/event-spec audit`, `pull`, `docs`, `serve` | ❌ Not yet |
+| `cmd/event-spec audit`, `docs`, `serve` | ❌ Not yet |
 | Go providers: PostHog, Mixpanel, Segment, GA4, RudderStack | ❌ Not yet |
 | Swift, Kotlin, Python, Rust, Dart, .NET SDKs | ❌ Not yet |
 

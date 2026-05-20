@@ -35,6 +35,9 @@ type Config struct {
 	// SourcesDir and DestinationsDir are always local to the consuming repo.
 	SourcesDir      string
 	DestinationsDir string
+	// Force removes CacheDir before cloning, forcing a fresh clone.
+	// Useful after a remote force-push or corrupted cache.
+	Force bool
 }
 
 func (c Config) branch() string {
@@ -99,6 +102,12 @@ func (r *Resolver) Pull(ctx context.Context) error {
 
 	if err := os.MkdirAll(filepath.Dir(cacheDir), 0o755); err != nil {
 		return fmt.Errorf("create cache parent dir: %w", err)
+	}
+
+	if r.cfg.Force {
+		if err := os.RemoveAll(cacheDir); err != nil {
+			return fmt.Errorf("remove cache for force re-clone: %w", err)
+		}
 	}
 
 	if _, err := os.Stat(filepath.Join(cacheDir, ".git")); os.IsNotExist(err) {
