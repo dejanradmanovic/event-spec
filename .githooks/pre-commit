@@ -1,0 +1,25 @@
+#!/bin/sh
+# Run TypeScript checks when sdk/typescript files are staged.
+# Install: git config core.hooksPath .githooks
+
+CHANGED=$(git diff --cached --name-only | grep '^sdk/typescript/')
+if [ -z "$CHANGED" ]; then
+  exit 0
+fi
+
+echo "sdk/typescript changes detected — running typecheck and lint..."
+cd sdk/typescript || exit 1
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pnpm not found; skipping TypeScript pre-commit checks"
+  exit 0
+fi
+
+pnpm typecheck && pnpm lint
+STATUS=$?
+
+if [ $STATUS -ne 0 ]; then
+  echo ""
+  echo "TypeScript pre-commit checks failed. Fix the errors above and re-commit."
+  exit 1
+fi

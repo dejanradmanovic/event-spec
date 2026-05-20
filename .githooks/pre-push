@@ -1,0 +1,43 @@
+#!/bin/sh
+# Run TypeScript tests when sdk/typescript files are included in the push.
+# Install: git config core.hooksPath .githooks
+
+REMOTE=$1
+REMOTE_URL=$2
+
+while read local_ref local_sha remote_ref remote_sha; do
+  # Skip deletions
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    continue
+  fi
+
+  # Use the remote sha if the branch exists on the remote, otherwise compare to empty tree.
+  EMPTY_TREE="4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+  BASE=${remote_sha:-$EMPTY_TREE}
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    BASE=$EMPTY_TREE
+  fi
+
+  CHANGED=$(git diff --name-only "$BASE..$local_sha" 2>/dev/null | grep '^sdk/typescript/')
+  if [ -z "$CHANGED" ]; then
+    continue
+  fi
+
+  echo "sdk/typescript changes detected — running tests before push..."
+  cd sdk/typescript || exit 1
+
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "pnpm not found; skipping TypeScript pre-push checks"
+    exit 0
+  fi
+
+  pnpm test
+  STATUS=$?
+
+  if [ $STATUS -ne 0 ]; then
+    echo ""
+    echo "TypeScript tests failed. Fix them before pushing."
+    exit 1
+  fi
+  break
+done
