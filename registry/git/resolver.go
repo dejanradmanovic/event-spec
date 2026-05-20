@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"event-spec/registry"
-	"event-spec/registry/local"
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/registry"
+	"github.com/dejanradmanovic/event-spec/registry/local"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // Config configures the remote git registry.
@@ -71,7 +71,7 @@ type Resolver struct {
 }
 
 // New creates a Resolver and loads the index from the local cache.
-// Returns an error if the cache does not exist — run event-spec pull first.
+// Returns an error if the cache does not exist â€” run event-spec pull first.
 func New(cfg Config) (*Resolver, error) {
 	r := &Resolver{cfg: cfg}
 	if err := r.loadFromCache(); err != nil {

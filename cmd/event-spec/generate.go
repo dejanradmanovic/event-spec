@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"event-spec/codegen"
-	_ "event-spec/codegen/golang"
-	_ "event-spec/codegen/typescript"
-	"event-spec/registry/local"
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/codegen"
+	_ "github.com/dejanradmanovic/event-spec/codegen/golang"
+	_ "github.com/dejanradmanovic/event-spec/codegen/typescript"
+	"github.com/dejanradmanovic/event-spec/registry/local"
+	"github.com/dejanradmanovic/event-spec/spec"
 	"github.com/spf13/cobra"
 )
 

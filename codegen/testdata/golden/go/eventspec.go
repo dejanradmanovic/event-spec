@@ -2,7 +2,7 @@
 
 package analytics
 
-import core "event-spec/analytics"
+import core "github.com/dejanradmanovic/event-spec/analytics"
 
 type EventSpec struct {
 	client *core.Client

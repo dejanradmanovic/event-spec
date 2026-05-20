@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"event-spec/provider"
-	"event-spec/provider/amplitude"
+	"github.com/dejanradmanovic/event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/provider/amplitude"
 )
 
 // compile-time check: *Provider satisfies provider.Provider.
@@ -175,7 +175,7 @@ func TestTrackBatchPayload(t *testing.T) {
 }
 
 // TestIdentifyPayload verifies the $identify event format and that Identify sends
-// synchronously — the request is captured without calling Flush.
+// synchronously â€” the request is captured without calling Flush.
 func TestIdentifyPayload(t *testing.T) {
 	srv, reqs := captureServer(t)
 	p := newProvider(t, srv)
@@ -189,7 +189,7 @@ func TestIdentifyPayload(t *testing.T) {
 	if err := p.Identify(context.Background(), msg); err != nil {
 		t.Fatalf("Identify: %v", err)
 	}
-	// No Flush — request must already be delivered synchronously.
+	// No Flush â€” request must already be delivered synchronously.
 
 	ev := firstEvent(t, reqs)
 
@@ -214,7 +214,7 @@ func TestIdentifyPayload(t *testing.T) {
 }
 
 // TestGroupPayload verifies the $groupidentify event format and that Group sends
-// synchronously — the request is captured without calling Flush.
+// synchronously â€” the request is captured without calling Flush.
 func TestGroupPayload(t *testing.T) {
 	srv, reqs := captureServer(t)
 	p := newProvider(t, srv)
@@ -229,7 +229,7 @@ func TestGroupPayload(t *testing.T) {
 	if err := p.Group(context.Background(), msg); err != nil {
 		t.Fatalf("Group: %v", err)
 	}
-	// No Flush — request must already be delivered synchronously.
+	// No Flush â€” request must already be delivered synchronously.
 
 	ev := firstEvent(t, reqs)
 
@@ -257,7 +257,7 @@ func TestGroupPayload(t *testing.T) {
 }
 
 // TestAliasPayload verifies that Alias sends a $identify event linking
-// PreviousID (device_id) to UserID synchronously — no Flush required.
+// PreviousID (device_id) to UserID synchronously â€” no Flush required.
 func TestAliasPayload(t *testing.T) {
 	srv, reqs := captureServer(t)
 	p := newProvider(t, srv)
@@ -271,7 +271,7 @@ func TestAliasPayload(t *testing.T) {
 	if err := p.Alias(context.Background(), msg); err != nil {
 		t.Fatalf("Alias: %v", err)
 	}
-	// No Flush — request must already be delivered synchronously.
+	// No Flush â€” request must already be delivered synchronously.
 
 	ev := firstEvent(t, reqs)
 
@@ -397,7 +397,7 @@ func TestProxyRouting(t *testing.T) {
 			BatchSize:     1000,
 			FlushInterval: time.Hour,
 		},
-		// Endpoint is left empty — defaults to https://api2.amplitude.com/batch.
+		// Endpoint is left empty â€” defaults to https://api2.amplitude.com/batch.
 		// ProxyReverseProxy rewrites the host to the proxy server.
 	})
 	if err != nil {

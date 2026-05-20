@@ -5,8 +5,8 @@ package noop
 import (
 	"context"
 
-	"event-spec/hooks"
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 // Provider is a no-op implementation of provider.Provider.

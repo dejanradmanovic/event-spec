@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"event-spec/analytics"
-	"event-spec/hooks"
-	"event-spec/testutil"
+	"github.com/dejanradmanovic/event-spec/analytics"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/testutil"
 )
 
 // resetGlobal clears all global analytics state between tests.
@@ -509,7 +509,7 @@ func TestTrack_messageContextStructuredFields(t *testing.T) {
 				"os":      map[string]any{"name": "iOS", "version": "17.0"},
 				"network": map[string]any{"wifi": true},
 				"screen":  map[string]any{"width": 390, "height": 844},
-				// wrong type for a known key — should fall back to Extra
+				// wrong type for a known key â€” should fall back to Extra
 				"locale": map[string]any{"should": "be-a-string"},
 			},
 		}),
@@ -543,7 +543,7 @@ func TestTrack_messageContextStructuredFields(t *testing.T) {
 		t.Errorf("Locale = %q, want empty (wrong type should fall to Extra)", mc.Locale)
 	}
 	if mc.Extra["locale"] == nil {
-		t.Error("Extra[locale] missing — wrong-type known key should fall back to Extra")
+		t.Error("Extra[locale] missing â€” wrong-type known key should fall back to Extra")
 	}
 }
 

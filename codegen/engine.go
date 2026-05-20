@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // Engine renders TemplateData into language-specific source files.

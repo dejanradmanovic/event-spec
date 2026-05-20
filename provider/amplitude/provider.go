@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"net/http"
 
-	"event-spec/hooks"
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 // Provider sends analytics events to Amplitude via the batch HTTP API.
 //
-// Capabilities: Track ✅, Identify ✅, Group ✅, Page ❌, Alias ✅.
-// Page returns ErrUnsupportedOperation — Amplitude has no native page concept.
+// Capabilities: Track âœ…, Identify âœ…, Group âœ…, Page âŒ, Alias âœ….
+// Page returns ErrUnsupportedOperation â€” Amplitude has no native page concept.
 type Provider struct {
 	apiKey      string
 	endpoint    string
@@ -83,7 +83,7 @@ func (p *Provider) Identify(ctx context.Context, msg provider.IdentifyMessage) e
 }
 
 // Group sends a $groupidentify event synchronously. Group bypasses the queue for
-// the same reason as Identify — group membership must be established before
+// the same reason as Identify â€” group membership must be established before
 // subsequent Track events are attributed to the group.
 func (p *Provider) Group(ctx context.Context, msg provider.GroupMessage) error {
 	return p.sendBatch(ctx, []amplitudeEvent{mapGroupMessage(msg)})

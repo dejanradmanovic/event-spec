@@ -1,7 +1,7 @@
 // Package amplitude implements an Amplitude analytics provider using the batch HTTP API.
 package amplitude
 
-import "event-spec/provider"
+import "github.com/dejanradmanovic/event-spec/provider"
 
 const (
 	// defaultEndpoint is the Amplitude batch ingest endpoint.

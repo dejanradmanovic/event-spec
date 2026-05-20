@@ -9,7 +9,7 @@ export default defineConfig({
       fileName: (format) => `index.${format === 'es' ? 'js' : 'cjs'}`,
     },
     rollupOptions: {
-      external: ['@event-spec/api'],
+      external: ['@dejanradmanovic/event-spec-api'],
     },
     sourcemap: true,
     minify: false,

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/spec"
 	"github.com/spf13/cobra"
 )
 

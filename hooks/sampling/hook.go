@@ -6,8 +6,8 @@ import (
 	"hash/fnv"
 	"math/rand"
 
-	"event-spec/hooks"
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // ErrSampled is returned by Before when the event is dropped by the sampling policy.

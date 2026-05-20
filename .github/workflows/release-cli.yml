@@ -1,0 +1,68 @@
+name: Release — CLI
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without leading v (e.g. 1.2.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Test
+        run: go test -race ./...
+
+      - name: Build all platforms
+        run: |
+          mkdir -p dist
+          declare -a PLATFORMS=(
+            "linux/amd64"
+            "linux/arm64"
+            "darwin/amd64"
+            "darwin/arm64"
+            "windows/amd64"
+          )
+          for platform in "${PLATFORMS[@]}"; do
+            GOOS="${platform%/*}"
+            GOARCH="${platform#*/}"
+            EXT=""
+            [ "$GOOS" = "windows" ] && EXT=".exe"
+            ARCHIVE="event-spec_v${{ inputs.version }}_${GOOS}_${GOARCH}"
+            mkdir -p "dist/${ARCHIVE}"
+            GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build \
+              -ldflags="-s -w" \
+              -o "dist/${ARCHIVE}/event-spec${EXT}" \
+              ./cmd/event-spec
+            if [ "$GOOS" = "windows" ]; then
+              (cd dist && zip -q "${ARCHIVE}.zip" "${ARCHIVE}/event-spec${EXT}")
+            else
+              tar czf "dist/${ARCHIVE}.tar.gz" -C "dist/${ARCHIVE}" "event-spec${EXT}"
+            fi
+          done
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ inputs.version }}" \
+            --title "event-spec v${{ inputs.version }}" \
+            --generate-notes \
+            dist/*.tar.gz dist/*.zip

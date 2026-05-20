@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"event-spec/analytics"
+	"github.com/dejanradmanovic/event-spec/analytics"
 )
 
 // TestMerge verifies field-level and attribute-level semantics of Merge.

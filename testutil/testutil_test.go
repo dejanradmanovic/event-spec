@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"event-spec/provider"
-	"event-spec/testutil"
+	"github.com/dejanradmanovic/event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/testutil"
 )
 
 // --- CaptureProvider ---

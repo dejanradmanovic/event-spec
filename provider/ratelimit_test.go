@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 // TestRateLimiter_DefaultConfig verifies that a zero-value RateLimitConfig uses package
@@ -39,7 +39,7 @@ func TestRateLimiter_Allow_BurstThenThrottle(t *testing.T) {
 
 // TestRateLimiter_Refill verifies that tokens refill after the token interval elapses.
 func TestRateLimiter_Refill(t *testing.T) {
-	// 10 req/s → one token per 100 ms.
+	// 10 req/s â†’ one token per 100 ms.
 	rl := provider.NewRateLimiter(provider.RateLimitConfig{
 		RequestsPerSecond: 10,
 		BurstSize:         1,
@@ -63,7 +63,7 @@ func TestRateLimiter_Refill(t *testing.T) {
 // TestRateLimiter_Wait_ThrottlesCorrectly verifies that Wait blocks for approximately
 // the token refill duration before returning.
 func TestRateLimiter_Wait_ThrottlesCorrectly(t *testing.T) {
-	// 10 req/s → one token per 100 ms.
+	// 10 req/s â†’ one token per 100 ms.
 	rl := provider.NewRateLimiter(provider.RateLimitConfig{
 		RequestsPerSecond: 10,
 		BurstSize:         1,
@@ -81,14 +81,14 @@ func TestRateLimiter_Wait_ThrottlesCorrectly(t *testing.T) {
 
 	// Allow generous lower bound to absorb CI scheduling jitter.
 	if elapsed < 50*time.Millisecond {
-		t.Errorf("Wait returned too quickly: %v (expected ≥50ms)", elapsed)
+		t.Errorf("Wait returned too quickly: %v (expected â‰¥50ms)", elapsed)
 	}
 }
 
 // TestRateLimiter_Wait_ContextCancel verifies that Wait returns ctx.Err() when
 // the context is cancelled before a token becomes available.
 func TestRateLimiter_Wait_ContextCancel(t *testing.T) {
-	// 1 req/s → long wait, giving us plenty of time to cancel.
+	// 1 req/s â†’ long wait, giving us plenty of time to cancel.
 	rl := provider.NewRateLimiter(provider.RateLimitConfig{
 		RequestsPerSecond: 1,
 		BurstSize:         1,

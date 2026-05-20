@@ -1,6 +1,6 @@
 package codegen
 
-import "event-spec/spec"
+import "github.com/dejanradmanovic/event-spec/spec"
 
 // TypeMapper converts spec property definitions to language-native type strings.
 type TypeMapper interface {

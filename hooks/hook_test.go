@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/hooks"
 )
 
 // recorder is a test Hook that appends "name:stage" to a shared event log for each stage called.

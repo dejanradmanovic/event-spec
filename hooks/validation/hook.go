@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"event-spec/hooks"
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // LookupFunc resolves an event name to its spec definition.

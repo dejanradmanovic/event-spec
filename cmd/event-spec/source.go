@@ -4,7 +4,7 @@ import (
 	"path"
 	"strings"
 
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // applySourceConfig filters defs by the event glob patterns declared in src,
@@ -34,10 +34,10 @@ func applySourceConfig(defs []*spec.EventDef, src *spec.SourceDef) []*spec.Event
 // matchesEventPattern reports whether an event identified by namespace/name
 // matches the given source event pattern. Supported forms:
 //
-//	"**"              — matches every event
-//	"ecommerce/**"    — matches any event whose namespace is "ecommerce"
-//	"ecommerce/*"     — single-level wildcard within the namespace segment
-//	"auth/user_login" — exact namespace/name match
+//	"**"              â€” matches every event
+//	"ecommerce/**"    â€” matches any event whose namespace is "ecommerce"
+//	"ecommerce/*"     â€” single-level wildcard within the namespace segment
+//	"auth/user_login" â€” exact namespace/name match
 func matchesEventPattern(pattern, namespace, name string) bool {
 	if pattern == "**" {
 		return true
@@ -46,7 +46,7 @@ func matchesEventPattern(pattern, namespace, name string) bool {
 	if pattern == eventPath {
 		return true
 	}
-	// "ns/**" — match any event in that namespace (or nested namespace).
+	// "ns/**" â€” match any event in that namespace (or nested namespace).
 	if strings.HasSuffix(pattern, "/**") {
 		prefix := strings.TrimSuffix(pattern, "/**")
 		return namespace == prefix || strings.HasPrefix(namespace, prefix+"/")

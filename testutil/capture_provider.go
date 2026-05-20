@@ -5,8 +5,8 @@ import (
 	"context"
 	"sync"
 
-	"event-spec/hooks"
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/hooks"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 // CaptureProvider records every provider call for assertion in tests.

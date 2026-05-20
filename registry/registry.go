@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 
-	"event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/spec"
 )
 
 // ErrReadOnly is returned by PublishEvent on git-backed registries.

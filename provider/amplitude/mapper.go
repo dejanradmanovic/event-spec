@@ -4,7 +4,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/provider"
 )
 
 const maxStringChars = 1024
@@ -17,7 +17,7 @@ type amplitudeEvent struct {
 	Time            int64          `json:"time"`
 	EventProperties map[string]any `json:"event_properties,omitempty"`
 	UserProperties  map[string]any `json:"user_properties,omitempty"`
-	// Group identify fields — only populated for $groupidentify events.
+	// Group identify fields â€” only populated for $groupidentify events.
 	GroupType       string         `json:"group_type,omitempty"`
 	GroupValue      string         `json:"group_value,omitempty"`
 	GroupProperties map[string]any `json:"group_properties,omitempty"`
@@ -180,7 +180,7 @@ func truncateString(s string) string {
 		}
 		n++
 	}
-	// Verify the string is valid UTF-8 — range loop skips invalid bytes.
+	// Verify the string is valid UTF-8 â€” range loop skips invalid bytes.
 	if !utf8.ValidString(s) {
 		return string([]rune(s)[:n])
 	}

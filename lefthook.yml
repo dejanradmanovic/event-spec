@@ -7,6 +7,10 @@ pre-commit:
     vet:
       glob: "*.go"
       run: go vet ./...
+    ts-check:
+      glob: "sdk/typescript/**"
+      root: "sdk/typescript/"
+      run: pnpm format:check && pnpm typecheck && pnpm lint
 
 pre-push:
   commands:
@@ -14,3 +18,7 @@ pre-push:
       run: go test ./...
     lint:
       run: golangci-lint run --timeout=5m
+    ts-tests:
+      glob: "sdk/typescript/**"
+      root: "sdk/typescript/"
+      run: pnpm test
