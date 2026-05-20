@@ -34,8 +34,8 @@ Teams couple instrumentation directly to a single vendor (Amplitude, Mixpanel, G
 | `cmd/event-spec validate` | ✅ Done |
 | `sdk/typescript` — `@event-spec/analytics` runtime | ✅ Done |
 | `sdk/typescript` — `@event-spec/provider-amplitude` | ✅ Done |
-| `spec/diff` — breaking-change computation | 🚧 Types defined; logic not yet wired |
-| `cmd/event-spec diff` | ❌ Not yet |
+| `spec/diff` — breaking-change computation | ✅ Done |
+| `cmd/event-spec diff` | ✅ Done |
 | `registry/git` — remote-repo pull and cache | ❌ Not yet |
 | `registry/server` — REST API backend | ❌ Not yet |
 | `hooks/logging`, `hooks/otel` | ❌ Not yet |
