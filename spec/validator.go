@@ -186,6 +186,94 @@ func flattenValidationErrors(verr *jsonschema.ValidationError, file string) []Va
 	return out
 }
 
+// ValidateWorkspaceConfig checks that a WorkspaceConfig is structurally valid.
+func ValidateWorkspaceConfig(cfg *WorkspaceConfig, path string) []ValidationError {
+	var errs []ValidationError
+	add := func(field, msg string) {
+		errs = append(errs, ValidationError{File: path, Field: field, Message: msg})
+	}
+
+	if cfg.Version == 0 {
+		add("version", "required; must be >= 1")
+	}
+	if cfg.Workspace == "" {
+		add("workspace", "required")
+	}
+
+	switch cfg.Registry.Mode {
+	case RegistryModeLocal, RegistryModeGit, RegistryModeServer, "":
+		// empty defaults to local — valid
+	default:
+		add("registry.mode", fmt.Sprintf("invalid value %q; must be one of: local, git, server", cfg.Registry.Mode))
+	}
+	if cfg.Registry.Mode == RegistryModeGit && cfg.Registry.Remote == "" {
+		add("registry.remote", `required when registry.mode is "git"`)
+	}
+	if cfg.Registry.Mode == RegistryModeServer && cfg.Registry.URL == "" {
+		add("registry.url", `required when registry.mode is "server"`)
+	}
+
+	return errs
+}
+
+// ValidateSourceDef checks that a SourceDef is structurally valid.
+func ValidateSourceDef(def *SourceDef) []ValidationError {
+	var errs []ValidationError
+	add := func(field, msg string) {
+		errs = append(errs, ValidationError{File: def.SourcePath, Field: field, Message: msg})
+	}
+
+	if def.Name == "" {
+		add("name", "required")
+	}
+	if def.Language == "" {
+		add("language", "required")
+	} else {
+		valid := map[string]bool{
+			"go": true, "typescript": true, "swift": true, "kotlin": true,
+			"python": true, "java": true, "rust": true, "dart": true, "dotnet": true,
+		}
+		if !valid[def.Language] {
+			add("language", fmt.Sprintf(
+				"unknown value %q; supported: go, typescript, swift, kotlin, python, java, rust, dart, dotnet",
+				def.Language,
+			))
+		}
+	}
+	if def.Output.Path == "" {
+		add("output.path", "required")
+	}
+	if def.Mode != "" {
+		switch def.Mode {
+		case "embedded", "server_proxied", "hybrid":
+		default:
+			add("mode", fmt.Sprintf("invalid value %q; must be one of: embedded, server_proxied, hybrid", def.Mode))
+		}
+	}
+	if def.Mode == "server_proxied" && def.RuntimeEndpoint == "" {
+		add("runtime_endpoint", `required when mode is "server_proxied"`)
+	}
+
+	return errs
+}
+
+// ValidateDestinationDef checks that a DestinationDef is structurally valid.
+func ValidateDestinationDef(def *DestinationDef) []ValidationError {
+	var errs []ValidationError
+	add := func(field, msg string) {
+		errs = append(errs, ValidationError{File: def.SourcePath, Field: field, Message: msg})
+	}
+
+	if def.Name == "" {
+		add("name", "required")
+	}
+	if def.Provider == "" {
+		add("provider", "required")
+	}
+
+	return errs
+}
+
 func buildPropertySchema(prop PropertyDef) map[string]any {
 	s := map[string]any{"type": string(prop.Type)}
 	if prop.Description != "" {

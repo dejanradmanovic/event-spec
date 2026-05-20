@@ -285,6 +285,151 @@ func TestValidateEventPayload_optionalFieldAbsent(t *testing.T) {
 	}
 }
 
+// --- ValidateWorkspaceConfig ---
+
+func TestValidateWorkspaceConfig_valid(t *testing.T) {
+	cfg := &WorkspaceConfig{
+		Version:   1,
+		Workspace: "my-company",
+		Registry:  RegistryConfig{Mode: RegistryModeLocal},
+	}
+	if errs := ValidateWorkspaceConfig(cfg, "event-spec.yaml"); len(errs) != 0 {
+		t.Errorf("expected no errors, got: %v", errs)
+	}
+}
+
+func TestValidateWorkspaceConfig_missingVersionAndWorkspace(t *testing.T) {
+	cfg := &WorkspaceConfig{}
+	errs := ValidateWorkspaceConfig(cfg, "event-spec.yaml")
+	if !containsField(errs, "version") {
+		t.Error("expected error for missing version")
+	}
+	if !containsField(errs, "workspace") {
+		t.Error("expected error for missing workspace")
+	}
+}
+
+func TestValidateWorkspaceConfig_invalidRegistryMode(t *testing.T) {
+	cfg := &WorkspaceConfig{Version: 1, Workspace: "w", Registry: RegistryConfig{Mode: "database"}}
+	if !containsField(ValidateWorkspaceConfig(cfg, "f"), "registry.mode") {
+		t.Error("expected error for invalid registry.mode")
+	}
+}
+
+func TestValidateWorkspaceConfig_gitModeRequiresRemote(t *testing.T) {
+	cfg := &WorkspaceConfig{Version: 1, Workspace: "w", Registry: RegistryConfig{Mode: RegistryModeGit}}
+	if !containsField(ValidateWorkspaceConfig(cfg, "f"), "registry.remote") {
+		t.Error("expected error for git mode without remote")
+	}
+}
+
+func TestValidateWorkspaceConfig_serverModeRequiresURL(t *testing.T) {
+	cfg := &WorkspaceConfig{Version: 1, Workspace: "w", Registry: RegistryConfig{Mode: RegistryModeServer}}
+	if !containsField(ValidateWorkspaceConfig(cfg, "f"), "registry.url") {
+		t.Error("expected error for server mode without url")
+	}
+}
+
+// --- ValidateSourceDef ---
+
+func validSourceDef() *SourceDef {
+	return &SourceDef{
+		Name:       "web-app",
+		Language:   "typescript",
+		Events:     []string{"ecommerce/**"},
+		Output:     SourceOutput{Path: "./src/analytics/generated"},
+		SourcePath: "sources/web-app.yaml",
+	}
+}
+
+func TestValidateSourceDef_valid(t *testing.T) {
+	if errs := ValidateSourceDef(validSourceDef()); len(errs) != 0 {
+		t.Errorf("expected no errors, got: %v", errs)
+	}
+}
+
+func TestValidateSourceDef_missingNameAndLanguage(t *testing.T) {
+	def := &SourceDef{Output: SourceOutput{Path: "./out"}, SourcePath: "f"}
+	errs := ValidateSourceDef(def)
+	if !containsField(errs, "name") {
+		t.Error("expected error for missing name")
+	}
+	if !containsField(errs, "language") {
+		t.Error("expected error for missing language")
+	}
+}
+
+func TestValidateSourceDef_missingOutputPath(t *testing.T) {
+	def := &SourceDef{Name: "a", Language: "go", SourcePath: "f"}
+	if !containsField(ValidateSourceDef(def), "output.path") {
+		t.Error("expected error for missing output.path")
+	}
+}
+
+func TestValidateSourceDef_unknownLanguage(t *testing.T) {
+	def := validSourceDef()
+	def.Language = "cobol"
+	if !containsField(ValidateSourceDef(def), "language") {
+		t.Error("expected error for unknown language")
+	}
+}
+
+func TestValidateSourceDef_invalidMode(t *testing.T) {
+	def := validSourceDef()
+	def.Mode = "direct"
+	if !containsField(ValidateSourceDef(def), "mode") {
+		t.Error("expected error for invalid mode")
+	}
+}
+
+func TestValidateSourceDef_serverProxiedRequiresEndpoint(t *testing.T) {
+	def := validSourceDef()
+	def.Mode = "server_proxied"
+	// RuntimeEndpoint not set
+	if !containsField(ValidateSourceDef(def), "runtime_endpoint") {
+		t.Error("expected error for server_proxied without runtime_endpoint")
+	}
+}
+
+func TestValidateSourceDef_serverProxiedWithEndpoint(t *testing.T) {
+	def := validSourceDef()
+	def.Mode = "server_proxied"
+	def.RuntimeEndpoint = "https://analytics.example.com/v1/track"
+	if errs := ValidateSourceDef(def); len(errs) != 0 {
+		t.Errorf("expected no errors, got: %v", errs)
+	}
+}
+
+// --- ValidateDestinationDef ---
+
+func validDestinationDef() *DestinationDef {
+	return &DestinationDef{
+		Name:       "amplitude",
+		Provider:   "amplitude",
+		SourcePath: "destinations/amplitude.yaml",
+	}
+}
+
+func TestValidateDestinationDef_valid(t *testing.T) {
+	if errs := ValidateDestinationDef(validDestinationDef()); len(errs) != 0 {
+		t.Errorf("expected no errors, got: %v", errs)
+	}
+}
+
+func TestValidateDestinationDef_missingName(t *testing.T) {
+	def := &DestinationDef{Provider: "amplitude", SourcePath: "f"}
+	if !containsField(ValidateDestinationDef(def), "name") {
+		t.Error("expected error for missing name")
+	}
+}
+
+func TestValidateDestinationDef_missingProvider(t *testing.T) {
+	def := &DestinationDef{Name: "amp", SourcePath: "f"}
+	if !containsField(ValidateDestinationDef(def), "provider") {
+		t.Error("expected error for missing provider")
+	}
+}
+
 // containsField returns true if any ValidationError has the given Field value.
 func containsField(errs []ValidationError, field string) bool {
 	for _, e := range errs {
