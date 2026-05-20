@@ -77,7 +77,7 @@ func TestTransport_RetryOn429(t *testing.T) {
 		},
 	})
 
-	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
 	resp, err := tr.Do(context.Background(), req, nil)
 	if err != nil {
 		t.Fatalf("Do: %v", err)
@@ -113,7 +113,7 @@ func TestTransport_RetryOn500(t *testing.T) {
 		},
 	})
 
-	req, _ := http.NewRequest(http.MethodPost, srv.URL, nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL, nil)
 	resp, err := tr.Do(context.Background(), req, nil)
 	if err != nil {
 		t.Fatalf("Do: %v", err)
@@ -146,7 +146,7 @@ func TestTransport_MaxRetriesEnforced(t *testing.T) {
 		},
 	})
 
-	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
 	resp, err := tr.Do(context.Background(), req, nil)
 	if resp != nil {
 		resp.Body.Close()
@@ -172,7 +172,7 @@ func TestTransport_NoRetryOnNonRetryableCode(t *testing.T) {
 		RetryConfig: RetryConfig{MaxRetries: 3, InitialBackoff: 1 * time.Millisecond},
 	})
 
-	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
 	resp, err := tr.Do(context.Background(), req, nil)
 	if err != nil {
 		t.Fatalf("Do: %v", err)
@@ -199,7 +199,7 @@ func TestTransport_NoRetryOn200(t *testing.T) {
 		RetryConfig: RetryConfig{MaxRetries: 3, InitialBackoff: 1 * time.Millisecond},
 	})
 
-	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
 	resp, err := tr.Do(context.Background(), req, nil)
 	if err != nil {
 		t.Fatalf("Do: %v", err)
@@ -244,8 +244,11 @@ func TestTransport_BackoffSequence(t *testing.T) {
 		},
 	})
 
-	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
-	tr.Do(context.Background(), req, nil) //nolint:errcheck
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
+	resp, _ := tr.Do(context.Background(), req, nil)
+	if resp != nil {
+		resp.Body.Close()
+	}
 
 	mu.Lock()
 	ts := make([]time.Time, len(timestamps))
@@ -298,7 +301,7 @@ func TestTransport_BodyReusedOnRetry(t *testing.T) {
 		},
 	})
 
-	req, _ := http.NewRequest(http.MethodPost, srv.URL, nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL, nil)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := tr.Do(context.Background(), req, []byte(wantBody))
 	if err != nil {
@@ -343,8 +346,11 @@ func TestTransport_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
-	_, err := tr.Do(ctx, req, nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
+	resp, err := tr.Do(ctx, req, nil)
+	if resp != nil {
+		resp.Body.Close()
+	}
 	if err == nil {
 		t.Error("expected error from cancelled context, got nil")
 	}
@@ -373,8 +379,11 @@ func TestTransport_ContextCancelledBetweenRetries(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 	defer cancel()
 
-	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
-	_, err := tr.Do(ctx, req, nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
+	resp, err := tr.Do(ctx, req, nil)
+	if resp != nil {
+		resp.Body.Close()
+	}
 	if err == nil {
 		t.Error("expected context error")
 	}
@@ -492,7 +501,7 @@ func TestTransport_ProxyRouting_ReverseProxy(t *testing.T) {
 		t.Errorf("rewritten URL %q does not point to proxy server %q", rewritten, proxyServer.URL)
 	}
 
-	req, _ := http.NewRequest(http.MethodPost, rewritten, nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, rewritten, nil)
 	resp, err := tr.Do(context.Background(), req, nil)
 	if err != nil {
 		t.Fatalf("Do: %v", err)

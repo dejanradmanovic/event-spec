@@ -134,7 +134,7 @@ func (t *Transport) Do(ctx context.Context, req *http.Request, body []byte) (*ht
 		}
 
 		_, _ = io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		lastErr = fmt.Errorf("provider: HTTP %d after attempt %d", resp.StatusCode, attempt+1)
 	}
 
