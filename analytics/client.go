@@ -358,9 +358,10 @@ func generateMessageID() string {
 
 // buildMessageContext converts the merged AnalyticsContext into a provider.MessageContext.
 //
-// Well-known attribute keys are promoted to their typed fields so providers can use them
-// without inspecting Extra. All remaining attributes go into Extra so context_properties
-// declared in event specs (e.g. session_id, platform) flow through unchanged.
+// String keys (ip_address/ip, user_agent, locale, timezone) are promoted to their typed
+// scalar fields. Map keys (library, app, device, os, network, screen) are promoted to
+// their typed map fields. Anything that does not match a known key, or that has the wrong
+// value type for a known key, lands in Extra so arbitrary context_properties flow through.
 func buildMessageContext(ctx AnalyticsContext) provider.MessageContext {
 	if len(ctx.Attributes) == 0 {
 		return provider.MessageContext{}
@@ -370,16 +371,71 @@ func buildMessageContext(ctx AnalyticsContext) provider.MessageContext {
 	extra := make(map[string]any, len(ctx.Attributes))
 
 	for k, v := range ctx.Attributes {
-		s, _ := v.(string)
 		switch k {
+		// Scalar string fields.
 		case "ip_address", "ip":
-			mc.IPAddress = s
+			if s, ok := v.(string); ok {
+				mc.IPAddress = s
+			} else {
+				extra[k] = v
+			}
 		case "user_agent":
-			mc.UserAgent = s
+			if s, ok := v.(string); ok {
+				mc.UserAgent = s
+			} else {
+				extra[k] = v
+			}
 		case "locale":
-			mc.Locale = s
+			if s, ok := v.(string); ok {
+				mc.Locale = s
+			} else {
+				extra[k] = v
+			}
 		case "timezone":
-			mc.Timezone = s
+			if s, ok := v.(string); ok {
+				mc.Timezone = s
+			} else {
+				extra[k] = v
+			}
+
+		// Structured map fields — set at SDK init to describe the environment.
+		case "library":
+			if m, ok := v.(map[string]any); ok {
+				mc.Library = m
+			} else {
+				extra[k] = v
+			}
+		case "app":
+			if m, ok := v.(map[string]any); ok {
+				mc.App = m
+			} else {
+				extra[k] = v
+			}
+		case "device":
+			if m, ok := v.(map[string]any); ok {
+				mc.Device = m
+			} else {
+				extra[k] = v
+			}
+		case "os":
+			if m, ok := v.(map[string]any); ok {
+				mc.OS = m
+			} else {
+				extra[k] = v
+			}
+		case "network":
+			if m, ok := v.(map[string]any); ok {
+				mc.Network = m
+			} else {
+				extra[k] = v
+			}
+		case "screen":
+			if m, ok := v.(map[string]any); ok {
+				mc.Screen = m
+			} else {
+				extra[k] = v
+			}
+
 		default:
 			extra[k] = v
 		}

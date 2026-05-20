@@ -459,7 +459,7 @@ func TestGlobalTrack(t *testing.T) {
 
 // ---- MessageContext propagation ----
 
-func TestTrack_messageContextFromAttributes(t *testing.T) {
+func TestTrack_messageContextScalarFields(t *testing.T) {
 	cap := testutil.NewCaptureProvider("test")
 	client := analytics.NewClient(
 		analytics.WithProviders(cap),
@@ -494,6 +494,56 @@ func TestTrack_messageContextFromAttributes(t *testing.T) {
 	}
 	if mc.Extra["session_id"] != "sess-abc" {
 		t.Errorf("Extra[session_id] = %v, want sess-abc", mc.Extra["session_id"])
+	}
+}
+
+func TestTrack_messageContextStructuredFields(t *testing.T) {
+	cap := testutil.NewCaptureProvider("test")
+	client := analytics.NewClient(
+		analytics.WithProviders(cap),
+		analytics.WithContext(analytics.AnalyticsContext{
+			Attributes: map[string]any{
+				"library": map[string]any{"name": "event-spec", "version": "0.1.0"},
+				"app":     map[string]any{"name": "MyApp", "version": "2.0"},
+				"device":  map[string]any{"type": "phone", "manufacturer": "Apple"},
+				"os":      map[string]any{"name": "iOS", "version": "17.0"},
+				"network": map[string]any{"wifi": true},
+				"screen":  map[string]any{"width": 390, "height": 844},
+				// wrong type for a known key — should fall back to Extra
+				"locale": map[string]any{"should": "be-a-string"},
+			},
+		}),
+	)
+
+	if err := client.Track(context.Background(), analytics.Event{Name: "App Opened"}); err != nil {
+		t.Fatalf("Track: %v", err)
+	}
+
+	mc := cap.Tracks[0].MessageContext
+	if mc.Library["name"] != "event-spec" {
+		t.Errorf("Library[name] = %v, want event-spec", mc.Library["name"])
+	}
+	if mc.App["name"] != "MyApp" {
+		t.Errorf("App[name] = %v, want MyApp", mc.App["name"])
+	}
+	if mc.Device["type"] != "phone" {
+		t.Errorf("Device[type] = %v, want phone", mc.Device["type"])
+	}
+	if mc.OS["name"] != "iOS" {
+		t.Errorf("OS[name] = %v, want iOS", mc.OS["name"])
+	}
+	if mc.Network["wifi"] != true {
+		t.Errorf("Network[wifi] = %v, want true", mc.Network["wifi"])
+	}
+	if mc.Screen["width"] != 390 {
+		t.Errorf("Screen[width] = %v, want 390", mc.Screen["width"])
+	}
+	// wrong-type "locale" should land in Extra, not in mc.Locale
+	if mc.Locale != "" {
+		t.Errorf("Locale = %q, want empty (wrong type should fall to Extra)", mc.Locale)
+	}
+	if mc.Extra["locale"] == nil {
+		t.Error("Extra[locale] missing — wrong-type known key should fall back to Extra")
 	}
 }
 
