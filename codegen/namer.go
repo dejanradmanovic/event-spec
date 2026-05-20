@@ -12,32 +12,9 @@ type Namer interface {
 	FieldName(raw string) string
 }
 
-// GoNamer converts all identifiers to PascalCase (Go convention).
-type GoNamer struct{}
-
-// MethodName returns the PascalCase method name for raw.
-func (GoNamer) MethodName(raw string) string { return toPascalCase(raw) }
-
-// TypeName returns the PascalCase type name for raw.
-func (GoNamer) TypeName(raw string) string { return toPascalCase(raw) }
-
-// FieldName returns the PascalCase field name for raw.
-func (GoNamer) FieldName(raw string) string { return toPascalCase(raw) }
-
-// CamelCaseNamer uses camelCase for methods and fields, PascalCase for types (TypeScript, Swift, Kotlin).
-type CamelCaseNamer struct{}
-
-// MethodName returns the camelCase method name for raw.
-func (CamelCaseNamer) MethodName(raw string) string { return toCamelCase(raw) }
-
-// TypeName returns the PascalCase type name for raw.
-func (CamelCaseNamer) TypeName(raw string) string { return toPascalCase(raw) }
-
-// FieldName returns the camelCase field name for raw.
-func (CamelCaseNamer) FieldName(raw string) string { return toCamelCase(raw) }
-
-func toPascalCase(s string) string {
-	words := splitWords(s)
+// ToPascalCase converts a snake_case or kebab-case string to PascalCase.
+func ToPascalCase(s string) string {
+	words := SplitWords(s)
 	for i, w := range words {
 		if w == "" {
 			continue
@@ -47,8 +24,9 @@ func toPascalCase(s string) string {
 	return strings.Join(words, "")
 }
 
-func toCamelCase(s string) string {
-	words := splitWords(s)
+// ToCamelCase converts a snake_case or kebab-case string to camelCase.
+func ToCamelCase(s string) string {
+	words := SplitWords(s)
 	for i, w := range words {
 		if w == "" {
 			continue
@@ -62,7 +40,8 @@ func toCamelCase(s string) string {
 	return strings.Join(words, "")
 }
 
-func splitWords(s string) []string {
+// SplitWords splits s on underscores, hyphens, and whitespace.
+func SplitWords(s string) []string {
 	return strings.FieldsFunc(s, func(r rune) bool {
 		return r == '_' || r == '-' || unicode.IsSpace(r)
 	})
