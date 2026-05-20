@@ -39,3 +39,15 @@ export {
   shutdown,
   track,
 } from './client';
+
+export type { SamplingStrategy, SamplingPolicy, SamplingLookup } from './sampling';
+export { SampledError, SamplingHook } from './sampling';
+
+export type {
+  PropertyType,
+  PropertySchema,
+  EventSchema,
+  SchemaLookup,
+  ValidationViolation,
+} from './validate';
+export { ValidationError, ValidationHook } from './validate';

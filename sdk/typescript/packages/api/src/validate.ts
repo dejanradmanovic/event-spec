@@ -1,6 +1,6 @@
 import Ajv from 'ajv';
-import { UnimplementedHook } from '@event-spec/api';
-import type { HookContext, HookHints, EventEnvelope } from '@event-spec/api';
+import { UnimplementedHook } from './hooks';
+import type { HookContext, HookHints, EventEnvelope } from './hooks';
 
 export type PropertyType = 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
 

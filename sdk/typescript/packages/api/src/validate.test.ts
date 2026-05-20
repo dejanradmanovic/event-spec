@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { ValidationHook, ValidationError } from './hook';
-import type { EventSchema } from './hook';
-import type { HookContext } from '@event-spec/api';
+import { ValidationHook, ValidationError } from './validate';
+import type { EventSchema } from './validate';
+import type { HookContext } from './hooks';
 
 function makeHC(eventName: string, properties: Record<string, unknown> = {}): HookContext {
   return {

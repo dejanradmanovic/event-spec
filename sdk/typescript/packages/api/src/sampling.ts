@@ -1,5 +1,5 @@
-import { UnimplementedHook } from '@event-spec/api';
-import type { HookContext, HookHints, EventEnvelope } from '@event-spec/api';
+import { UnimplementedHook } from './hooks';
+import type { HookContext, HookHints, EventEnvelope } from './hooks';
 
 export type SamplingStrategy = 'user_id_hash' | 'random' | 'none';
 

@@ -4,108 +4,75 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@vitest/coverage-v8':
+      specifier: ^3.2.0
+      version: 3.2.4
+    ajv:
+      specifier: ^8.0.0
+      version: 8.18.0
+    eslint:
+      specifier: ^9.0.0
+      version: 9.39.4
+    eslint-config-prettier:
+      specifier: ^10.0.0
+      version: 10.1.8
+    prettier:
+      specifier: ^3.0.0
+      version: 3.8.3
+    typescript:
+      specifier: ^5.7.0
+      version: 5.9.3
+    typescript-eslint:
+      specifier: ^8.0.0
+      version: 8.59.4
+    vite:
+      specifier: ^6.0.0
+      version: 6.4.2
+    vite-plugin-dts:
+      specifier: ^4.0.0
+      version: 4.5.4
+    vitest:
+      specifier: ^3.2.0
+      version: 3.2.4
+
 importers:
 
   .: {}
 
   packages/api:
-    devDependencies:
-      '@vitest/coverage-v8':
-        specifier: ^3.2.0
-        version: 3.2.4(vitest@3.2.4)
-      eslint:
-        specifier: ^9.0.0
-        version: 9.39.4
-      eslint-config-prettier:
-        specifier: ^10.0.0
-        version: 10.1.8(eslint@9.39.4)
-      prettier:
-        specifier: ^3.0.0
-        version: 3.8.3
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-      typescript-eslint:
-        specifier: ^8.0.0
-        version: 8.59.4(eslint@9.39.4)(typescript@5.9.3)
-      vite:
-        specifier: ^6.0.0
-        version: 6.4.2
-      vite-plugin-dts:
-        specifier: ^4.0.0
-        version: 4.5.4(rollup@4.60.4)(typescript@5.9.3)(vite@6.4.2)
-      vitest:
-        specifier: ^3.2.0
-        version: 3.2.4
-
-  packages/hooks-sampling:
-    devDependencies:
-      '@event-spec/api':
-        specifier: workspace:*
-        version: link:../api
-      '@vitest/coverage-v8':
-        specifier: ^3.2.0
-        version: 3.2.4(vitest@3.2.4)
-      eslint:
-        specifier: ^9.0.0
-        version: 9.39.4
-      eslint-config-prettier:
-        specifier: ^10.0.0
-        version: 10.1.8(eslint@9.39.4)
-      prettier:
-        specifier: ^3.0.0
-        version: 3.8.3
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-      typescript-eslint:
-        specifier: ^8.0.0
-        version: 8.59.4(eslint@9.39.4)(typescript@5.9.3)
-      vite:
-        specifier: ^6.0.0
-        version: 6.4.2
-      vite-plugin-dts:
-        specifier: ^4.0.0
-        version: 4.5.4(rollup@4.60.4)(typescript@5.9.3)(vite@6.4.2)
-      vitest:
-        specifier: ^3.2.0
-        version: 3.2.4
-
-  packages/hooks-validate:
     dependencies:
       ajv:
-        specifier: ^8.0.0
+        specifier: 'catalog:'
         version: 8.18.0
     devDependencies:
-      '@event-spec/api':
-        specifier: workspace:*
-        version: link:../api
       '@vitest/coverage-v8':
-        specifier: ^3.2.0
+        specifier: 'catalog:'
         version: 3.2.4(vitest@3.2.4)
       eslint:
-        specifier: ^9.0.0
+        specifier: 'catalog:'
         version: 9.39.4
       eslint-config-prettier:
-        specifier: ^10.0.0
+        specifier: 'catalog:'
         version: 10.1.8(eslint@9.39.4)
       prettier:
-        specifier: ^3.0.0
+        specifier: 'catalog:'
         version: 3.8.3
       typescript:
-        specifier: ^5.7.0
+        specifier: 'catalog:'
         version: 5.9.3
       typescript-eslint:
-        specifier: ^8.0.0
+        specifier: 'catalog:'
         version: 8.59.4(eslint@9.39.4)(typescript@5.9.3)
       vite:
-        specifier: ^6.0.0
+        specifier: 'catalog:'
         version: 6.4.2
       vite-plugin-dts:
-        specifier: ^4.0.0
+        specifier: 'catalog:'
         version: 4.5.4(rollup@4.60.4)(typescript@5.9.3)(vite@6.4.2)
       vitest:
-        specifier: ^3.2.0
+        specifier: 'catalog:'
         version: 3.2.4
 
   packages/provider-amplitude:
@@ -114,31 +81,31 @@ importers:
         specifier: workspace:*
         version: link:../api
       '@vitest/coverage-v8':
-        specifier: ^3.2.0
+        specifier: 'catalog:'
         version: 3.2.4(vitest@3.2.4)
       eslint:
-        specifier: ^9.0.0
+        specifier: 'catalog:'
         version: 9.39.4
       eslint-config-prettier:
-        specifier: ^10.0.0
+        specifier: 'catalog:'
         version: 10.1.8(eslint@9.39.4)
       prettier:
-        specifier: ^3.0.0
+        specifier: 'catalog:'
         version: 3.8.3
       typescript:
-        specifier: ^5.7.0
+        specifier: 'catalog:'
         version: 5.9.3
       typescript-eslint:
-        specifier: ^8.0.0
+        specifier: 'catalog:'
         version: 8.59.4(eslint@9.39.4)(typescript@5.9.3)
       vite:
-        specifier: ^6.0.0
+        specifier: 'catalog:'
         version: 6.4.2
       vite-plugin-dts:
-        specifier: ^4.0.0
+        specifier: 'catalog:'
         version: 4.5.4(rollup@4.60.4)(typescript@5.9.3)(vite@6.4.2)
       vitest:
-        specifier: ^3.2.0
+        specifier: 'catalog:'
         version: 3.2.4
 
 packages:

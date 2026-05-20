@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { SamplingHook, SampledError } from './hook';
-import type { SamplingPolicy } from './hook';
-import type { HookContext } from '@event-spec/api';
+import { SamplingHook, SampledError } from './sampling';
+import type { SamplingPolicy } from './sampling';
+import type { HookContext } from './hooks';
 
 function makeHC(eventName: string, userId = ''): HookContext {
   return { operation: 'track', eventName, context: { userId } };
