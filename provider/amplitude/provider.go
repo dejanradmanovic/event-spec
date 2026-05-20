@@ -158,7 +158,7 @@ func (p *Provider) sendBatch(ctx context.Context, events []amplitudeEvent) error
 	if err != nil {
 		return fmt.Errorf("amplitude: HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("amplitude: unexpected status %d", resp.StatusCode)
