@@ -5,6 +5,7 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
+	"go/format"
 	"os"
 	"path/filepath"
 	"sort"
@@ -72,7 +73,7 @@ func (e *Engine) generateGo(td TemplateData, outDir string) error {
 	}
 
 	for _, ev := range td.Events {
-		if err := renderFile(evtTmpl, ev, filepath.Join(outDir, ev.NameRaw+".go")); err != nil {
+		if err := renderGoFile(evtTmpl, ev, filepath.Join(outDir, ev.NameRaw+".go")); err != nil {
 			return fmt.Errorf("render go event %s: %w", ev.NameRaw, err)
 		}
 	}
@@ -81,7 +82,7 @@ func (e *Engine) generateGo(td TemplateData, outDir string) error {
 	if err != nil {
 		return fmt.Errorf("parse go eventspec template: %w", err)
 	}
-	return renderFile(specTmpl, td, filepath.Join(outDir, "eventspec.go"))
+	return renderGoFile(specTmpl, td, filepath.Join(outDir, "eventspec.go"))
 }
 
 func (e *Engine) generateTypeScript(td TemplateData, outDir string) error {
@@ -107,11 +108,27 @@ func (e *Engine) generateTypeScript(td TemplateData, outDir string) error {
 }
 
 func renderFile(tmpl *template.Template, data any, path string) error {
+	return renderFileFormatted(tmpl, data, path, false)
+}
+
+func renderGoFile(tmpl *template.Template, data any, path string) error {
+	return renderFileFormatted(tmpl, data, path, true)
+}
+
+func renderFileFormatted(tmpl *template.Template, data any, path string, gofmt bool) error {
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return fmt.Errorf("execute template: %w", err)
 	}
-	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+	src := buf.Bytes()
+	if gofmt {
+		formatted, err := format.Source(src)
+		if err != nil {
+			return fmt.Errorf("format %s: %w\n--- source ---\n%s", path, err, src)
+		}
+		src = formatted
+	}
+	if err := os.WriteFile(path, src, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
