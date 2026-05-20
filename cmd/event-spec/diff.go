@@ -327,11 +327,12 @@ func renderText(cmd *cobra.Command, results []diffResult, breakingOnly bool) {
 		}
 
 		_, _ = fmt.Fprintln(out)
-		if r.BumpErr != nil {
+		switch {
+		case r.BumpErr != nil:
 			_, _ = fmt.Fprintf(out, "Version: declared %s, required %s — ERROR\n", r.ToVersion, r.Suggested.Raw)
-		} else if len(r.Changes) > 0 {
+		case len(r.Changes) > 0:
 			_, _ = fmt.Fprintf(out, "Version: declared %s — ok\n", r.ToVersion)
-		} else {
+		default:
 			_, _ = fmt.Fprintf(out, "Version: no changes\n")
 		}
 	}
@@ -424,7 +425,7 @@ func openDiffRegistry() (interface {
 // findLatestTwo finds the two latest active versions of an event in the registry.
 func findLatestTwo(reg interface {
 	ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
-}, namespace, name string) (*spec.EventDef, *spec.EventDef, error) {
+}, namespace, name string) (older, newer *spec.EventDef, err error) {
 	all, err := reg.ListEvents(context.Background(), registry.ListFilter{Namespace: namespace, Status: spec.StatusActive})
 	if err != nil {
 		return nil, nil, fmt.Errorf("list events: %w", err)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -28,10 +27,4 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newValidateCmd())
 	root.AddCommand(newDiffCmd())
 	return root
-}
-
-// errorf is a helper that formats and writes to stderr, then returns an error.
-// Used by commands that manage their own error output.
-func errorf(cmd *cobra.Command, format string, a ...any) {
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "error: "+format+"\n", a...)
 }
