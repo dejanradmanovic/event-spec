@@ -30,7 +30,7 @@ func NewWatcher(r *Resolver) (*Watcher, error) {
 	w := &Watcher{r: r, fw: fw}
 	for _, dir := range []string{r.cfg.SpecsDir, r.cfg.SourcesDir, r.cfg.DestinationsDir} {
 		if err := w.addDir(dir); err != nil {
-			fw.Close()
+			_ = fw.Close()
 			return nil, err
 		}
 	}
