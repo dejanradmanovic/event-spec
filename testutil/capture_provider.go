@@ -110,3 +110,25 @@ func (c *CaptureProvider) Shutdown(_ context.Context) error {
 	c.mu.Unlock()
 	return nil
 }
+
+// Events returns a snapshot of all recorded TrackMessages.
+func (c *CaptureProvider) Events() []provider.TrackMessage {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]provider.TrackMessage, len(c.Tracks))
+	copy(out, c.Tracks)
+	return out
+}
+
+// Reset clears all recorded messages and resets call counters.
+func (c *CaptureProvider) Reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.Tracks = nil
+	c.Identifies = nil
+	c.Groups = nil
+	c.Pages = nil
+	c.Aliases = nil
+	c.FlushCalls = 0
+	c.ShutdownCalls = 0
+}
