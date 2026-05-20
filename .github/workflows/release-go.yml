@@ -1,4 +1,4 @@
-name: Release — Go Module
+name: Release — Go (module + CLI binaries)
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   release:
-    name: Tag and Release
+    name: Test, tag, build and release
     runs-on: ubuntu-latest
 
     steps:
@@ -38,17 +38,46 @@ jobs:
       - name: Test (with race detector)
         run: go test -race ./...
 
-      - name: Create tag
+      - name: Create and push tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
           git push origin "v${{ inputs.version }}"
 
+      - name: Build CLI binaries for all platforms
+        run: |
+          mkdir -p dist
+          declare -a PLATFORMS=(
+            "linux/amd64"
+            "linux/arm64"
+            "darwin/amd64"
+            "darwin/arm64"
+            "windows/amd64"
+          )
+          for platform in "${PLATFORMS[@]}"; do
+            GOOS="${platform%/*}"
+            GOARCH="${platform#*/}"
+            EXT=""
+            [ "$GOOS" = "windows" ] && EXT=".exe"
+            ARCHIVE="event-spec_v${{ inputs.version }}_${GOOS}_${GOARCH}"
+            mkdir -p "dist/${ARCHIVE}"
+            GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build \
+              -ldflags="-s -w" \
+              -o "dist/${ARCHIVE}/event-spec${EXT}" \
+              ./cmd/event-spec
+            if [ "$GOOS" = "windows" ]; then
+              (cd dist && zip -q "${ARCHIVE}.zip" "${ARCHIVE}/event-spec${EXT}")
+            else
+              tar czf "dist/${ARCHIVE}.tar.gz" -C "dist/${ARCHIVE}" "event-spec${EXT}"
+            fi
+          done
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "v${{ inputs.version }}" \
-            --title "v${{ inputs.version }}" \
-            --generate-notes
+            --title "event-spec v${{ inputs.version }}" \
+            --generate-notes \
+            dist/*.tar.gz dist/*.zip
