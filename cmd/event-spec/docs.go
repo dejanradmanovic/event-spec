@@ -54,13 +54,14 @@ func newDocsCmd() *cobra.Command {
 
 			var defs []*spec.EventDef
 
-			if len(args) > 0 {
+			switch {
+			case len(args) > 0:
 				var walkErrs []error
 				defs, walkErrs = spec.WalkEventDefs(args[0])
 				for _, e := range walkErrs {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: %v\n", e)
 				}
-			} else if cfgErr == nil {
+			case cfgErr == nil:
 				reg, err := openRegistry(cfg)
 				if err != nil {
 					return err
@@ -70,7 +71,7 @@ func newDocsCmd() *cobra.Command {
 					return fmt.Errorf("list events: %w", err)
 				}
 				defs = applySourceConfig(all, nil)
-			} else {
+			default:
 				var walkErrs []error
 				defs, walkErrs = spec.WalkEventDefs("./specs")
 				for _, e := range walkErrs {
@@ -179,7 +180,7 @@ func generateDocs(defs []*spec.EventDef, format, ext, out string) error {
 	now := time.Now().UTC()
 
 	funcs := template.FuncMap{
-		"join": func(s []string, sep string) string { return strings.Join(s, sep) },
+		"join": strings.Join,
 		"firstLine": func(s string) string {
 			s = strings.TrimSpace(s)
 			if i := strings.IndexByte(s, '\n'); i >= 0 {
