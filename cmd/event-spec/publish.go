@@ -48,23 +48,24 @@ func newPublishCmd() *cobra.Command {
 
 				if dryRun {
 					existing, getErr := c.GetEvent(ctx, ev.Namespace, ev.Name, ev.Version)
-					if getErr == nil {
+					switch {
+					case getErr == nil:
 						changes := spec.Diff(existing, ev)
 						if len(changes) == 0 {
 							_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s/%s@%s: no changes\n", ev.Namespace, ev.Name, ev.Version)
 						} else {
 							_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s/%s@%s: %d change(s)\n", ev.Namespace, ev.Name, ev.Version, len(changes))
-							for _, c := range changes {
+							for _, ch := range changes {
 								breaking := ""
-								if c.Breaking {
+								if ch.Breaking {
 									breaking = " [BREAKING]"
 								}
-								_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %-24s %s%s\n", string(c.Kind), c.Property, breaking)
+								_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %-24s %s%s\n", string(ch.Kind), ch.Property, breaking)
 							}
 						}
-					} else if errors.Is(getErr, registry.ErrNotFound) {
+					case errors.Is(getErr, registry.ErrNotFound):
 						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s/%s@%s: new (not yet published)\n", ev.Namespace, ev.Name, ev.Version)
-					} else {
+					default:
 						return fmt.Errorf("check %s/%s@%s: %w", ev.Namespace, ev.Name, ev.Version, getErr)
 					}
 					continue
