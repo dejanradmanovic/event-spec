@@ -183,6 +183,13 @@ type AuditConfig struct {
 	Report      string  `yaml:"report,omitempty"`       // json | text | html
 }
 
+// DocsConfig holds the workspace-level defaults for the docs command.
+// All fields are optional; the CLI falls back to these before applying built-in defaults.
+type DocsConfig struct {
+	Format string `yaml:"format,omitempty"` // html | markdown (default: html)
+	Out    string `yaml:"out,omitempty"`    // output directory (default: ./docs)
+}
+
 // WorkspaceConfig is the top-level event-spec.yaml configuration.
 type WorkspaceConfig struct {
 	Version         int            `yaml:"version"`
@@ -192,4 +199,5 @@ type WorkspaceConfig struct {
 	SourcesDir      string         `yaml:"sources_dir"`      // always local to the consuming repo
 	DestinationsDir string         `yaml:"destinations_dir"` // always local to the consuming repo
 	Audit           AuditConfig    `yaml:"audit,omitempty"`  // defaults for event-spec audit
+	Docs            DocsConfig     `yaml:"docs,omitempty"`   // defaults for event-spec docs
 }

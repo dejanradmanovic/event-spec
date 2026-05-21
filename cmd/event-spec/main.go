@@ -30,5 +30,6 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newNewCmd())
 	root.AddCommand(newServeCmd())
 	root.AddCommand(newAuditCmd())
+	root.AddCommand(newDocsCmd())
 	return root
 }
