@@ -5,5 +5,7 @@ package ui
 
 import "embed"
 
+// FS holds the embedded templates and static assets for the admin UI.
+//
 //go:embed templates static
 var FS embed.FS
