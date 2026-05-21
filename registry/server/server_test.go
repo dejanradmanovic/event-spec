@@ -42,7 +42,7 @@ type mockStore struct {
 
 type keyEntry struct{ userID, role string }
 
-func (m *mockStore) ListEvents(_ context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
+func (m *mockStore) ListAllEvents(_ context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
 	var out []spec.EventDef
 	for _, ev := range m.events {
 		if filter.Namespace != "" && ev.Namespace != filter.Namespace {
@@ -54,6 +54,14 @@ func (m *mockStore) ListEvents(_ context.Context, filter registry.ListFilter) ([
 		out = append(out, ev)
 	}
 	return out, nil
+}
+
+func (m *mockStore) ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
+	all, err := m.ListAllEvents(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	return registry.DeduplicateByLatest(all), nil
 }
 
 func (m *mockStore) GetEvent(_ context.Context, namespace, name, version string) (*spec.EventDef, error) {
@@ -74,6 +82,10 @@ func (m *mockStore) GetSource(_ context.Context, name string) (*spec.SourceDef, 
 
 func (m *mockStore) GetDestination(_ context.Context, _ string) (*spec.DestinationDef, error) {
 	return nil, fmt.Errorf("destination: %w", registry.ErrNotFound)
+}
+
+func (m *mockStore) ListDestinations(_ context.Context) ([]string, error) {
+	return nil, nil
 }
 
 func (m *mockStore) PublishEvent(_ context.Context, event spec.EventDef, _ string) error {

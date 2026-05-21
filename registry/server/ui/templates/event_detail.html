@@ -1,0 +1,220 @@
+{{define "content"}}
+<div class="es-event-header es-card">
+  <div class="es-card-body">
+    <div class="es-flex es-flex-between" style="align-items:flex-start;gap:1rem">
+      <div>
+        <div class="es-flex" style="align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.4rem">
+          <h2 class="es-event-name">{{if .Event.DisplayName}}{{.Event.DisplayName}}{{else}}{{.Event.Name}}{{end}}</h2>
+          <span class="es-badge es-badge-{{.Event.Status}}">{{.Event.Status}}</span>
+          {{if .Event.Required}}<span class="es-badge es-badge-required">required</span>{{end}}
+        </div>
+        {{if .Event.Description}}
+        <p class="es-text-muted" style="margin:0;max-width:640px;line-height:1.5">{{.Event.Description}}</p>
+        {{end}}
+      </div>
+      <div class="es-flex" style="gap:.5rem;flex-shrink:0">
+        {{if gt (len .Versions) 1}}
+        <a href="/ui/events/{{.Event.Namespace}}/{{.Event.Name}}/diff?from={{(index .Versions 1).Version}}&to={{.Event.Version}}" class="es-btn es-btn-ghost">Compare versions</a>
+        {{end}}
+        {{if or (eq .Role "publisher") (eq .Role "admin")}}
+        <a href="/ui/events/{{.Event.Namespace}}/{{.Event.Name}}/edit" class="es-btn es-btn-primary">Publish New Version</a>
+        {{end}}
+      </div>
+    </div>
+  </div>
+  {{/* Identity meta strip — core fields only */}}
+  <div class="es-event-meta-grid">
+    <div class="es-event-meta-item">
+      <span class="es-event-meta-label">Namespace</span>
+      <code class="es-code">{{.Event.Namespace}}</code>
+    </div>
+    <div class="es-event-meta-item">
+      <span class="es-event-meta-label">Name</span>
+      <code class="es-code">{{.Event.Name}}</code>
+    </div>
+    <div class="es-event-meta-item">
+      <span class="es-event-meta-label">Version</span>
+      <code class="es-code">{{.Event.Version}}</code>
+    </div>
+    <div class="es-event-meta-item">
+      <span class="es-event-meta-label">Type</span>
+      <span class="es-text-sm">{{.Event.Type}}</span>
+    </div>
+    {{if and .Event.EventName (ne .Event.EventName .Event.Name)}}
+    <div class="es-event-meta-item">
+      <span class="es-event-meta-label">Tracking Name</span>
+      <code class="es-code">{{.Event.EventName}}</code>
+    </div>
+    {{end}}
+    {{if .Event.Owner}}
+    <div class="es-event-meta-item">
+      <span class="es-event-meta-label">Owner</span>
+      <span class="es-text-sm">{{.Event.Owner}}</span>
+    </div>
+    {{end}}
+    {{if .Event.Tags}}
+    <div class="es-event-meta-item">
+      <span class="es-event-meta-label">Tags</span>
+      <div class="es-flex" style="gap:.3rem;flex-wrap:wrap;margin-top:.05rem">
+        {{range .Event.Tags}}<span class="es-tag">{{.}}</span>{{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+
+{{/* ── Main 2-col: Properties + Version History ─────────────────────────── */}}
+<div class="es-grid es-grid-2" style="margin-top:1.5rem;align-items:start">
+  <div class="es-card">
+    <div class="es-card-header"><h3 class="es-card-title">Properties</h3></div>
+    <div class="es-card-body es-p0">
+      {{if .Props}}
+      <table class="es-table">
+        <thead>
+          <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          {{range .Props}}
+          <tr>
+            <td><code class="es-code">{{.Name}}</code></td>
+            <td>
+              <span class="es-type-badge">{{.Def.Type}}</span>
+              {{if .Def.Enum}}
+              <div class="es-enum-list" style="margin-top:.2rem">
+                {{range .Def.Enum}}<code class="es-code es-code-sm">{{.}}</code> {{end}}
+              </div>
+              {{end}}
+              {{if .Def.Pattern}}<div class="es-text-muted es-text-sm" style="margin-top:.1rem">pattern: <code class="es-code es-code-sm">{{.Def.Pattern}}</code></div>{{end}}
+            </td>
+            <td>{{if .Def.Required}}<span class="es-badge es-badge-required">required</span>{{else}}<span class="es-text-muted">—</span>{{end}}</td>
+            <td class="es-text-muted es-text-sm">{{.Def.Description}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+      <div class="es-empty"><p>No properties defined.</p></div>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="es-card">
+    <div class="es-card-header"><h3 class="es-card-title">Version History</h3></div>
+    <div class="es-card-body es-p0">
+      {{if .Versions}}
+      <table class="es-table">
+        <thead>
+          <tr><th>Version</th><th>Status</th><th>Changelog</th><th></th></tr>
+        </thead>
+        <tbody>
+          {{range .Versions}}
+          <tr>
+            <td><code class="es-code">{{.Version}}</code></td>
+            <td><span class="es-badge es-badge-{{.Status}}">{{.Status}}</span></td>
+            <td class="es-text-muted es-text-sm">{{.Changelog}}</td>
+            <td>
+              {{if ne .Version $.Event.Version}}
+              <a href="/ui/events/{{.Namespace}}/{{.Name}}/diff?from={{.Version}}&to={{$.Event.Version}}" class="es-btn es-btn-ghost es-btn-sm">Diff</a>
+              {{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+      <div class="es-empty"><p>No versions found.</p></div>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+{{/* ── Advanced section — only rendered when at least one field is set ───── */}}
+{{if or .Event.Destinations .Event.ContextProperties .Event.Sampling .Event.PropertyPriority .Event.ProviderOverrides}}
+<div style="margin-top:1.5rem">
+  <p class="es-text-muted es-text-sm" style="margin:0 0 .75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.7rem">Advanced</p>
+
+  {{/* Compact info cards — auto-fill so they wrap naturally */}}
+  {{if or .Event.Destinations .Event.ContextProperties .Event.Sampling .Event.PropertyPriority}}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;margin-bottom:1rem">
+
+    {{if .Event.Destinations}}
+    <div class="es-card">
+      <div class="es-card-header"><h3 class="es-card-title">Destinations</h3></div>
+      <div class="es-card-body">
+        <div class="es-flex" style="flex-wrap:wrap;gap:.35rem">
+          {{range .Event.Destinations}}<span class="es-tag">{{.}}</span>{{end}}
+        </div>
+      </div>
+    </div>
+    {{end}}
+
+    {{if .Event.ContextProperties}}
+    <div class="es-card">
+      <div class="es-card-header"><h3 class="es-card-title">Context Properties</h3></div>
+      <div class="es-card-body">
+        <div class="es-flex" style="flex-wrap:wrap;gap:.35rem">
+          {{range .Event.ContextProperties}}<code class="es-code">{{.}}</code>{{end}}
+        </div>
+      </div>
+    </div>
+    {{end}}
+
+    {{if or .Event.Sampling .Event.PropertyPriority}}
+    <div class="es-card">
+      <div class="es-card-header"><h3 class="es-card-title">Delivery Config</h3></div>
+      <div class="es-card-body">
+        <dl class="es-dl">
+          {{if .Event.PropertyPriority}}
+          <dt>Priority</dt>
+          <dd><code class="es-code">{{.Event.PropertyPriority}}</code></dd>
+          {{end}}
+          {{if .Event.Sampling}}
+          <dt>Strategy</dt>
+          <dd><code class="es-code">{{.Event.Sampling.Strategy}}</code></dd>
+          <dt>Rate</dt>
+          <dd>{{.Event.Sampling.Rate}}</dd>
+          {{end}}
+        </dl>
+      </div>
+    </div>
+    {{end}}
+
+  </div>
+  {{end}}
+
+  {{/* Provider Overrides — full table, full width */}}
+  {{if .Event.ProviderOverrides}}
+  <div class="es-card">
+    <div class="es-card-header"><h3 class="es-card-title">Provider Overrides</h3></div>
+    <div class="es-card-body es-p0">
+      <table class="es-table">
+        <thead>
+          <tr><th>Destination</th><th>Event Name Override</th><th>Property Map</th></tr>
+        </thead>
+        <tbody>
+          {{range $dest, $ovr := .Event.ProviderOverrides}}
+          <tr>
+            <td><code class="es-code">{{$dest}}</code></td>
+            <td>
+              {{if $ovr.EventName}}<code class="es-code">{{$ovr.EventName}}</code>{{else}}<span class="es-text-muted">—</span>{{end}}
+            </td>
+            <td>
+              {{if $ovr.PropertyMap}}
+              <div class="es-flex" style="flex-wrap:wrap;gap:.3rem">
+                {{range $k, $v := $ovr.PropertyMap}}
+                <span class="es-text-sm"><code class="es-code es-code-sm">{{$k}}</code> <span class="es-text-muted">→</span> <code class="es-code es-code-sm">{{$v}}</code></span>
+                {{end}}
+              </div>
+              {{else}}<span class="es-text-muted">—</span>{{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {{end}}
+
+</div>
+{{end}}
+{{end}}

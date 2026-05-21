@@ -1,0 +1,982 @@
+{{define "content"}}
+<div class="es-card">
+  <div class="es-card-header">
+    <div>
+      <h3 class="es-card-title">{{if .IsEdit}}Publish New Version{{else}}Publish New Event{{end}}</h3>
+      <p class="es-text-muted es-text-sm">
+        {{if .IsEdit}}
+          Edit the fields below and increment <code class="es-code">version</code> to publish a new version.
+        {{else}}
+          Use the Visual tab for guided entry, or switch to YAML for direct editing.
+        {{end}}
+      </p>
+    </div>
+    <div class="es-flex" style="gap:.75rem;align-items:center">
+      <div class="es-tab-bar">
+        <button type="button" class="es-tab-btn active" data-tab="visual">Visual</button>
+        <button type="button" class="es-tab-btn" data-tab="yaml">YAML</button>
+      </div>
+      {{if .IsEdit}}
+      <a href="/ui/events/{{.Namespace}}/{{.EventName}}" class="es-btn es-btn-ghost">Cancel</a>
+      {{else}}
+      <a href="/ui/events" class="es-btn es-btn-ghost">Cancel</a>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="es-card-body">
+    {{if .IsEdit}}
+    <div class="es-form-group" style="margin-bottom:1rem">
+      <label class="es-label">Locked fields</label>
+      <div class="es-flex" style="gap:.5rem;flex-wrap:wrap">
+        <span class="es-input es-input-locked" style="width:auto">
+          <span class="es-text-muted es-text-sm">namespace</span>&ensp;<code class="es-code">{{.Namespace}}</code>
+        </span>
+        <span class="es-input es-input-locked" style="width:auto">
+          <span class="es-text-muted es-text-sm">name</span>&ensp;<code class="es-code">{{.EventName}}</code>
+        </span>
+      </div>
+      <span class="es-form-hint">These fields identify the event and cannot be changed. To rename, create a new event and deprecate this one.</span>
+    </div>
+    {{end}}
+
+    {{if .FormError}}
+    <div class="es-alert es-alert-danger" style="white-space:pre-line;margin-bottom:1rem">{{.FormError}}</div>
+    {{end}}
+
+    <form method="POST" action="{{if .IsEdit}}/ui/events/{{.Namespace}}/{{.EventName}}/edit{{else}}/ui/events/new{{end}}" id="event-form">
+      {{/* Hidden textarea — receives the editor value before submit */}}
+      <textarea id="spec_yaml" name="spec_yaml" style="display:none">{{.YAML}}</textarea>
+
+      {{/* ── Visual Editor Tab ─────────────────────────────────────────── */}}
+      <div id="tab-visual" class="es-tab-panel">
+
+        {{/* Row 1: namespace / name / event_name */}}
+        <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr 1fr;gap:.75rem">
+          <div class="es-form-group">
+            <label class="es-label">Namespace <span style="color:#c92a2a">*</span></label>
+            {{if .IsEdit}}
+            <span class="es-input es-input-locked">{{.Namespace}}</span>
+            <input id="v-namespace" type="hidden" value="{{.Namespace}}">
+            {{else}}
+            <input id="v-namespace" type="text" class="es-input" placeholder="e.g. ecommerce">
+            {{end}}
+          </div>
+          <div class="es-form-group">
+            <label class="es-label">Name <span style="color:#c92a2a">*</span></label>
+            {{if .IsEdit}}
+            <span class="es-input es-input-locked">{{.EventName}}</span>
+            <input id="v-name" type="hidden" value="{{.EventName}}">
+            {{else}}
+            <input id="v-name" type="text" class="es-input" placeholder="e.g. product_viewed">
+            {{end}}
+          </div>
+          <div class="es-form-group">
+            <label class="es-label" for="v-event_name">Event Name <span style="color:#c92a2a">*</span></label>
+            <input id="v-event_name" type="text" class="es-input" placeholder="Tracking name sent to providers">
+          </div>
+        </div>
+
+        {{/* Row 2: display_name / version / status / type */}}
+        <div class="es-grid es-visual-section" style="grid-template-columns:2fr 1fr 1fr 1fr;gap:.75rem">
+          <div class="es-form-group">
+            <label class="es-label" for="v-display_name">Display Name</label>
+            <input id="v-display_name" type="text" class="es-input" placeholder="e.g. Product Viewed">
+          </div>
+          <div class="es-form-group">
+            <label class="es-label" for="v-version">Version <span style="color:#c92a2a">*</span></label>
+            <input id="v-version" type="text" class="es-input" placeholder="1-0-0">
+          </div>
+          <div class="es-form-group">
+            <label class="es-label" for="v-status">Status <span style="color:#c92a2a">*</span></label>
+            <select id="v-status" class="es-select" style="width:100%">
+              <option value="draft">draft</option>
+              <option value="active">active</option>
+              <option value="deprecated">deprecated</option>
+              <option value="deleted">deleted</option>
+            </select>
+          </div>
+          <div class="es-form-group">
+            <label class="es-label" for="v-type">Type <span style="color:#c92a2a">*</span></label>
+            <select id="v-type" class="es-select" style="width:100%">
+              <option value="track">track</option>
+              <option value="page">page</option>
+              <option value="identify">identify</option>
+              <option value="group">group</option>
+              <option value="alias">alias</option>
+            </select>
+          </div>
+        </div>
+
+        {{/* Row 3: description */}}
+        <div class="es-form-group es-visual-section">
+          <label class="es-label" for="v-description">Description</label>
+          <textarea id="v-description" class="es-input" rows="2" style="resize:vertical" placeholder="What does this event capture?"></textarea>
+          <label style="display:flex;align-items:center;gap:.45rem;cursor:pointer;margin-top:.4rem">
+            <input id="v-required" type="checkbox">
+            <span class="es-text-sm" style="color:#4a5568">Required — this event must always be fired at its trigger point</span>
+          </label>
+        </div>
+
+        {{/* Row 4: changelog / owner / tags */}}
+        <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr 1fr;gap:.75rem">
+          <div class="es-form-group">
+            <label class="es-label" for="v-changelog">Changelog</label>
+            <input id="v-changelog" type="text" class="es-input" placeholder="e.g. Initial version">
+          </div>
+          <div class="es-form-group">
+            <label class="es-label" for="v-owner">Owner</label>
+            <input id="v-owner" type="text" class="es-input" placeholder="e.g. team@example.com">
+          </div>
+          <div class="es-form-group">
+            <label class="es-label" for="v-tags">Tags <span class="es-text-muted es-text-sm" style="font-weight:400">(comma-separated)</span></label>
+            <input id="v-tags" type="text" class="es-input" placeholder="e.g. checkout, mobile">
+          </div>
+        </div>
+
+        {{/* Properties */}}
+        <div class="es-visual-section">
+          <div class="es-flex es-flex-between es-flex-center" style="margin-bottom:.4rem">
+            <label class="es-label" style="margin:0">Properties</label>
+            <button type="button" class="es-btn es-btn-ghost es-btn-sm" id="add-prop-btn">+ Add Property</button>
+          </div>
+          <div style="border:1px solid #e6ebf1;border-radius:.35rem;overflow:hidden">
+            <table class="es-table" id="props-table" style="display:none">
+              <thead>
+                <tr>
+                  <th style="width:18%">Name</th>
+                  <th style="width:11%">Type</th>
+                  <th style="width:7%;text-align:center">Required</th>
+                  <th>Description</th>
+                  <th style="width:20%">Enum values (comma-sep)</th>
+                  <th style="width:32px"></th>
+                </tr>
+              </thead>
+              <tbody id="props-tbody"></tbody>
+            </table>
+            <div id="props-empty" class="es-empty" style="padding:1rem">
+              <p style="margin:0">No properties yet. Click <strong>+ Add Property</strong> to add one.</p>
+            </div>
+          </div>
+        </div>
+
+        {{/* Advanced */}}
+        <details id="visual-advanced">
+          <summary class="es-details-summary" style="padding:.3rem 0;user-select:none">Advanced options</summary>
+          <div style="margin-top:.75rem">
+            {{/* Row: property_priority | sampling */}}
+            <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr 1fr;gap:.75rem">
+              <div class="es-form-group">
+                <label class="es-label" for="v-property_priority">Property Priority</label>
+                <select id="v-property_priority" class="es-select" style="width:100%">
+                  <option value="">— not set —</option>
+                  <option value="event_wins">event_wins</option>
+                  <option value="context_wins">context_wins</option>
+                  <option value="merge">merge</option>
+                </select>
+              </div>
+              <div class="es-form-group">
+                <label class="es-label" for="v-sampling-strategy">Sampling Strategy</label>
+                <select id="v-sampling-strategy" class="es-select" style="width:100%">
+                  <option value="">— not set —</option>
+                  <option value="none">none</option>
+                  <option value="user_id_hash">user_id_hash</option>
+                  <option value="random">random</option>
+                </select>
+              </div>
+              <div class="es-form-group">
+                <label class="es-label" for="v-sampling-rate">Sampling Rate</label>
+                <input id="v-sampling-rate" type="number" class="es-input" min="0" max="1" step="0.01" placeholder="0.0 – 1.0">
+              </div>
+            </div>
+
+            {{/* Row: destinations | context_properties (side-by-side) */}}
+            <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr;gap:.75rem">
+              {{/* Destinations — dropdown populated from DB */}}
+              <div>
+                <div class="es-flex es-flex-between es-flex-center" style="margin-bottom:.4rem">
+                  <label class="es-label" style="margin:0">Destinations</label>
+                  <button type="button" class="es-btn es-btn-ghost es-btn-sm" id="add-dest-btn">+ Add</button>
+                </div>
+                <div style="border:1px solid #e6ebf1;border-radius:.35rem;overflow:hidden">
+                  <table class="es-table" id="dest-table" style="display:none">
+                    <tbody id="dest-tbody"></tbody>
+                  </table>
+                  <div id="dest-empty" class="es-empty" style="padding:.75rem">
+                    <p style="margin:0;font-size:.8rem">No destinations. Click <strong>+ Add</strong>.</p>
+                  </div>
+                </div>
+              </div>
+              {{/* Context Properties — free-text list */}}
+              <div>
+                <div class="es-flex es-flex-between es-flex-center" style="margin-bottom:.4rem">
+                  <label class="es-label" style="margin:0">Context Properties</label>
+                  <button type="button" class="es-btn es-btn-ghost es-btn-sm" id="add-ctxprop-btn">+ Add</button>
+                </div>
+                <div style="border:1px solid #e6ebf1;border-radius:.35rem;overflow:hidden">
+                  <table class="es-table" id="ctxprop-table" style="display:none">
+                    <tbody id="ctxprop-tbody"></tbody>
+                  </table>
+                  <div id="ctxprop-empty" class="es-empty" style="padding:.75rem">
+                    <p style="margin:0;font-size:.8rem">No context properties. Click <strong>+ Add</strong>.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {{/* Provider Overrides table */}}
+            <div class="es-visual-section">
+              <div class="es-flex es-flex-between es-flex-center" style="margin-bottom:.4rem">
+                <label class="es-label" style="margin:0">Provider Overrides</label>
+                <button type="button" class="es-btn es-btn-ghost es-btn-sm" id="add-override-btn">+ Add Override</button>
+              </div>
+              <div style="border:1px solid #e6ebf1;border-radius:.35rem;overflow:hidden">
+                <table class="es-table" id="overrides-table" style="display:none">
+                  <thead>
+                    <tr>
+                      <th style="width:22%">Destination</th>
+                      <th style="width:25%">Event Name Override</th>
+                      <th>Property Map <span class="es-text-muted" style="font-weight:400;font-size:.7rem">(key:val, key:val)</span></th>
+                      <th style="width:32px"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="overrides-tbody"></tbody>
+                </table>
+                <div id="overrides-empty" class="es-empty" style="padding:.75rem">
+                  <p style="margin:0;font-size:.8rem">No provider overrides. Click <strong>+ Add Override</strong> to add one.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      {{/* ── YAML Editor Tab ──────────────────────────────────────────────── */}}
+      <div id="tab-yaml" class="es-tab-panel" style="display:none">
+        <div class="es-form-group">
+          <div class="es-flex es-flex-between es-flex-center" style="margin-bottom:.4rem">
+            <label class="es-label" style="margin:0">Event Spec YAML</label>
+            <span id="validation-status" class="es-text-sm" style="font-variant-numeric:tabular-nums"></span>
+          </div>
+          <div id="yaml-editor" style="height:520px;border:1px solid #d1dce8;border-radius:.35rem;overflow:hidden;background:#fff">
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9aa5b4;font-size:.85rem">
+              Loading editor…
+            </div>
+          </div>
+          <span class="es-form-hint" style="margin-top:.35rem">
+            Required: <code class="es-code">name</code>, <code class="es-code">namespace</code>,
+            <code class="es-code">version</code> (e.g. <code class="es-code">1-0-0</code>),
+            <code class="es-code">status</code>, <code class="es-code">type</code>, <code class="es-code">event_name</code>.
+          </span>
+        </div>
+
+        {{/* YAML Reference — inline in the YAML tab */}}
+        <div class="es-card" style="margin-top:1rem">
+          <div class="es-card-header"><h3 class="es-card-title">YAML Reference</h3></div>
+          <div class="es-card-body">
+            <dl class="es-dl">
+              <dt><code class="es-code">namespace</code></dt><dd>Logical grouping, e.g. <code class="es-code">ecommerce</code></dd>
+              <dt><code class="es-code">name</code></dt><dd>Snake-case identifier, e.g. <code class="es-code">product_viewed</code></dd>
+              <dt><code class="es-code">event_name</code></dt><dd>Tracking name sent to analytics providers; defaults to <code class="es-code">name</code> if omitted</dd>
+              <dt><code class="es-code">display_name</code></dt><dd>Human-readable label shown in the UI</dd>
+              <dt><code class="es-code">version</code></dt><dd>SchemaVer with hyphens: <code class="es-code">1-0-0</code>, <code class="es-code">1-2-0</code>, <code class="es-code">2-0-0</code></dd>
+              <dt><code class="es-code">status</code></dt><dd><code class="es-code">draft</code> · <code class="es-code">active</code> · <code class="es-code">deprecated</code> · <code class="es-code">deleted</code></dd>
+              <dt><code class="es-code">type</code></dt><dd><code class="es-code">track</code> · <code class="es-code">page</code> · <code class="es-code">identify</code> · <code class="es-code">group</code> · <code class="es-code">alias</code></dd>
+              <dt>Property types</dt><dd><code class="es-code">string</code> · <code class="es-code">number</code> · <code class="es-code">integer</code> · <code class="es-code">boolean</code> · <code class="es-code">object</code> · <code class="es-code">array</code></dd>
+              <dt><code class="es-code">property_priority</code></dt><dd><code class="es-code">event_wins</code> · <code class="es-code">context_wins</code> · <code class="es-code">merge</code> — collision resolution when merging event props with context traits</dd>
+              <dt><code class="es-code">sampling</code></dt><dd>
+                Optional sampling block:<br>
+                <code class="es-code">strategy</code>: <code class="es-code">none</code> · <code class="es-code">user_id_hash</code> · <code class="es-code">random</code><br>
+                <code class="es-code">rate</code>: number between <code class="es-code">0</code> and <code class="es-code">1</code> (e.g. <code class="es-code">0.1</code> = 10%)
+              </dd>
+              <dt><code class="es-code">required</code></dt><dd><code class="es-code">true</code> if the event must always be fired at its trigger point</dd>
+              <dt><code class="es-code">destinations</code></dt><dd>Destination keys this event should be sent to, e.g. <code class="es-code">[segment, mixpanel]</code></dd>
+              <dt><code class="es-code">context_properties</code></dt><dd>Context trait names merged into the event payload, e.g. <code class="es-code">[user_id, locale]</code></dd>
+              <dt><code class="es-code">provider_overrides</code></dt><dd>
+                Per-provider mappings keyed by provider name:<br>
+                <code class="es-code">event_name</code>: tracking name override for this provider<br>
+                <code class="es-code">property_map</code>: map of local property → provider property name
+              </dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+
+      <div class="es-form-actions" style="margin-top:1rem">
+        <button type="submit" class="es-btn es-btn-primary">
+          {{if .IsEdit}}Publish New Version{{else}}Publish Event{{end}}
+        </button>
+        {{if .IsEdit}}
+        <a href="/ui/events/{{.Namespace}}/{{.EventName}}" class="es-btn es-btn-ghost">Cancel</a>
+        {{else}}
+        <a href="/ui/events" class="es-btn es-btn-ghost">Cancel</a>
+        {{end}}
+      </div>
+    </form>
+  </div>
+</div>
+
+{{/* ── js-yaml must load before Monaco's loader.js (AMD conflict) ─────── */}}
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<script>
+// Destination names loaded from DB — used to populate the destinations dropdown.
+var KNOWN_DESTINATIONS = [{{range .AvailableDestinations}}"{{.}}",{{end}}];
+window.MonacoEnvironment = {
+  getWorkerUrl: function (_, label) {
+    return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(
+      'self.MonacoEnvironment={baseUrl:"https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/"};' +
+      'importScripts("https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/vs/base/worker/workerMain.js");'
+    );
+  }
+};
+window.require = { paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/vs' } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/vs/loader.js"></script>
+<script>
+require(['vs/editor/editor.main'], function () {
+  var textarea  = document.getElementById('spec_yaml');
+  var statusEl  = document.getElementById('validation-status');
+  var editorEl  = document.getElementById('yaml-editor');
+  // lastGeneratedYAML: the most-recent YAML string we pushed into Monaco from the
+  // visual side. When Monaco fires onDidChangeModelContent and the content matches
+  // this string, the change originated from us — skip the visual update to avoid
+  // a feedback loop that could clobber cursor positions.
+  var lastGeneratedYAML = '';
+
+  // ── Theme ─────────────────────────────────────────────────────────────────
+  monaco.editor.defineTheme('event-spec-light', {
+    base: 'vs', inherit: true,
+    rules: [
+      { token: 'key.yaml',     foreground: '206bc4', fontStyle: 'bold' },
+      { token: 'string.yaml',  foreground: '2e7d32' },
+      { token: 'number.yaml',  foreground: 'b5440b' },
+      { token: 'comment.yaml', foreground: '9aa5b4', fontStyle: 'italic' },
+      { token: 'keyword.yaml', foreground: '7b3cc2' },
+    ],
+    colors: {
+      'editor.background':                 '#ffffff',
+      'editor.lineHighlightBackground':    '#f4f6f9',
+      'editorGutter.background':           '#f9fafc',
+      'editorLineNumber.foreground':       '#b0bcc9',
+      'editorLineNumber.activeForeground': '#4a5568',
+      'editorIndentGuide.background':      '#e6ebf1',
+    }
+  });
+
+  // ── Mount editor ──────────────────────────────────────────────────────────
+  editorEl.innerHTML = '';
+  var editor = monaco.editor.create(editorEl, {
+    value:                textarea.value,
+    language:             'yaml',
+    theme:                'event-spec-light',
+    minimap:              { enabled: false },
+    scrollBeyondLastLine: false,
+    fontSize:             13,
+    fontFamily:           "ui-monospace,'Cascadia Code','JetBrains Mono',Menlo,Consolas,monospace",
+    lineNumbers:          'on',
+    renderLineHighlight:  'gutter',
+    tabSize:              2,
+    insertSpaces:         true,
+    automaticLayout:      true,
+    padding:              { top: 10, bottom: 10 },
+    scrollbar:            { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
+    overviewRulerBorder:  false,
+    wordWrap:             'off',
+    glyphMargin:          false,
+    folding:              true,
+    bracketPairColorization: { enabled: true },
+    fixedOverflowWidgets: true,
+  });
+  editorInstance = editor;
+
+  // ── Tab switching (inside require so populateVisual/tryParseYAML are in scope)
+  var tabBtns = document.querySelectorAll('.es-tab-btn');
+  tabBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var target = btn.dataset.tab;
+      tabBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === target); });
+      document.getElementById('tab-visual').style.display = target === 'visual' ? '' : 'none';
+      document.getElementById('tab-yaml').style.display   = target === 'yaml'   ? '' : 'none';
+      if (target === 'yaml') {
+        setTimeout(function () { editor.layout(); }, 10);
+      }
+      if (target === 'visual') {
+        var doc = tryParseYAML(editor.getValue());
+        if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
+          populateVisual(doc);
+          updatePropsEmpty();
+        }
+      }
+    });
+  });
+
+  // ── Monaco → sync textarea + validate + populate visual ───────────────────
+  editor.onDidChangeModelContent(function () {
+    var current = editor.getValue();
+    textarea.value = current;
+    validate();
+    // Skip when the change originated from onVisualChange pushing into Monaco.
+    if (current === lastGeneratedYAML) return;
+    var doc = tryParseYAML(current);
+    if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
+      // Temporarily suppress visual → YAML sync while we repopulate the fields,
+      // then restore. Without this, sv() calls that change a field value whose
+      // el.value already matches won't fire events, but rebuildPropsTable does a
+      // full DOM teardown/rebuild which could re-trigger the delegation listener.
+      lastGeneratedYAML = current;
+      populateVisual(doc);
+    }
+  });
+
+  // Safety-net sync on submit
+  document.getElementById('event-form').addEventListener('submit', function () {
+    textarea.value = editor.getValue();
+  });
+
+  // ── Visual field change listeners (event delegation — covers all fields
+  //    including the advanced section without enumerating every ID) ───────────
+  document.getElementById('tab-visual').addEventListener('input',  onVisualChange);
+  document.getElementById('tab-visual').addEventListener('change', onVisualChange);
+
+  document.getElementById('add-prop-btn').addEventListener('click', function () {
+    addPropRow('', 'string', false, '', '');
+    updatePropsEmpty();
+    onVisualChange();
+  });
+
+  document.getElementById('add-dest-btn').addEventListener('click', function () {
+    addDestinationRow('');
+    updateDestsEmpty();
+    onVisualChange();
+  });
+
+  document.getElementById('add-ctxprop-btn').addEventListener('click', function () {
+    addContextPropRow('');
+    updateCtxPropsEmpty();
+    onVisualChange();
+  });
+
+  document.getElementById('add-override-btn').addEventListener('click', function () {
+    addOverrideRow('', '', '');
+    updateOverridesEmpty();
+    onVisualChange();
+  });
+
+  // ── Seed visual from initial YAML ─────────────────────────────────────────
+  var initDoc = tryParseYAML(textarea.value);
+  if (initDoc && typeof initDoc === 'object' && !Array.isArray(initDoc)) {
+    populateVisual(initDoc);
+  }
+  lastGeneratedYAML = editor.getValue();
+  updatePropsEmpty();
+  updateDestsEmpty();
+  updateCtxPropsEmpty();
+  updateOverridesEmpty();
+  validate();
+
+  // ── Sync: visual → YAML ───────────────────────────────────────────────────
+  function onVisualChange() {
+    var doc = buildDocFromVisual();
+    var yamlStr = jsyaml.dump(doc, { indent: 2, lineWidth: -1, noRefs: true });
+    if (yamlStr === editor.getValue()) return; // nothing changed
+    lastGeneratedYAML = yamlStr;
+    editor.setValue(yamlStr);
+  }
+
+  function buildDocFromVisual() {
+    var doc = {};
+    doc['$schema'] = 'https://event-spec.io/schemas/event/v1';
+
+    var ns     = gv('v-namespace'),   name   = gv('v-name'),
+        evName = gv('v-event_name'),  dispN  = gv('v-display_name'),
+        desc   = gv('v-description'), ver    = gv('v-version'),
+        clog   = gv('v-changelog'),   status = gv('v-status'),
+        tags   = gv('v-tags'),        owner  = gv('v-owner'),
+        type   = gv('v-type'),        pp     = gv('v-property_priority'),
+        ss     = gv('v-sampling-strategy'), sr = gv('v-sampling-rate');
+
+    if (ns)     doc.namespace    = ns;
+    if (name)   doc.name         = name;
+    if (evName) doc.event_name   = evName;
+    if (dispN)  doc.display_name = dispN;
+    if (desc)   doc.description  = desc;
+    if (ver)    doc.version      = ver;
+    if (clog)   doc.changelog    = clog;
+    if (status) doc.status       = status;
+
+    if (tags) {
+      var tagArr = tags.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+      if (tagArr.length) doc.tags = tagArr;
+    }
+
+    if (owner) doc.owner = owner;
+    if (type)  doc.type  = type;
+    if (gc('v-required')) doc.required = true;
+
+    var dsArr = buildDestsFromVisual();
+    if (dsArr.length) doc.destinations = dsArr;
+    var cpArr = buildCtxPropsFromVisual();
+    if (cpArr.length) doc.context_properties = cpArr;
+
+    if (pp) doc.property_priority = pp;
+
+    var props = buildPropsFromVisual();
+    if (Object.keys(props).length) doc.properties = props;
+
+    if (ss) {
+      doc.sampling = { strategy: ss };
+      var rateNum = parseFloat(sr);
+      if (!isNaN(rateNum)) doc.sampling.rate = rateNum;
+    }
+
+    var overrides = buildOverridesFromVisual();
+    if (Object.keys(overrides).length) doc.provider_overrides = overrides;
+
+    return doc;
+  }
+
+  function buildPropsFromVisual() {
+    var props = {};
+    document.querySelectorAll('#props-tbody .prop-row').forEach(function (row) {
+      var pName = row.querySelector('.prop-name').value.trim();
+      if (!pName) return;
+      var pd = {};
+      var pt = row.querySelector('.prop-type').value;
+      if (pt) pd.type = pt;
+      if (row.querySelector('.prop-required').checked) pd.required = true;
+      var d = row.querySelector('.prop-desc').value.trim();
+      if (d) pd.description = d;
+      var enumStr = row.querySelector('.prop-enum').value.trim();
+      if (enumStr) pd.enum = enumStr.split(',').map(function (v) { return v.trim(); }).filter(Boolean);
+      props[pName] = pd;
+    });
+    return props;
+  }
+
+  // ── Sync: YAML → visual ───────────────────────────────────────────────────
+  function populateVisual(doc) {
+    sv('v-namespace',    doc.namespace         || '');
+    sv('v-name',         doc.name              || '');
+    sv('v-event_name',   doc.event_name        || '');
+    sv('v-display_name', doc.display_name      || '');
+    sv('v-description',  doc.description       || '');
+    sv('v-version',      doc.version           || '');
+    sv('v-changelog',    doc.changelog         || '');
+    sv('v-status',       doc.status            || 'draft');
+    sv('v-type',         doc.type              || 'track');
+    sv('v-tags',         Array.isArray(doc.tags) ? doc.tags.join(', ') : (doc.tags || ''));
+    sv('v-owner',        doc.owner             || '');
+    rebuildDestsTable(Array.isArray(doc.destinations) ? doc.destinations : []);
+    rebuildCtxPropsTable(Array.isArray(doc.context_properties) ? doc.context_properties : []);
+    sv('v-property_priority', doc.property_priority || '');
+    sc('v-required', doc.required || false);
+
+    var adv = document.getElementById('visual-advanced');
+    if (doc.sampling && typeof doc.sampling === 'object') {
+      sv('v-sampling-strategy', doc.sampling.strategy || '');
+      sv('v-sampling-rate',     doc.sampling.rate !== undefined ? String(doc.sampling.rate) : '');
+      if (adv && !adv.open) adv.open = true;
+    } else {
+      sv('v-sampling-strategy', '');
+      sv('v-sampling-rate', '');
+    }
+    if (doc.property_priority && adv && !adv.open) adv.open = true;
+    if (doc.required && adv && !adv.open) adv.open = true;
+    if (doc.destinations && doc.destinations.length && adv && !adv.open) adv.open = true;
+    if (doc.context_properties && doc.context_properties.length && adv && !adv.open) adv.open = true;
+    if (doc.provider_overrides && Object.keys(doc.provider_overrides).length && adv && !adv.open) adv.open = true;
+
+    rebuildPropsTable(doc.properties || {});
+    rebuildOverridesTable(doc.provider_overrides || {});
+  }
+
+  function rebuildPropsTable(props) {
+    document.getElementById('props-tbody').innerHTML = '';
+    Object.keys(props || {}).forEach(function (pName) {
+      var pd = props[pName] || {};
+      addPropRow(
+        pName,
+        pd.type        || 'string',
+        pd.required    || false,
+        pd.description || '',
+        Array.isArray(pd.enum) ? pd.enum.join(', ') : ''
+      );
+    });
+    updatePropsEmpty();
+  }
+
+  function addPropRow(name, type, required, desc, enumStr) {
+    var tbody = document.getElementById('props-tbody');
+    var tr = document.createElement('tr');
+    tr.className = 'prop-row';
+    tr.innerHTML =
+      '<td><input type="text" class="es-input prop-name" style="width:100%;min-width:80px" placeholder="prop_name" value="' + esc(name) + '"></td>' +
+      '<td><select class="es-select prop-type" style="width:100%">' +
+        ['string','number','integer','boolean','object','array'].map(function (t) {
+          return '<option value="' + t + '"' + (t === type ? ' selected' : '') + '>' + t + '</option>';
+        }).join('') +
+      '</select></td>' +
+      '<td style="text-align:center;vertical-align:middle"><input type="checkbox" class="prop-required"' + (required ? ' checked' : '') + '></td>' +
+      '<td><input type="text" class="es-input prop-desc" style="width:100%" placeholder="Description" value="' + esc(desc) + '"></td>' +
+      '<td><input type="text" class="es-input prop-enum" style="width:100%" placeholder="a, b, c" value="' + esc(enumStr) + '"></td>' +
+      '<td><button type="button" class="es-btn es-btn-ghost es-btn-sm prop-remove" style="padding:.15rem .45rem;line-height:1">✕</button></td>';
+
+    // input/change events on the row cells bubble up to #tab-visual (delegation).
+    // Only the remove button needs an explicit listener since click doesn't bubble
+    // through the delegation handlers.
+    tr.querySelector('.prop-remove').addEventListener('click', function () {
+      tr.remove();
+      updatePropsEmpty();
+      onVisualChange();
+    });
+    tbody.appendChild(tr);
+  }
+
+  function updatePropsEmpty() {
+    var rows = document.querySelectorAll('#props-tbody .prop-row').length;
+    var emptyEl = document.getElementById('props-empty');
+    var tableEl = document.getElementById('props-table');
+    if (emptyEl) emptyEl.style.display = rows ? 'none' : '';
+    if (tableEl) tableEl.style.display = rows ? ''     : 'none';
+  }
+
+  function addDestinationRow(name) {
+    var tbody = document.getElementById('dest-tbody');
+    var tr = document.createElement('tr');
+    tr.className = 'dest-row';
+    var inputHtml;
+    if (KNOWN_DESTINATIONS.length > 0) {
+      var opts = KNOWN_DESTINATIONS.map(function (d) {
+        return '<option value="' + esc(d) + '"' + (d === name ? ' selected' : '') + '>' + esc(d) + '</option>';
+      });
+      // If the stored value is not in the known list, prepend it so it renders.
+      if (name && KNOWN_DESTINATIONS.indexOf(name) === -1)
+        opts.unshift('<option value="' + esc(name) + '" selected>' + esc(name) + '</option>');
+      inputHtml = '<select class="es-select dest-name" style="width:100%">' + opts.join('') + '</select>';
+    } else {
+      inputHtml = '<input type="text" class="es-input dest-name" style="width:100%" placeholder="destination name" value="' + esc(name) + '">';
+    }
+    tr.innerHTML = '<td>' + inputHtml + '</td>' +
+      '<td style="width:32px"><button type="button" class="es-btn es-btn-ghost es-btn-sm dest-remove" style="padding:.15rem .45rem;line-height:1">✕</button></td>';
+    tr.querySelector('.dest-remove').addEventListener('click', function () {
+      tr.remove(); updateDestsEmpty(); onVisualChange();
+    });
+    tbody.appendChild(tr);
+  }
+
+  function rebuildDestsTable(dests) {
+    document.getElementById('dest-tbody').innerHTML = '';
+    (dests || []).forEach(function (d) { addDestinationRow(d); });
+    updateDestsEmpty();
+  }
+
+  function updateDestsEmpty() {
+    var rows = document.querySelectorAll('#dest-tbody .dest-row').length;
+    var e = document.getElementById('dest-empty'), t = document.getElementById('dest-table');
+    if (e) e.style.display = rows ? 'none' : '';
+    if (t) t.style.display = rows ? '' : 'none';
+  }
+
+  function buildDestsFromVisual() {
+    var out = [];
+    document.querySelectorAll('#dest-tbody .dest-row').forEach(function (row) {
+      var v = row.querySelector('.dest-name').value.trim();
+      if (v) out.push(v);
+    });
+    return out;
+  }
+
+  function addContextPropRow(name) {
+    var tbody = document.getElementById('ctxprop-tbody');
+    var tr = document.createElement('tr');
+    tr.className = 'ctxprop-row';
+    tr.innerHTML =
+      '<td><input type="text" class="es-input ctxprop-name" style="width:100%" placeholder="property name" value="' + esc(name) + '"></td>' +
+      '<td style="width:32px"><button type="button" class="es-btn es-btn-ghost es-btn-sm ctxprop-remove" style="padding:.15rem .45rem;line-height:1">✕</button></td>';
+    tr.querySelector('.ctxprop-remove').addEventListener('click', function () {
+      tr.remove(); updateCtxPropsEmpty(); onVisualChange();
+    });
+    tbody.appendChild(tr);
+  }
+
+  function rebuildCtxPropsTable(props) {
+    document.getElementById('ctxprop-tbody').innerHTML = '';
+    (props || []).forEach(function (p) { addContextPropRow(p); });
+    updateCtxPropsEmpty();
+  }
+
+  function updateCtxPropsEmpty() {
+    var rows = document.querySelectorAll('#ctxprop-tbody .ctxprop-row').length;
+    var e = document.getElementById('ctxprop-empty'), t = document.getElementById('ctxprop-table');
+    if (e) e.style.display = rows ? 'none' : '';
+    if (t) t.style.display = rows ? '' : 'none';
+  }
+
+  function buildCtxPropsFromVisual() {
+    var out = [];
+    document.querySelectorAll('#ctxprop-tbody .ctxprop-row').forEach(function (row) {
+      var v = row.querySelector('.ctxprop-name').value.trim();
+      if (v) out.push(v);
+    });
+    return out;
+  }
+
+  function addOverrideRow(provider, eventName, propMapStr) {
+    var tbody = document.getElementById('overrides-tbody');
+    var tr = document.createElement('tr');
+    tr.className = 'override-row';
+    var destInputHtml;
+    if (KNOWN_DESTINATIONS.length > 0) {
+      var opts = KNOWN_DESTINATIONS.map(function (d) {
+        return '<option value="' + esc(d) + '"' + (d === provider ? ' selected' : '') + '>' + esc(d) + '</option>';
+      });
+      if (provider && KNOWN_DESTINATIONS.indexOf(provider) === -1)
+        opts.unshift('<option value="' + esc(provider) + '" selected>' + esc(provider) + '</option>');
+      destInputHtml = '<select class="es-select override-provider" style="width:100%">' + opts.join('') + '</select>';
+    } else {
+      destInputHtml = '<input type="text" class="es-input override-provider" style="width:100%;min-width:80px" placeholder="e.g. mixpanel" value="' + esc(provider) + '">';
+    }
+    tr.innerHTML =
+      '<td>' + destInputHtml + '</td>' +
+      '<td><input type="text" class="es-input override-event_name" style="width:100%" placeholder="optional override" value="' + esc(eventName) + '"></td>' +
+      '<td><input type="text" class="es-input override-property_map" style="width:100%" placeholder="key:val, key:val" value="' + esc(propMapStr) + '"></td>' +
+      '<td><button type="button" class="es-btn es-btn-ghost es-btn-sm override-remove" style="padding:.15rem .45rem;line-height:1">✕</button></td>';
+    tr.querySelector('.override-remove').addEventListener('click', function () {
+      tr.remove();
+      updateOverridesEmpty();
+      onVisualChange();
+    });
+    tbody.appendChild(tr);
+  }
+
+  function rebuildOverridesTable(overrides) {
+    document.getElementById('overrides-tbody').innerHTML = '';
+    Object.keys(overrides || {}).forEach(function (provider) {
+      var ovr = overrides[provider] || {};
+      var pmStr = '';
+      if (ovr.property_map && typeof ovr.property_map === 'object') {
+        pmStr = Object.keys(ovr.property_map).map(function (k) {
+          return k + ':' + ovr.property_map[k];
+        }).join(', ');
+      }
+      addOverrideRow(provider, ovr.event_name || '', pmStr);
+    });
+    updateOverridesEmpty();
+  }
+
+  function updateOverridesEmpty() {
+    var rows = document.querySelectorAll('#overrides-tbody .override-row').length;
+    var emptyEl = document.getElementById('overrides-empty');
+    var tableEl = document.getElementById('overrides-table');
+    if (emptyEl) emptyEl.style.display = rows ? 'none' : '';
+    if (tableEl) tableEl.style.display = rows ? ''     : 'none';
+  }
+
+  function buildOverridesFromVisual() {
+    var overrides = {};
+    document.querySelectorAll('#overrides-tbody .override-row').forEach(function (row) {
+      var provider = row.querySelector('.override-provider').value.trim();
+      if (!provider) return;
+      var ovr = {};
+      var evName = row.querySelector('.override-event_name').value.trim();
+      if (evName) ovr.event_name = evName;
+      var pmStr = row.querySelector('.override-property_map').value.trim();
+      if (pmStr) {
+        var pm = {};
+        pmStr.split(',').forEach(function (pair) {
+          var idx = pair.indexOf(':');
+          if (idx > 0) {
+            var k = pair.slice(0, idx).trim(), v = pair.slice(idx + 1).trim();
+            if (k) pm[k] = v;
+          }
+        });
+        if (Object.keys(pm).length) ovr.property_map = pm;
+      }
+      overrides[provider] = ovr;
+    });
+    return overrides;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function tryParseYAML(text) {
+    try { return jsyaml.load(text); } catch (e) { return null; }
+  }
+  function gv(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+  function sv(id, val) {
+    var el = document.getElementById(id);
+    if (el && el.value !== String(val)) el.value = String(val);
+  }
+  function sc(id, val) { var el = document.getElementById(id); if (el) el.checked = !!val; }
+  function gc(id)      { var el = document.getElementById(id); return el ? el.checked : false; }
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── EventDef schema validator ─────────────────────────────────────────────
+  var VALID_STATUSES   = ['draft', 'active', 'deprecated', 'deleted'];
+  var VALID_TYPES      = ['track', 'page', 'identify', 'group', 'alias'];
+  var VALID_PROP_TYPES = ['string', 'number', 'integer', 'boolean', 'object', 'array'];
+  var VALID_PRIORITIES = ['event_wins', 'context_wins', 'merge'];
+  var VALID_STRATEGIES = ['none', 'user_id_hash', 'random'];
+
+  // Returns the 1-based line number where `fieldName:` appears at column 0.
+  function topLevelLine(text, fieldName) {
+    var lines = text.split('\n');
+    var re = new RegExp('^' + fieldName + '\\s*:');
+    for (var i = 0; i < lines.length; i++) {
+      if (re.test(lines[i])) return i + 1;
+    }
+    return 1;
+  }
+  // Returns the 1-based line number where `propName:` appears indented (property definition).
+  function propLine(text, propName) {
+    var lines = text.split('\n');
+    var re = new RegExp('^[ \\t]+' + propName + '\\s*:');
+    for (var i = 0; i < lines.length; i++) {
+      if (re.test(lines[i])) return i + 1;
+    }
+    return topLevelLine(text, 'properties');
+  }
+  // Returns the 1-based line number of `fieldName:` nested inside a property block.
+  function propFieldLine(text, propName, fieldName) {
+    var lines = text.split('\n');
+    var propRe  = new RegExp('^([ \\t]+)' + propName + '\\s*:');
+    var inBlock = false;
+    var indent  = '';
+    for (var i = 0; i < lines.length; i++) {
+      var m = lines[i].match(propRe);
+      if (m) { inBlock = true; indent = m[1]; continue; }
+      if (inBlock) {
+        // A line at the same or shallower indent level ends the block.
+        if (lines[i].length > 0 && !lines[i].match(/^[ \t]/)) { break; }
+        var lineIndent = lines[i].match(/^([ \t]*)/)[1];
+        if (lineIndent.length <= indent.length && lines[i].trim().length > 0) { break; }
+        var fieldRe = new RegExp('^[ \\t]+' + fieldName + '\\s*:');
+        if (fieldRe.test(lines[i])) return i + 1;
+      }
+    }
+    return propLine(text, propName);
+  }
+  function marker(sev, msg, line) {
+    return { severity: sev, message: msg,
+             startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 999 };
+  }
+
+  function validateEventDef(doc, text) {
+    var E = monaco.MarkerSeverity.Error, W = monaco.MarkerSeverity.Warning, marks = [];
+    if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
+      marks.push(marker(E, 'Document must be a YAML mapping', 1)); return marks;
+    }
+    ['name', 'namespace', 'version', 'status', 'type', 'event_name'].forEach(function (f) {
+      if (doc[f] === undefined || doc[f] === null || doc[f] === '')
+        marks.push(marker(E, 'Required field "' + f + '" is missing or empty', 1));
+    });
+    if (doc.status && VALID_STATUSES.indexOf(String(doc.status)) === -1)
+      marks.push(marker(E, '"status" must be one of: ' + VALID_STATUSES.join(', ') + ' (got "' + doc.status + '")', topLevelLine(text, 'status')));
+    if (doc.type && VALID_TYPES.indexOf(String(doc.type)) === -1)
+      marks.push(marker(E, '"type" must be one of: ' + VALID_TYPES.join(', ') + ' (got "' + doc.type + '")', topLevelLine(text, 'type')));
+    if (doc.version && !/^\d+-\d+-\d+$/.test(String(doc.version)))
+      marks.push(marker(E, '"version" must use SchemaVer format, e.g. "1-0-0" (got "' + doc.version + '")', topLevelLine(text, 'version')));
+    if (doc.required !== undefined && typeof doc.required !== 'boolean')
+      marks.push(marker(E, '"required" must be true or false (got "' + doc.required + '")', topLevelLine(text, 'required')));
+    if (doc.property_priority && VALID_PRIORITIES.indexOf(String(doc.property_priority)) === -1)
+      marks.push(marker(E, '"property_priority" must be one of: ' + VALID_PRIORITIES.join(', '), topLevelLine(text, 'property_priority')));
+    if (doc.sampling !== undefined && doc.sampling !== null) {
+      if (typeof doc.sampling !== 'object') {
+        marks.push(marker(E, '"sampling" must be a mapping', topLevelLine(text, 'sampling')));
+      } else {
+        if (doc.sampling.strategy && VALID_STRATEGIES.indexOf(String(doc.sampling.strategy)) === -1)
+          marks.push(marker(E, '"sampling.strategy" must be one of: ' + VALID_STRATEGIES.join(', '), topLevelLine(text, 'sampling')));
+        if (doc.sampling.rate !== undefined) {
+          var r = Number(doc.sampling.rate);
+          if (isNaN(r) || r < 0 || r > 1)
+            marks.push(marker(E, '"sampling.rate" must be a number between 0 and 1', topLevelLine(text, 'sampling')));
+        }
+      }
+    }
+    if (doc.properties !== undefined) {
+      if (typeof doc.properties !== 'object' || Array.isArray(doc.properties)) {
+        marks.push(marker(E, '"properties" must be a mapping', topLevelLine(text, 'properties')));
+      } else {
+        Object.keys(doc.properties || {}).forEach(function (propName) {
+          var pd = doc.properties[propName];
+          var pln = propLine(text, propName);
+          if (!pd || typeof pd !== 'object') {
+            marks.push(marker(E, 'Property "' + propName + '": definition must be a mapping', pln)); return;
+          }
+          // type
+          if (!pd.type)
+            marks.push(marker(W, 'Property "' + propName + '": "type" is recommended', pln));
+          else if (VALID_PROP_TYPES.indexOf(String(pd.type)) === -1)
+            marks.push(marker(E, 'Property "' + propName + '": type "' + pd.type + '" is not valid. Use one of: ' + VALID_PROP_TYPES.join(', '), propFieldLine(text, propName, 'type')));
+          // required must be boolean
+          if (pd.required !== undefined && typeof pd.required !== 'boolean')
+            marks.push(marker(E, 'Property "' + propName + '": "required" must be true or false (got "' + pd.required + '")', propFieldLine(text, propName, 'required')));
+          // enum must be a sequence
+          if (pd.enum !== undefined && !Array.isArray(pd.enum))
+            marks.push(marker(E, 'Property "' + propName + '": "enum" must be a sequence', propFieldLine(text, propName, 'enum')));
+          // minimum / maximum must be numbers
+          ['minimum', 'maximum'].forEach(function (f) {
+            if (pd[f] !== undefined && typeof pd[f] !== 'number')
+              marks.push(marker(E, 'Property "' + propName + '": "' + f + '" must be a number', propFieldLine(text, propName, f)));
+          });
+          // pattern must be a string
+          if (pd.pattern !== undefined && typeof pd.pattern !== 'string')
+            marks.push(marker(E, 'Property "' + propName + '": "pattern" must be a string', propFieldLine(text, propName, 'pattern')));
+        });
+      }
+    }
+    if (doc.tags !== undefined && !Array.isArray(doc.tags))
+      marks.push(marker(E, '"tags" must be a sequence (list)', topLevelLine(text, 'tags')));
+    if (doc.destinations !== undefined && !Array.isArray(doc.destinations))
+      marks.push(marker(E, '"destinations" must be a sequence', topLevelLine(text, 'destinations')));
+    if (doc.context_properties !== undefined && !Array.isArray(doc.context_properties))
+      marks.push(marker(E, '"context_properties" must be a sequence', topLevelLine(text, 'context_properties')));
+    if (doc.provider_overrides !== undefined && doc.provider_overrides !== null) {
+      if (typeof doc.provider_overrides !== 'object' || Array.isArray(doc.provider_overrides)) {
+        marks.push(marker(E, '"provider_overrides" must be a mapping', topLevelLine(text, 'provider_overrides')));
+      } else {
+        Object.keys(doc.provider_overrides).forEach(function (prov) {
+          var ovr = doc.provider_overrides[prov];
+          if (!ovr || typeof ovr !== 'object' || Array.isArray(ovr)) {
+            marks.push(marker(E, 'provider_overrides["' + prov + '"] must be a mapping', topLevelLine(text, 'provider_overrides')));
+            return;
+          }
+          if (ovr.property_map !== undefined && (typeof ovr.property_map !== 'object' || Array.isArray(ovr.property_map)))
+            marks.push(marker(E, 'provider_overrides["' + prov + '"]: "property_map" must be a mapping', topLevelLine(text, 'provider_overrides')));
+        });
+      }
+    }
+    return marks;
+  }
+
+  function validate() {
+    var text = editor.getValue(), marks = [], doc;
+    try {
+      doc = jsyaml.load(text);
+    } catch (e) {
+      var line = (e.mark && e.mark.line   != null) ? e.mark.line   + 1 : 1;
+      var col  = (e.mark && e.mark.column != null) ? e.mark.column + 1 : 1;
+      marks.push({ severity: monaco.MarkerSeverity.Error, message: e.reason || e.message,
+                   startLineNumber: line, startColumn: col, endLineNumber: line, endColumn: col + 1 });
+      applyMarkers(marks); return;
+    }
+    applyMarkers(validateEventDef(doc, text));
+  }
+
+  function applyMarkers(marks) {
+    monaco.editor.setModelMarkers(editor.getModel(), 'eventdef', marks);
+    var errors   = marks.filter(function (m) { return m.severity === monaco.MarkerSeverity.Error; });
+    var warnings = marks.filter(function (m) { return m.severity === monaco.MarkerSeverity.Warning; });
+    if (errors.length)
+      statusEl.innerHTML = '<span style="color:#c92a2a;font-weight:600">✗ ' + errors.length + ' error' + (errors.length !== 1 ? 's' : '') + '</span>';
+    else if (warnings.length)
+      statusEl.innerHTML = '<span style="color:#e67700;font-weight:600">⚠ ' + warnings.length + ' warning' + (warnings.length !== 1 ? 's' : '') + '</span>';
+    else if (editor.getValue().trim())
+      statusEl.innerHTML = '<span style="color:#2f9e44;font-weight:600">✓ Valid</span>';
+    else
+      statusEl.innerHTML = '';
+  }
+});
+</script>
+{{end}}

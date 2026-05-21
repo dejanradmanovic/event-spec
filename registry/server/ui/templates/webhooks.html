@@ -1,0 +1,50 @@
+{{define "content"}}
+<div class="es-card">
+  <div class="es-card-header"><h3 class="es-card-title">Add Webhook</h3></div>
+  <div class="es-card-body">
+    <form method="POST" action="/ui/settings/webhooks" class="es-form-inline">
+      <div class="es-form-group">
+        <label class="es-label">Webhook URL</label>
+        <input type="url" name="url" class="es-input es-input-wide" placeholder="https://example.com/hooks/event-spec" required>
+      </div>
+      <button type="submit" class="es-btn es-btn-primary">Add Webhook</button>
+    </form>
+    <p class="es-text-muted es-text-sm" style="margin-top:.5rem">
+      Webhooks receive a POST request when an event spec is published.
+    </p>
+  </div>
+</div>
+
+<div class="es-card" style="margin-top:1rem">
+  <div class="es-card-header"><h3 class="es-card-title">Registered Webhooks</h3></div>
+  <div class="es-card-body es-p0">
+    {{if .Webhooks}}
+    <table class="es-table">
+      <thead>
+        <tr><th>URL</th><th>Created by</th><th>Created at</th><th></th></tr>
+      </thead>
+      <tbody>
+        {{range .Webhooks}}
+        <tr id="wh-row-{{.ID}}">
+          <td><code class="es-code">{{.URL}}</code></td>
+          <td class="es-text-muted">{{.CreatedBy}}</td>
+          <td class="es-text-muted es-text-sm">{{.CreatedAt.Format "2006-01-02"}}</td>
+          <td>
+            <button
+              class="es-btn es-btn-danger es-btn-sm"
+              hx-delete="/ui/settings/webhooks/{{.ID}}"
+              hx-target="#wh-row-{{.ID}}"
+              hx-swap="outerHTML"
+              hx-confirm="Remove this webhook?"
+            >Remove</button>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="es-empty"><p>No webhooks registered.</p></div>
+    {{end}}
+  </div>
+</div>
+{{end}}

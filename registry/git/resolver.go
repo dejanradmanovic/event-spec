@@ -171,6 +171,11 @@ func (r *Resolver) ListEvents(ctx context.Context, filter registry.ListFilter) (
 	return r.snapshot().ListEvents(ctx, filter)
 }
 
+// ListAllEvents implements Registry by delegating to the cached local resolver.
+func (r *Resolver) ListAllEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
+	return r.snapshot().ListAllEvents(ctx, filter)
+}
+
 // GetEvent implements Registry by delegating to the cached local resolver.
 func (r *Resolver) GetEvent(ctx context.Context, namespace, name, version string) (*spec.EventDef, error) {
 	return r.snapshot().GetEvent(ctx, namespace, name, version)

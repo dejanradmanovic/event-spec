@@ -121,7 +121,7 @@ func TestDiff(t *testing.T) {
 			fixture:  "rename_event/product_viewed.yaml",
 			wantLen:  1,
 			wantKind: spec.ChangeRenameEvent,
-			wantProp: "",
+			wantProp: "event_name",
 			breaking: true,
 		},
 		{
@@ -213,10 +213,10 @@ func TestSuggestVersion(t *testing.T) {
 		want    string
 	}{
 		{
-			name:    "no changes returns same version",
+			name:    "no changes returns patch bump",
 			from:    "1-0-0",
 			changes: nil,
-			want:    "1-0-0",
+			want:    "1-0-1",
 		},
 		{
 			name:    "breaking change requires MAJOR bump",

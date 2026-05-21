@@ -11,17 +11,31 @@ type ChangeKind string
 
 // Valid ChangeKind values and their SchemaVer impact (MAJOR, MINOR, or PATCH).
 const (
-	ChangeAddRequiredProp ChangeKind = "add_required_prop" // MAJOR
-	ChangeRemoveProp      ChangeKind = "remove_prop"       // MAJOR
-	ChangeRenameProp      ChangeKind = "rename_prop"       // MAJOR
-	ChangeTypeChanged     ChangeKind = "type_changed"      // MAJOR
-	ChangeMakeRequired    ChangeKind = "make_required"     // MAJOR
-	ChangeRemoveEnumValue ChangeKind = "remove_enum_value" // MAJOR
-	ChangeRenameEvent     ChangeKind = "rename_event"      // MAJOR — event_name or name changed
-	ChangeMakeOptional    ChangeKind = "make_optional"     // MINOR
-	ChangeAddOptionalProp ChangeKind = "add_optional_prop" // MINOR
-	ChangeAddEnumValue    ChangeKind = "add_enum_value"    // MINOR
-	ChangeDescriptionOnly ChangeKind = "description_only"  // PATCH — description field changed only
+	// Property-level — MAJOR
+	ChangeAddRequiredProp ChangeKind = "add_required_prop"
+	ChangeRemoveProp      ChangeKind = "remove_prop"
+	ChangeRenameProp      ChangeKind = "rename_prop"
+	ChangeTypeChanged     ChangeKind = "type_changed"
+	ChangeMakeRequired    ChangeKind = "make_required"
+	ChangeRemoveEnumValue ChangeKind = "remove_enum_value"
+	// Event-level — MAJOR
+	ChangeRenameEvent      ChangeKind = "rename_event"       // event_name or name changed
+	ChangeEventTypeChanged ChangeKind = "event_type_changed" // type field changed (track→page etc.)
+	// Event-level — MINOR
+	ChangeStatusChanged             ChangeKind = "status_changed"
+	ChangeSamplingModified          ChangeKind = "sampling_modified"
+	ChangeContextPropsModified      ChangeKind = "context_props_modified"
+	ChangeProviderOverridesModified ChangeKind = "provider_overrides_modified"
+	// Property-level — MINOR
+	ChangeMakeOptional    ChangeKind = "make_optional"
+	ChangeAddOptionalProp ChangeKind = "add_optional_prop"
+	ChangeAddEnumValue    ChangeKind = "add_enum_value"
+	// Property-level — PATCH
+	ChangeDescriptionOnly ChangeKind = "description_only"
+	// Event-level — PATCH
+	ChangeMetadataOnly            ChangeKind = "metadata_only" // description, display_name, owner, tags
+	ChangeDestinationsModified    ChangeKind = "destinations_modified"
+	ChangePropertyPriorityChanged ChangeKind = "property_priority_changed"
 )
 
 // Change describes a single detected difference between two event spec versions.
@@ -38,13 +52,104 @@ type Change struct {
 func Diff(from, to *EventDef) []Change {
 	var changes []Change
 
-	// Detect event rename: either the internal name or the canonical event_name changed.
+	// Event rename: internal name or canonical event_name changed.
 	if from.Name != to.Name || from.EventName != to.EventName {
 		changes = append(changes, Change{
 			Kind:     ChangeRenameEvent,
+			Property: "event_name",
 			Breaking: true,
 			From:     from.EventName,
 			To:       to.EventName,
+		})
+	}
+
+	// Analytics call type changed (track → page etc.) — breaking.
+	if from.Type != to.Type {
+		changes = append(changes, Change{
+			Kind:     ChangeEventTypeChanged,
+			Property: "type",
+			Breaking: true,
+			From:     string(from.Type),
+			To:       string(to.Type),
+		})
+	}
+
+	// Status changed. Transitioning to deprecated or deleted is breaking.
+	if from.Status != to.Status {
+		breaking := to.Status == StatusDeleted
+		changes = append(changes, Change{
+			Kind:     ChangeStatusChanged,
+			Property: "status",
+			Breaking: breaking,
+			From:     string(from.Status),
+			To:       string(to.Status),
+		})
+	}
+
+	// Sampling config added, removed, or modified.
+	if !samplingEqual(from.Sampling, to.Sampling) {
+		changes = append(changes, Change{
+			Kind:     ChangeSamplingModified,
+			Property: "sampling",
+			Breaking: false,
+			From:     samplingStr(from.Sampling),
+			To:       samplingStr(to.Sampling),
+		})
+	}
+
+	// Context properties changed.
+	if !strSliceEqual(from.ContextProperties, to.ContextProperties) {
+		changes = append(changes, Change{
+			Kind:     ChangeContextPropsModified,
+			Property: "context_properties",
+			Breaking: false,
+			From:     strings.Join(from.ContextProperties, ", "),
+			To:       strings.Join(to.ContextProperties, ", "),
+		})
+	}
+
+	// Destinations changed.
+	if !strSliceEqual(from.Destinations, to.Destinations) {
+		changes = append(changes, Change{
+			Kind:     ChangeDestinationsModified,
+			Property: "destinations",
+			Breaking: false,
+			From:     strings.Join(from.Destinations, ", "),
+			To:       strings.Join(to.Destinations, ", "),
+		})
+	}
+
+	// Property priority changed.
+	if from.PropertyPriority != to.PropertyPriority {
+		changes = append(changes, Change{
+			Kind:     ChangePropertyPriorityChanged,
+			Property: "property_priority",
+			Breaking: false,
+			From:     string(from.PropertyPriority),
+			To:       string(to.PropertyPriority),
+		})
+	}
+
+	// Provider overrides changed.
+	if !providerOverridesEqual(from.ProviderOverrides, to.ProviderOverrides) {
+		changes = append(changes, Change{
+			Kind:     ChangeProviderOverridesModified,
+			Property: "provider_overrides",
+			Breaking: false,
+		})
+	}
+
+	// Metadata-only changes: description, display_name, owner, tags.
+	// display_name is not checked separately when a rename is already detected,
+	// since it typically changes together with event_name and is subsumed by it.
+	hasRename := from.Name != to.Name || from.EventName != to.EventName
+	if from.Description != to.Description ||
+		(!hasRename && from.DisplayName != to.DisplayName) ||
+		from.Owner != to.Owner || !strSliceEqual(from.Tags, to.Tags) {
+		changes = append(changes, Change{
+			Kind:     ChangeMetadataOnly,
+			Property: "metadata",
+			Breaking: false,
 		})
 	}
 
@@ -190,7 +295,11 @@ func diffProp(name string, from, to PropertyDef) []Change {
 // changes is empty.
 func SuggestVersion(from SchemaVer, changes []Change) SchemaVer {
 	if len(changes) == 0 {
-		return from
+		// No semantic changes: a patch increment is the minimum valid bump.
+		return SchemaVer{
+			Major: from.Major, Minor: from.Minor, Patch: from.Patch + 1,
+			Raw: fmt.Sprintf("%d-%d-%d", from.Major, from.Minor, from.Patch+1),
+		}
 	}
 	maxLevel := 0
 	for _, c := range changes {
@@ -267,10 +376,65 @@ func changeBumpLevel(c Change) int {
 	if c.Breaking {
 		return 2
 	}
-	if c.Kind == ChangeDescriptionOnly {
+	switch c.Kind {
+	case ChangeDescriptionOnly, ChangeMetadataOnly, ChangeDestinationsModified, ChangePropertyPriorityChanged:
 		return 0
+	default:
+		return 1
 	}
-	return 1
+}
+
+func strSliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func samplingEqual(a, b *SamplingConfig) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Strategy == b.Strategy && a.Rate == b.Rate
+}
+
+func samplingStr(s *SamplingConfig) string {
+	if s == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s @ %.4g", s.Strategy, s.Rate)
+}
+
+func providerOverridesEqual(a, b map[string]ProviderOverride) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, av := range a {
+		bv, ok := b[k]
+		if !ok {
+			return false
+		}
+		if av.EventName != bv.EventName {
+			return false
+		}
+		if len(av.PropertyMap) != len(bv.PropertyMap) {
+			return false
+		}
+		for pk, pv := range av.PropertyMap {
+			if bv.PropertyMap[pk] != pv {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // sortedPropKeys returns the keys of a property map in sorted order.

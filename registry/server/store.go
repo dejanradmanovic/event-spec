@@ -12,10 +12,14 @@ import (
 // NewSQL provides a *sql.DB-backed implementation; custom implementations
 // can be injected via New for testing or alternative backends.
 type Store interface {
+	// ListEvents returns one EventDef per (namespace, name) pair — the highest SchemaVer matching filter.
 	ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
+	// ListAllEvents returns every matching EventDef without deduplication.
+	ListAllEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
 	GetEvent(ctx context.Context, namespace, name, version string) (*spec.EventDef, error)
 	GetSource(ctx context.Context, name string) (*spec.SourceDef, error)
 	GetDestination(ctx context.Context, name string) (*spec.DestinationDef, error)
+	ListDestinations(ctx context.Context) ([]string, error)
 	// PublishEvent writes the event and records it in the audit log under userID.
 	PublishEvent(ctx context.Context, event spec.EventDef, userID string) error
 	// LookupAPIKey returns the user identity and role for the given SHA-256 key hash.

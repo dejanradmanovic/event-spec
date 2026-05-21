@@ -1,0 +1,40 @@
+{{define "login"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — event-spec</title>
+  <link rel="stylesheet" href="/ui/static/tabler.min.css">
+</head>
+<body class="es-login-body">
+  <div class="es-login-card">
+    <div class="es-login-header">
+      <h1 class="es-login-title">event-spec</h1>
+      <p class="es-login-subtitle">Admin UI</p>
+    </div>
+    {{if .Flash}}
+    <div class="es-alert{{if .IsErr}} es-alert-danger{{else}} es-alert-success{{end}}">
+      {{.Flash}}
+    </div>
+    {{end}}
+    <form method="POST" action="/ui/login" class="es-login-form">
+      <div class="es-form-group">
+        <label class="es-label" for="api_key">API Key</label>
+        <input
+          id="api_key"
+          name="api_key"
+          type="password"
+          class="es-input"
+          placeholder="Paste your API key"
+          autocomplete="current-password"
+          required
+          autofocus
+        >
+        <span class="es-form-hint">Any valid API key — your role determines which pages are accessible.</span>
+      </div>
+      <button type="submit" class="es-btn es-btn-primary es-btn-full">Sign in</button>
+    </form>
+  </div>
+</body>
+</html>
+{{end}}

@@ -1,0 +1,59 @@
+{{define "content"}}
+<div class="es-grid es-grid-4">
+  <div class="es-stat-card">
+    <div class="es-stat-value">{{index .StatusCounts "active"}}</div>
+    <div class="es-stat-label">Active Events</div>
+    <span class="es-badge es-badge-active">active</span>
+  </div>
+  <div class="es-stat-card">
+    <div class="es-stat-value">{{index .StatusCounts "draft"}}</div>
+    <div class="es-stat-label">Draft Events</div>
+    <span class="es-badge es-badge-draft">draft</span>
+  </div>
+  <div class="es-stat-card">
+    <div class="es-stat-value">{{index .StatusCounts "deprecated"}}</div>
+    <div class="es-stat-label">Deprecated</div>
+    <span class="es-badge es-badge-deprecated">deprecated</span>
+  </div>
+  <div class="es-stat-card">
+    <div class="es-stat-value">{{index .StatusCounts "deleted"}}</div>
+    <div class="es-stat-label">Deleted</div>
+    <span class="es-badge es-badge-deleted">deleted</span>
+  </div>
+</div>
+
+{{if eq .Role "admin"}}
+<div class="es-card" style="margin-top:1.5rem">
+  <div class="es-card-header">
+    <h3 class="es-card-title">Recent Activity</h3>
+    <a href="/ui/audit" class="es-btn es-btn-ghost es-btn-sm">View all</a>
+  </div>
+  <div class="es-card-body">
+    {{if .RecentAudit}}
+    <table class="es-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Action</th>
+          <th>Entity</th>
+          <th>User</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .RecentAudit}}
+        <tr>
+          <td class="es-text-muted es-text-sm">{{.Timestamp.Format "2006-01-02 15:04"}}</td>
+          <td><span class="es-badge es-badge-action-{{.Action}}">{{.Action}}</span></td>
+          <td>{{.EntityType}} #{{.EntityID}}</td>
+          <td class="es-text-muted">{{.UserID}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="es-text-muted">No audit entries yet.</p>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{end}}

@@ -1,6 +1,10 @@
 package server
 
+import "github.com/dejanradmanovic/event-spec/registry/server/ui"
+
 func (s *Server) routes() {
+	uiHandler := ui.New(s.st, func() bool { return s.hooksEnabled.Load() })
+	s.mux.Handle("/ui/", uiHandler)
 	s.mux.HandleFunc("GET /v1/health", s.handleStatus)
 	s.mux.HandleFunc("POST /v1/events", s.withAuth(RolePublisher, s.handlePublishEvent))
 	s.mux.HandleFunc("GET /v1/events", s.withAuth(RoleViewer, s.handleListEvents))

@@ -1,0 +1,77 @@
+{{define "content"}}
+<div class="es-toolbar es-flex es-flex-between" style="align-items:flex-start">
+  <form method="GET" action="/ui/events" class="es-filter-bar">
+    <select name="namespace" class="es-select" onchange="this.form.submit()">
+      <option value="">All namespaces</option>
+      {{range .Namespaces}}
+      <option value="{{.}}"{{if eq . $.NSFilter}} selected{{end}}>{{.}}</option>
+      {{end}}
+    </select>
+    <select name="status" class="es-select" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      <option value="active"{{if eq .StatFilter "active"}} selected{{end}}>Active</option>
+      <option value="draft"{{if eq .StatFilter "draft"}} selected{{end}}>Draft</option>
+      <option value="deprecated"{{if eq .StatFilter "deprecated"}} selected{{end}}>Deprecated</option>
+      <option value="deleted"{{if eq .StatFilter "deleted"}} selected{{end}}>Deleted</option>
+    </select>
+    <input type="text" name="q" class="es-input" placeholder="Search events…" value="{{.Search}}">
+    <button type="submit" class="es-btn es-btn-primary">Filter</button>
+    {{if or .NSFilter .StatFilter .Search}}
+    <a href="/ui/events" class="es-btn es-btn-ghost">Clear</a>
+    {{end}}
+  </form>
+  {{if or (eq .Role "publisher") (eq .Role "admin")}}
+  <a href="/ui/events/new" class="es-btn es-btn-primary" style="flex-shrink:0">+ Publish Event</a>
+  {{end}}
+</div>
+
+<div class="es-card">
+  <div class="es-card-body es-p0">
+    {{if .Events}}
+    <table class="es-table">
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Namespace</th>
+          <th>Version</th>
+          <th>Status</th>
+          <th>Owner</th>
+          <th>Tags</th>
+          <th>Required</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Events}}
+        <tr>
+          <td>
+            <a href="/ui/events/{{.Namespace}}/{{.Name}}" class="es-link-strong">
+              {{if .DisplayName}}{{.DisplayName}}{{else}}{{.Name}}{{end}}
+            </a>
+            <div class="es-text-muted es-text-sm">{{.Name}}</div>
+          </td>
+          <td><code class="es-code">{{.Namespace}}</code></td>
+          <td><code class="es-code">{{.Version}}</code></td>
+          <td><span class="es-badge es-badge-{{.Status}}">{{.Status}}</span></td>
+          <td class="es-text-muted es-text-sm">{{.Owner}}</td>
+          <td>
+            {{range .Tags}}<span class="es-tag">{{.}}</span> {{end}}
+          </td>
+          <td>
+            {{if .Required}}<span class="es-badge es-badge-required">required</span>{{else}}<span class="es-text-muted">—</span>{{end}}
+          </td>
+          <td>
+            <a href="/ui/events/{{.Namespace}}/{{.Name}}" class="es-btn es-btn-ghost es-btn-sm">View</a>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="es-empty">
+      <p>No events found{{if or .NSFilter .StatFilter .Search}} matching your filters{{end}}.</p>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}

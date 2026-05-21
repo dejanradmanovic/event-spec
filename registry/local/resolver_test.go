@@ -278,6 +278,38 @@ func TestResolver_ListEvents_filterByTags(t *testing.T) {
 	}
 }
 
+func TestResolver_ListEvents_deduplicatesMultipleVersions(t *testing.T) {
+	r := newResolver(t, func(specsDir, _, _ string) {
+		writeYAML(t, specsDir, "ecommerce/product_viewed/1-0-0.yaml",
+			eventYAML("ecommerce", "product_viewed", "1-0-0", "active"))
+		writeYAML(t, specsDir, "ecommerce/product_viewed/2-0-0.yaml",
+			eventYAML("ecommerce", "product_viewed", "2-0-0", "active"))
+	})
+
+	ctx := context.Background()
+
+	// ListEvents returns one event (the latest version).
+	events, err := r.ListEvents(ctx, registry.ListFilter{})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("ListEvents: want 1 deduplicated event, got %d", len(events))
+	}
+	if events[0].Version != "2-0-0" {
+		t.Errorf("ListEvents: want latest version 2-0-0, got %s", events[0].Version)
+	}
+
+	// ListAllEvents returns all versions without deduplication.
+	all, err := r.ListAllEvents(ctx, registry.ListFilter{})
+	if err != nil {
+		t.Fatalf("ListAllEvents: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("ListAllEvents: want 2 versions, got %d", len(all))
+	}
+}
+
 func TestResolver_GetSource_found(t *testing.T) {
 	r := newResolver(t, func(_, sourcesDir, _ string) {
 		writeYAML(t, sourcesDir, "web-app.yaml", sourceYAML("web-app"))

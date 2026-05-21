@@ -3,52 +3,24 @@ package server
 import (
 	"time"
 
+	"github.com/dejanradmanovic/event-spec/registry/server/shared"
 	"github.com/dejanradmanovic/event-spec/spec"
 )
 
-// AuditFilter constrains an audit log query. Zero values mean no restriction.
-type AuditFilter struct {
-	Since      *time.Time
-	Until      *time.Time
-	EntityType string // "event" | "source" | "destination"
-	UserID     string
-	Limit      int // 0 means default (50)
-}
+// AuditFilter is an alias for shared.AuditFilter; defined here so existing server code needs no import change.
+type AuditFilter = shared.AuditFilter
 
-// APIKeyRecord is the public metadata for a stored API key (never includes the raw key).
-type APIKeyRecord struct {
-	ID        int64      `json:"id"`
-	Role      string     `json:"role"`
-	Name      string     `json:"name,omitempty"`
-	CreatedBy string     `json:"created_by"`
-	CreatedAt time.Time  `json:"created_at"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-}
+// AuditEntry is an alias for shared.AuditEntry.
+type AuditEntry = shared.AuditEntry
 
-// WebhookRecord is a registered webhook entry with its database ID.
-type WebhookRecord struct {
-	ID        int64     `json:"id"`
-	URL       string    `json:"url"`
-	CreatedBy string    `json:"created_by"`
-	CreatedAt time.Time `json:"created_at"`
-}
+// APIKeyRecord is an alias for shared.APIKeyRecord.
+type APIKeyRecord = shared.APIKeyRecord
 
-// AuditEntry is a single record from the audit log.
-type AuditEntry struct {
-	ID         int64     `json:"id"`
-	Action     string    `json:"action"`      // "create" | "update"
-	EntityType string    `json:"entity_type"` // "event" | "source" | "destination"
-	EntityID   int64     `json:"entity_id"`
-	UserID     string    `json:"user_id"`
-	Timestamp  time.Time `json:"timestamp"`
-	Details    string    `json:"details,omitempty"`
-}
+// WebhookRecord is an alias for shared.WebhookRecord.
+type WebhookRecord = shared.WebhookRecord
 
-// ServerSetting is a single runtime configuration entry stored in the database.
-type ServerSetting struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
+// ServerSetting is an alias for shared.ServerSetting.
+type ServerSetting = shared.ServerSetting
 
 // WebhookPayload is the JSON body sent to each registered webhook when an event is published.
 type WebhookPayload struct {

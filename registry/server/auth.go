@@ -2,17 +2,17 @@ package server
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"net/http"
 	"strings"
+
+	"github.com/dejanradmanovic/event-spec/registry/server/shared"
 )
 
-// Role constants for API key authorization.
+// Role constants — aliases to shared to keep existing server-package code unchanged.
 const (
-	RoleViewer    = "viewer"
-	RolePublisher = "publisher"
-	RoleAdmin     = "admin"
+	RoleViewer    = shared.RoleViewer
+	RolePublisher = shared.RolePublisher
+	RoleAdmin     = shared.RoleAdmin
 )
 
 // contextKey is an unexported type for context values to avoid collisions.
@@ -23,21 +23,8 @@ const (
 	ctxRole
 )
 
-func sha256hex(s string) string {
-	h := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(h[:])
-}
-
-func roleLevel(role string) int {
-	switch role {
-	case RoleAdmin:
-		return 2
-	case RolePublisher:
-		return 1
-	default: // viewer or unknown
-		return 0
-	}
-}
+func sha256hex(s string) string { return shared.Sha256Hex(s) }
+func roleLevel(role string) int { return shared.RoleLevel(role) }
 
 // withAuth wraps a handler with Bearer token authentication and role enforcement.
 // Authenticated identity is stored in the request context for downstream handlers.
