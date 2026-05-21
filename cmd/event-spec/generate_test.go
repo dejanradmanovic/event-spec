@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -340,11 +342,27 @@ func TestGenerateCmd_GitMode_CacheNotFound(t *testing.T) {
 	}
 }
 
-// TestGenerateCmd_ServerMode_NotImplemented — server mode should return a clear
-// error rather than silently doing nothing.
-func TestGenerateCmd_ServerMode_NotImplemented(t *testing.T) {
+// TestGenerateCmd_ServerMode verifies that server mode connects to the registry
+// HTTP client and returns a clear error when the server reports no events.
+func TestGenerateCmd_ServerMode(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintln(w, "[]")
+	}))
+	defer ts.Close()
+
 	root := t.TempDir()
-	writeServerWorkspaceConfig(t, root)
+	content := fmt.Sprintf(`version: 1
+workspace: test-workspace
+registry:
+  mode: server
+  url: %s
+sources_dir: sources
+destinations_dir: destinations
+`, ts.URL)
+	if err := os.WriteFile(filepath.Join(root, "event-spec.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	withWorkDir(t, root)
 
 	cmd := newGenerateCmd()
@@ -354,9 +372,9 @@ func TestGenerateCmd_ServerMode_NotImplemented(t *testing.T) {
 
 	err := cmd.Execute()
 	if err == nil {
-		t.Fatal("expected error for server mode")
+		t.Fatal("expected error when server returns no events")
 	}
-	if !strings.Contains(err.Error(), "server") {
-		t.Errorf("error should mention 'server', got: %v", err)
+	if !strings.Contains(err.Error(), "no event specs found") {
+		t.Errorf("expected 'no event specs found', got: %v", err)
 	}
 }

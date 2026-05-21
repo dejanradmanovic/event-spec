@@ -10,6 +10,7 @@ import (
 	"github.com/dejanradmanovic/event-spec/registry"
 	gitregistry "github.com/dejanradmanovic/event-spec/registry/git"
 	"github.com/dejanradmanovic/event-spec/registry/local"
+	serverclient "github.com/dejanradmanovic/event-spec/registry/server/client"
 	"github.com/dejanradmanovic/event-spec/spec"
 )
 
@@ -29,7 +30,10 @@ func openRegistry(cfg *spec.WorkspaceConfig) (registry.Registry, error) {
 			DestinationsDir: cfg.DestinationsDir,
 		})
 	case spec.RegistryModeServer:
-		return nil, fmt.Errorf("registry mode %q: server client not yet implemented; run 'event-spec pull' first", cfg.Registry.Mode)
+		if cfg.Registry.URL == "" {
+			return nil, fmt.Errorf("registry mode %q: registry.url must be set in event-spec.yaml", cfg.Registry.Mode)
+		}
+		return serverclient.New(serverclient.Config{BaseURL: cfg.Registry.URL}), nil
 	default: // local or empty
 		specsDir := cfg.SpecsDir
 		if specsDir == "" {
@@ -85,7 +89,7 @@ func resolveSpecsPath(cfg *spec.WorkspaceConfig) (string, error) {
 		}
 		return filepath.Join(cacheDir, specsDir), nil
 	case spec.RegistryModeServer:
-		return "", fmt.Errorf("registry mode %q: server client not yet implemented; run 'event-spec pull' first", cfg.Registry.Mode)
+		return "", fmt.Errorf("registry mode %q: specs are fetched from the server; use 'event-spec generate' or 'event-spec diff' instead", cfg.Registry.Mode)
 	default: // local or empty
 		specsDir := cfg.SpecsDir
 		if specsDir == "" {
