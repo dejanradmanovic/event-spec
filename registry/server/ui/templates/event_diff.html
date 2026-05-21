@@ -1,0 +1,99 @@
+{{define "content"}}
+<div class="es-card">
+  <div class="es-card-body">
+    <form method="GET" action="/ui/events/{{.Namespace}}/{{.EventName}}/diff" class="es-filter-bar">
+      <div class="es-form-group es-inline">
+        <label class="es-label">From version</label>
+        <input type="text" name="from" class="es-input es-input-sm" value="{{.From}}" placeholder="e.g. 1-0-0">
+      </div>
+      <div class="es-form-group es-inline">
+        <label class="es-label">To version</label>
+        <input type="text" name="to" class="es-input es-input-sm" value="{{.To}}" placeholder="e.g. 1-2-0">
+      </div>
+      <button type="submit" class="es-btn es-btn-primary">Compare</button>
+    </form>
+  </div>
+</div>
+
+{{if and .FromDef .ToDef}}
+{{if .Changes}}
+<div class="es-card" style="margin-top:1rem">
+  <div class="es-card-header">
+    <h3 class="es-card-title">Changes: {{.From}} → {{.To}}</h3>
+    {{$hasBreaking := false}}
+    {{range .Changes}}{{if .Breaking}}{{$hasBreaking = true}}{{end}}{{end}}
+    {{if $hasBreaking}}
+    <span class="es-badge es-badge-breaking">⚠ Breaking changes</span>
+    {{else}}
+    <span class="es-badge es-badge-active">Non-breaking</span>
+    {{end}}
+  </div>
+  <div class="es-card-body es-p0">
+    <table class="es-table">
+      <thead>
+        <tr><th>Property</th><th>Change</th><th>Breaking</th><th>From</th><th>To</th></tr>
+      </thead>
+      <tbody>
+        {{range .Changes}}
+        <tr class="{{if .Breaking}}es-row-breaking{{else}}es-row-safe{{end}}">
+          <td><code class="es-code">{{if .Property}}{{.Property}}{{else}}(event){{end}}</code></td>
+          <td>{{.Kind}}</td>
+          <td>
+            {{if .Breaking}}
+            <span class="es-badge es-badge-breaking">breaking</span>
+            {{else}}
+            <span class="es-badge es-badge-safe">safe</span>
+            {{end}}
+          </td>
+          <td class="es-text-muted es-text-sm">{{.From}}</td>
+          <td class="es-text-muted es-text-sm">{{.To}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{else}}
+<div class="es-card" style="margin-top:1rem">
+  <div class="es-card-body">
+    <p class="es-text-muted">No differences detected between {{.From}} and {{.To}}.</p>
+  </div>
+</div>
+{{end}}
+
+<div class="es-grid es-grid-2" style="margin-top:1rem">
+  <div class="es-card">
+    <div class="es-card-header"><h3 class="es-card-title">{{.From}}</h3></div>
+    <div class="es-card-body es-p0">
+      <table class="es-table">
+        <thead><tr><th>Property</th><th>Type</th><th>Required</th></tr></thead>
+        <tbody>
+          {{range $name, $def := .FromDef.Properties}}
+          <tr><td><code class="es-code">{{$name}}</code></td><td>{{$def.Type}}</td><td>{{if $def.Required}}✓{{end}}</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="es-card">
+    <div class="es-card-header"><h3 class="es-card-title">{{.To}}</h3></div>
+    <div class="es-card-body es-p0">
+      <table class="es-table">
+        <thead><tr><th>Property</th><th>Type</th><th>Required</th></tr></thead>
+        <tbody>
+          {{range $name, $def := .ToDef.Properties}}
+          <tr><td><code class="es-code">{{$name}}</code></td><td>{{$def.Type}}</td><td>{{if $def.Required}}✓{{end}}</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{{else if and .From .To}}
+<div class="es-card" style="margin-top:1rem">
+  <div class="es-card-body">
+    <p class="es-alert es-alert-danger">One or both versions not found.</p>
+  </div>
+</div>
+{{end}}
+{{end}}

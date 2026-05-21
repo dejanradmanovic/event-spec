@@ -1,0 +1,45 @@
+{{define "content"}}
+<div class="es-card">
+  <div class="es-card-header">
+    <h3 class="es-card-title">Runtime Configuration</h3>
+    <p class="es-text-muted es-text-sm">Changes take effect immediately without a server restart.</p>
+  </div>
+  <div class="es-card-body es-p0">
+    {{if .Settings}}
+    <table class="es-table">
+      <thead>
+        <tr><th>Key</th><th>Value</th><th>Description</th><th></th></tr>
+      </thead>
+      <tbody>
+        {{range .Settings}}
+        <tr id="cfg-row-{{.Key}}">
+          <td><code class="es-code">{{.Key}}</code></td>
+          <td id="cfg-val-{{.Key}}">
+            <span class="es-badge es-badge-{{if eq .Value "true"}}active{{else}}deleted{{end}}">{{.Value}}</span>
+          </td>
+          <td class="es-text-muted es-text-sm">
+            {{if eq .Key "hooks_enabled"}}
+              Enables/disables analytics relay validation and sampling hooks.
+            {{end}}
+          </td>
+          <td>
+            {{if eq .Key "hooks_enabled"}}
+            <button
+              class="es-btn es-btn-ghost es-btn-sm"
+              hx-put="/ui/settings/config/{{.Key}}"
+              hx-vals='{"value": "{{if eq .Value "true"}}false{{else}}true{{end}}"}'
+              hx-target="#cfg-val-{{.Key}}"
+              hx-swap="innerHTML"
+            >Toggle</button>
+            {{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="es-empty"><p>No configuration keys found.</p></div>
+    {{end}}
+  </div>
+</div>
+{{end}}

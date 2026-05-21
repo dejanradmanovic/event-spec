@@ -1,0 +1,113 @@
+{{define "content"}}
+<div class="es-event-header es-card">
+  <div class="es-card-body">
+    <div class="es-flex es-flex-between es-flex-center">
+      <div>
+        <h2 class="es-event-name">{{if .Event.DisplayName}}{{.Event.DisplayName}}{{else}}{{.Event.Name}}{{end}}</h2>
+        <p class="es-text-muted">{{.Event.Description}}</p>
+        <div class="es-meta-row">
+          <span class="es-badge es-badge-{{.Event.Status}}">{{.Event.Status}}</span>
+          <code class="es-code">{{.Event.Namespace}}/{{.Event.Name}}</code>
+          <code class="es-code">v{{.Event.Version}}</code>
+          {{if .Event.Owner}}<span class="es-text-muted">{{.Event.Owner}}</span>{{end}}
+          {{range .Event.Tags}}<span class="es-tag">{{.}}</span>{{end}}
+        </div>
+      </div>
+      {{if gt (len .Versions) 1}}
+      <a href="/ui/events/{{.Event.Namespace}}/{{.Event.Name}}/diff" class="es-btn es-btn-primary">Compare versions</a>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+<div class="es-grid es-grid-2" style="margin-top:1.5rem; align-items:start">
+  <div>
+    <div class="es-card">
+      <div class="es-card-header"><h3 class="es-card-title">Properties</h3></div>
+      <div class="es-card-body es-p0">
+        {{if .Props}}
+        <table class="es-table">
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            {{range .Props}}
+            <tr>
+              <td><code class="es-code">{{.Name}}</code></td>
+              <td><span class="es-type-badge">{{.Def.Type}}</span>
+                {{if .Def.Enum}}
+                <div class="es-enum-list">{{range .Def.Enum}}<code class="es-code es-code-sm">{{.}}</code> {{end}}</div>
+                {{end}}
+              </td>
+              <td>{{if .Def.Required}}<span class="es-badge es-badge-required">required</span>{{else}}<span class="es-text-muted">optional</span>{{end}}</td>
+              <td class="es-text-muted es-text-sm">{{.Def.Description}}</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+        {{else}}
+        <div class="es-empty"><p>No properties defined.</p></div>
+        {{end}}
+      </div>
+    </div>
+
+    {{if .Event.Sampling}}
+    <div class="es-card" style="margin-top:1rem">
+      <div class="es-card-header"><h3 class="es-card-title">Sampling</h3></div>
+      <div class="es-card-body">
+        <dl class="es-dl">
+          <dt>Strategy</dt><dd>{{.Event.Sampling.Strategy}}</dd>
+          <dt>Rate</dt><dd>{{.Event.Sampling.Rate}}</dd>
+        </dl>
+      </div>
+    </div>
+    {{end}}
+  </div>
+
+  <div>
+    <div class="es-card">
+      <div class="es-card-header"><h3 class="es-card-title">Version History</h3></div>
+      <div class="es-card-body es-p0">
+        {{if .Versions}}
+        <table class="es-table">
+          <thead>
+            <tr><th>Version</th><th>Status</th><th>Changelog</th><th></th></tr>
+          </thead>
+          <tbody>
+            {{range .Versions}}
+            <tr>
+              <td><code class="es-code">{{.Version}}</code></td>
+              <td><span class="es-badge es-badge-{{.Status}}">{{.Status}}</span></td>
+              <td class="es-text-muted es-text-sm">{{.Changelog}}</td>
+              <td>
+                <a href="/ui/events/{{.Namespace}}/{{.Name}}/diff?to={{.Version}}" class="es-btn es-btn-ghost es-btn-sm">Diff</a>
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+        {{else}}
+        <div class="es-empty"><p>No versions found.</p></div>
+        {{end}}
+      </div>
+    </div>
+
+    {{if .Event.ProviderOverrides}}
+    <div class="es-card" style="margin-top:1rem">
+      <div class="es-card-header"><h3 class="es-card-title">Provider Overrides</h3></div>
+      <div class="es-card-body">
+        {{range $provider, $override := .Event.ProviderOverrides}}
+        <div class="es-override-row">
+          <strong>{{$provider}}</strong>
+          {{if $override.EventName}}<div class="es-text-sm">Event name: <code class="es-code">{{$override.EventName}}</code></div>{{end}}
+          {{if $override.PropertyMap}}
+          <div class="es-text-sm es-text-muted">{{len $override.PropertyMap}} property mappings</div>
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}

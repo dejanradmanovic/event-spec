@@ -1,0 +1,61 @@
+{{define "content"}}
+<div class="es-card">
+  <div class="es-card-header">
+    <h3 class="es-card-title">Filters</h3>
+  </div>
+  <div class="es-card-body">
+    <form method="GET" action="/ui/audit" class="es-filter-bar">
+      <select name="entity" class="es-select">
+        <option value="">All entities</option>
+        <option value="event"{{if eq .EntityType "event"}} selected{{end}}>Event</option>
+        <option value="source"{{if eq .EntityType "source"}} selected{{end}}>Source</option>
+        <option value="destination"{{if eq .EntityType "destination"}} selected{{end}}>Destination</option>
+      </select>
+      <input type="text" name="user" class="es-input" placeholder="Filter by user…" value="{{.UserFilter}}">
+      <input type="date" name="since" class="es-input">
+      <button type="submit" class="es-btn es-btn-primary">Apply</button>
+      <a href="/ui/audit" class="es-btn es-btn-ghost">Reset</a>
+    </form>
+  </div>
+</div>
+
+<div class="es-card" style="margin-top:1rem">
+  <div class="es-card-body es-p0">
+    {{if .Entries}}
+    <table class="es-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Action</th>
+          <th>Entity</th>
+          <th>ID</th>
+          <th>User</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Entries}}
+        <tr>
+          <td class="es-text-muted es-text-sm">{{.Timestamp.Format "2006-01-02 15:04:05"}}</td>
+          <td><span class="es-badge es-badge-action-{{.Action}}">{{.Action}}</span></td>
+          <td>{{.EntityType}}</td>
+          <td class="es-text-muted">#{{.EntityID}}</td>
+          <td>{{.UserID}}</td>
+          <td>
+            {{if .Details}}
+            <details class="es-details">
+              <summary class="es-details-summary">show</summary>
+              <pre class="es-pre">{{.Details}}</pre>
+            </details>
+            {{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="es-empty"><p>No audit entries{{if or .EntityType .UserFilter}} matching filters{{end}}.</p></div>
+    {{end}}
+  </div>
+</div>
+{{end}}

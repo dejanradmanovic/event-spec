@@ -1,0 +1,112 @@
+{{define "content"}}
+{{if .NewKey}}
+<div class="es-modal-overlay" id="new-key-modal">
+  <div class="es-modal">
+    <div class="es-modal-header">
+      <h3>New API Key Created</h3>
+    </div>
+    <div class="es-modal-body">
+      <p class="es-alert es-alert-warning">Copy this key now. It will not be shown again.</p>
+      <div class="es-key-display">
+        <code id="new-key-value" class="es-code es-code-block">{{.NewKey}}</code>
+        <button class="es-btn es-btn-ghost es-btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('new-key-value').textContent)">Copy</button>
+      </div>
+    </div>
+    <div class="es-modal-footer">
+      <a href="/ui/settings/keys" class="es-btn es-btn-primary">Done</a>
+    </div>
+  </div>
+</div>
+{{end}}
+
+<div class="es-card">
+  <div class="es-card-header">
+    <h3 class="es-card-title">Create API Key</h3>
+  </div>
+  <div class="es-card-body">
+    <form method="POST" action="/ui/settings/keys" class="es-form-inline">
+      <div class="es-form-group">
+        <label class="es-label">Name / Label</label>
+        <input type="text" name="name" class="es-input" placeholder="e.g. ci-deploy">
+      </div>
+      <div class="es-form-group">
+        <label class="es-label">Role</label>
+        <select name="role" class="es-select">
+          <option value="viewer">viewer</option>
+          <option value="publisher">publisher</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+      <div class="es-form-group">
+        <label class="es-label">Expires in</label>
+        <input type="text" name="expires_in" class="es-input es-input-sm" placeholder="e.g. 30d, 1y (optional)">
+      </div>
+      <button type="submit" class="es-btn es-btn-primary">Create Key</button>
+    </form>
+  </div>
+</div>
+
+<div class="es-card" style="margin-top:1rem">
+  <div class="es-card-header"><h3 class="es-card-title">API Keys</h3></div>
+  <div class="es-card-body es-p0">
+    {{if .Keys}}
+    <table class="es-table" id="keys-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Role</th>
+          <th>Created by</th>
+          <th>Created at</th>
+          <th>Expires at</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Keys}}
+        <tr id="key-row-{{.ID}}">
+          <td class="es-text-muted">#{{.ID}}</td>
+          <td>{{if .Name}}{{.Name}}{{else}}<span class="es-text-muted">—</span>{{end}}</td>
+          <td><span class="es-badge es-badge-role-{{.Role}}">{{.Role}}</span></td>
+          <td class="es-text-muted">{{.CreatedBy}}</td>
+          <td class="es-text-muted es-text-sm">{{.CreatedAt.Format "2006-01-02"}}</td>
+          <td class="es-text-muted es-text-sm">
+            {{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02"}}{{else}}never{{end}}
+          </td>
+          <td>
+            <button
+              class="es-btn es-btn-danger es-btn-sm"
+              hx-delete="/ui/settings/keys/{{.ID}}"
+              hx-target="#key-row-{{.ID}}"
+              hx-swap="outerHTML"
+              hx-confirm="Revoke this API key?"
+            >Revoke</button>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="es-empty"><p>No API keys yet.</p></div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{define "new-key-modal"}}
+<div class="es-modal-overlay" id="new-key-modal">
+  <div class="es-modal">
+    <div class="es-modal-header"><h3>New API Key Created</h3></div>
+    <div class="es-modal-body">
+      <p class="es-alert es-alert-warning">Copy this key now. It will not be shown again.</p>
+      <div class="es-key-display">
+        <code id="new-key-value" class="es-code es-code-block">{{.NewKey}}</code>
+        <button class="es-btn es-btn-ghost es-btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('new-key-value').textContent)">Copy</button>
+      </div>
+    </div>
+    <div class="es-modal-footer">
+      <a href="/ui/settings/keys" class="es-btn es-btn-primary">Done</a>
+    </div>
+  </div>
+</div>
+{{end}}
