@@ -205,6 +205,58 @@ func (s *Server) handleRevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
+	settings, err := s.st.ListSettings(r.Context())
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if settings == nil {
+		settings = []ServerSetting{}
+	}
+	jsonOK(w, settings)
+}
+
+func (s *Server) handleSetConfig(w http.ResponseWriter, r *http.Request) {
+	key := r.PathValue("key")
+	if key == "" {
+		jsonError(w, "key is required", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Value string `json:"value"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate known keys.
+	switch key {
+	case "hooks_enabled":
+		if req.Value != "true" && req.Value != "false" {
+			jsonError(w, "hooks_enabled value must be \"true\" or \"false\"", http.StatusBadRequest)
+			return
+		}
+	default:
+		jsonError(w, fmt.Sprintf("unknown config key %q", key), http.StatusBadRequest)
+		return
+	}
+
+	if err := s.st.SetSetting(r.Context(), key, req.Value); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Apply in-memory immediately so the change takes effect without a restart.
+	if key == "hooks_enabled" {
+		s.hooksEnabled.Store(req.Value == "true")
+	}
+
+	jsonOK(w, ServerSetting{Key: key, Value: req.Value})
+}
+
 // parseExtendedDuration parses Go duration strings plus "Nd" (days) and "Ny" (years).
 func parseExtendedDuration(s string) (time.Duration, error) {
 	if strings.HasSuffix(s, "d") {

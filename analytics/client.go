@@ -221,17 +221,17 @@ func (c *Client) dispatchAll(ctx context.Context, operation, eventName, eventSta
 	merged := c.mergeContextChain(ctx, to.contextOverride)
 	allHooks := c.collectAllHooks()
 
-	hc := hooks.HookContext{
-		Operation: operation,
-		EventName: eventName,
-		Context:   merged,
-	}
-
 	// Run Before hooks — runs once, gates ALL providers.
 	env := &hooks.EventEnvelope{
 		EventName:  eventName,
 		Properties: cloneProperties(properties),
 		Context:    merged,
+	}
+	hc := hooks.HookContext{
+		Operation: operation,
+		EventName: eventName,
+		Context:   merged,
+		Message:   env,
 	}
 	for _, h := range allHooks {
 		result, err := h.Before(ctx, hc, to.hints)
@@ -242,6 +242,7 @@ func (c *Client) dispatchAll(ctx context.Context, operation, eventName, eventSta
 			env = result
 			hc.EventName = result.EventName
 			hc.Context = result.Context
+			hc.Message = result
 		}
 	}
 
