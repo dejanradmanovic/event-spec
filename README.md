@@ -13,7 +13,7 @@ Teams couple instrumentation directly to a single vendor (Amplitude, Mixpanel, G
 1. **Event Contract Layer** — YAML event specs with versioning, schema validation, and breaking-change detection
 2. **SDK Runtime Layer** — pluggable analytics destinations behind a stable `Provider` interface, hook lifecycle, context propagation, queueing, and dispatch
 3. **Codegen Layer** — reads the event registry and generates language-native typed wrappers
-4. **Governance / Operations Layer** — registry server, audit tooling, and docs generation *(planned)*
+4. **Governance / Operations Layer** — registry server, audit tooling, and docs generation
 
 ---
 
@@ -44,7 +44,7 @@ Teams couple instrumentation directly to a single vendor (Amplitude, Mixpanel, G
 | `hooks/logging`, `hooks/otel` | ❌ Not yet |
 | `codegen/audit` — AST-based event usage scanning (Go, TypeScript, Swift) | ✅ Done |
 | `cmd/event-spec audit` | ✅ Done |
-| `cmd/event-spec docs` | ❌ Not yet |
+| `cmd/event-spec docs` | ✅ Done |
 | Go providers: PostHog, Mixpanel, Segment, GA4, RudderStack | ❌ Not yet |
 | Swift, Kotlin, Python, Rust, Dart, .NET SDKs | ❌ Not yet |
 

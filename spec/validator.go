@@ -224,6 +224,14 @@ func ValidateWorkspaceConfig(cfg *WorkspaceConfig, path string) []ValidationErro
 		add("audit.coverage_min", fmt.Sprintf("must be between 0 and 100, got %g", cfg.Audit.CoverageMin))
 	}
 
+	if cfg.Docs.Format != "" {
+		switch cfg.Docs.Format {
+		case "html", "markdown":
+		default:
+			add("docs.format", fmt.Sprintf("invalid value %q; must be one of: html, markdown", cfg.Docs.Format))
+		}
+	}
+
 	return errs
 }
 
