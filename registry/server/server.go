@@ -56,6 +56,12 @@ type AuditEntry struct {
 	Details    string    `json:"details,omitempty"`
 }
 
+// WebhookPayload is the JSON body sent to each registered webhook when an event is published.
+type WebhookPayload struct {
+	Event       spec.EventDef `json:"event"`
+	PublishedBy string        `json:"published_by"`
+}
+
 // Store is the persistence layer for the Server.
 // NewSQL provides a *sql.DB-backed implementation; custom implementations
 // can be injected via New for testing or alternative backends.
@@ -71,6 +77,8 @@ type Store interface {
 	LookupAPIKey(ctx context.Context, keyHash string) (userID, role string, err error)
 	ListAuditLog(ctx context.Context) ([]AuditEntry, error)
 	RegisterWebhook(ctx context.Context, webhookURL, userID string) error
+	// ListWebhooks returns all registered webhook URLs for event publish notifications.
+	ListWebhooks(ctx context.Context) ([]string, error)
 }
 
 // Server is the REST API registry server.
@@ -586,4 +594,21 @@ func (st *sqlStore) RegisterWebhook(ctx context.Context, webhookURL, userID stri
 	q := st.ph("INSERT INTO webhooks (url, created_by) VALUES (?, ?)")
 	_, err := st.db.ExecContext(ctx, q, webhookURL, userID)
 	return err
+}
+
+func (st *sqlStore) ListWebhooks(ctx context.Context) ([]string, error) {
+	rows, err := st.db.QueryContext(ctx, "SELECT url FROM webhooks")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var urls []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		urls = append(urls, u)
+	}
+	return urls, rows.Err()
 }

@@ -9,8 +9,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/dejanradmanovic/event-spec/registry"
 	"github.com/dejanradmanovic/event-spec/spec"
@@ -22,6 +26,9 @@ type Config struct {
 	BaseURL string
 	// APIKey is the Bearer token used for authentication.
 	APIKey string
+	// CacheDir is an optional directory for offline caching. When set, successful
+	// GET responses are persisted and served as a fallback when the server is unreachable.
+	CacheDir string
 }
 
 // Client is an HTTP client for the event-spec registry server.
@@ -37,6 +44,7 @@ func New(cfg Config) *Client {
 }
 
 // ListEvents fetches all events matching filter from the server.
+// When the server is unreachable and CacheDir is configured, the last cached response is returned.
 func (c *Client) ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
 	q := url.Values{}
 	if filter.Namespace != "" {
@@ -53,7 +61,7 @@ func (c *Client) ListEvents(ctx context.Context, filter registry.ListFilter) ([]
 		u += "?" + q.Encode()
 	}
 	var events []spec.EventDef
-	if err := c.get(ctx, u, &events); err != nil {
+	if err := c.getWithCache(ctx, u, &events); err != nil {
 		return nil, err
 	}
 	return events, nil
@@ -61,6 +69,7 @@ func (c *Client) ListEvents(ctx context.Context, filter registry.ListFilter) ([]
 
 // GetEvent fetches an event by namespace and name.
 // When version is empty the server returns the latest active version.
+// When the server is unreachable and CacheDir is configured, the last cached response is returned.
 func (c *Client) GetEvent(ctx context.Context, namespace, name, version string) (*spec.EventDef, error) {
 	var u string
 	if version != "" {
@@ -69,7 +78,7 @@ func (c *Client) GetEvent(ctx context.Context, namespace, name, version string) 
 		u = fmt.Sprintf("%s/v1/events/%s/%s", c.cfg.BaseURL, namespace, name)
 	}
 	var def spec.EventDef
-	if err := c.get(ctx, u, &def); err != nil {
+	if err := c.getWithCache(ctx, u, &def); err != nil {
 		return nil, err
 	}
 	return &def, nil
@@ -158,4 +167,83 @@ func (c *Client) decode(resp *http.Response, dst any) error {
 		}
 		return fmt.Errorf("server returned %d", resp.StatusCode)
 	}
+}
+
+// getWithCache performs a GET request and writes the response body to the local cache on
+// success. If the transport fails (server unreachable) and a cached response exists for this
+// URL, the cached bytes are decoded into dst instead of returning an error.
+func (c *Client) getWithCache(ctx context.Context, u string, dst any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
+	if err != nil {
+		return err
+	}
+	c.auth(req)
+	resp, transportErr := c.http.Do(req)
+	if transportErr != nil {
+		if c.cfg.CacheDir != "" {
+			if data, cacheErr := c.readCache(urlCacheKey(u)); cacheErr == nil {
+				if dst != nil {
+					return json.Unmarshal(data, dst)
+				}
+				return nil
+			}
+		}
+		return transportErr
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated, http.StatusAccepted:
+		if c.cfg.CacheDir != "" {
+			_ = c.writeCache(urlCacheKey(u), body)
+		}
+		if dst != nil {
+			return json.Unmarshal(body, dst)
+		}
+		return nil
+	case http.StatusNotFound:
+		return registry.ErrNotFound
+	default:
+		var e struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(body, &e) == nil && e.Error != "" {
+			return errors.New(e.Error)
+		}
+		return fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+}
+
+// urlCacheKey returns a filesystem-safe cache key derived from the URL path and query,
+// stripping the host so the key is stable across server restarts or URL changes.
+func urlCacheKey(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return sanitizeForFS(rawURL)
+	}
+	key := u.Path
+	if u.RawQuery != "" {
+		key += "?" + u.RawQuery
+	}
+	return sanitizeForFS(strings.TrimLeft(key, "/"))
+}
+
+func sanitizeForFS(s string) string {
+	return strings.NewReplacer("/", "_", "?", "_", "&", "_", "=", "_").Replace(s)
+}
+
+func (c *Client) readCache(key string) ([]byte, error) {
+	return os.ReadFile(filepath.Join(c.cfg.CacheDir, key+".json"))
+}
+
+func (c *Client) writeCache(key string, data []byte) error {
+	if err := os.MkdirAll(c.cfg.CacheDir, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(c.cfg.CacheDir, key+".json"), data, 0o644)
 }
