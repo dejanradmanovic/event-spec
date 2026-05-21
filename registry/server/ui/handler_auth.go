@@ -2,27 +2,14 @@ package ui
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"net/http"
 	"strings"
+
+	"github.com/dejanradmanovic/event-spec/registry/server/shared"
 )
 
-func sha256hex(s string) string {
-	h := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(h[:])
-}
-
-func roleLevel(role string) int {
-	switch role {
-	case RoleAdmin:
-		return 2
-	case RolePublisher:
-		return 1
-	default:
-		return 0
-	}
-}
+func sha256hex(s string) string { return shared.Sha256Hex(s) }
+func roleLevel(role string) int { return shared.RoleLevel(role) }
 
 func sessionKey(r *http.Request) string {
 	c, err := r.Cookie(cookieName)
