@@ -1,0 +1,82 @@
+package server
+
+import (
+	"context"
+	"time"
+
+	"github.com/dejanradmanovic/event-spec/registry"
+	"github.com/dejanradmanovic/event-spec/spec"
+)
+
+// AuditFilter constrains an audit log query. Zero values mean no restriction.
+type AuditFilter struct {
+	Since      *time.Time
+	Until      *time.Time
+	EntityType string // "event" | "source" | "destination"
+	UserID     string
+	Limit      int // 0 means default (50)
+}
+
+// APIKeyRecord is the public metadata for a stored API key (never includes the raw key).
+type APIKeyRecord struct {
+	ID        int64      `json:"id"`
+	Role      string     `json:"role"`
+	Name      string     `json:"name,omitempty"`
+	CreatedBy string     `json:"created_by"`
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+}
+
+// WebhookRecord is a registered webhook entry with its database ID.
+type WebhookRecord struct {
+	ID        int64     `json:"id"`
+	URL       string    `json:"url"`
+	CreatedBy string    `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// AuditEntry is a single record from the audit log.
+type AuditEntry struct {
+	ID         int64     `json:"id"`
+	Action     string    `json:"action"`      // "create" | "update"
+	EntityType string    `json:"entity_type"` // "event" | "source" | "destination"
+	EntityID   int64     `json:"entity_id"`
+	UserID     string    `json:"user_id"`
+	Timestamp  time.Time `json:"timestamp"`
+	Details    string    `json:"details,omitempty"`
+}
+
+// WebhookPayload is the JSON body sent to each registered webhook when an event is published.
+type WebhookPayload struct {
+	Event       spec.EventDef `json:"event"`
+	PublishedBy string        `json:"published_by"`
+}
+
+// Store is the persistence layer for the Server.
+// NewSQL provides a *sql.DB-backed implementation; custom implementations
+// can be injected via New for testing or alternative backends.
+type Store interface {
+	ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
+	GetEvent(ctx context.Context, namespace, name, version string) (*spec.EventDef, error)
+	GetSource(ctx context.Context, name string) (*spec.SourceDef, error)
+	GetDestination(ctx context.Context, name string) (*spec.DestinationDef, error)
+	// PublishEvent writes the event and records it in the audit log under userID.
+	PublishEvent(ctx context.Context, event spec.EventDef, userID string) error
+	// LookupAPIKey returns the user identity and role for the given SHA-256 key hash.
+	// Returns registry.ErrNotFound when the key does not exist or has expired.
+	LookupAPIKey(ctx context.Context, keyHash string) (userID, role string, err error)
+	ListAuditLog(ctx context.Context, filter AuditFilter) ([]AuditEntry, error)
+	RegisterWebhook(ctx context.Context, webhookURL, userID string) error
+	// ListWebhooks returns all registered webhook URLs for event publish notifications.
+	ListWebhooks(ctx context.Context) ([]string, error)
+
+	// Admin: API key management.
+	CountAPIKeys(ctx context.Context) (int, error)
+	CreateAPIKey(ctx context.Context, keyHash, role, name, createdBy string, expiresAt *time.Time) (int64, error)
+	ListAPIKeys(ctx context.Context) ([]APIKeyRecord, error)
+	RevokeAPIKey(ctx context.Context, id int64) error
+
+	// Admin: webhook management.
+	ListWebhooksAdmin(ctx context.Context) ([]WebhookRecord, error)
+	DeleteWebhook(ctx context.Context, id int64) error
+}
