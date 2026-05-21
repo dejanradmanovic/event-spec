@@ -1,0 +1,73 @@
+{{define "content"}}
+<div class="es-card">
+  <div class="es-card-header">
+    <div>
+      <h3 class="es-card-title">{{if .IsEdit}}Publish New Version{{else}}Publish New Event{{end}}</h3>
+      <p class="es-text-muted es-text-sm">
+        {{if .IsEdit}}
+          Edit the YAML below and increment the <code class="es-code">version</code> field to publish a new version of this event.
+        {{else}}
+          Fill in the event spec YAML below. Set <code class="es-code">status: draft</code> to save without activating.
+        {{end}}
+      </p>
+    </div>
+    {{if .IsEdit}}
+    <a href="/ui/events/{{.Namespace}}/{{.EventName}}" class="es-btn es-btn-ghost">Cancel</a>
+    {{else}}
+    <a href="/ui/events" class="es-btn es-btn-ghost">Cancel</a>
+    {{end}}
+  </div>
+  <div class="es-card-body">
+    {{if .FormError}}
+    <div class="es-alert es-alert-danger">{{.FormError}}</div>
+    {{end}}
+
+    <form
+      method="POST"
+      action="{{if .IsEdit}}/ui/events/{{.Namespace}}/{{.EventName}}/edit{{else}}/ui/events/new{{end}}"
+    >
+      <div class="es-form-group">
+        <label class="es-label" for="spec_yaml">Event Spec YAML</label>
+        <textarea
+          id="spec_yaml"
+          name="spec_yaml"
+          class="es-input es-textarea-code"
+          rows="30"
+          spellcheck="false"
+          autocomplete="off"
+          required
+        >{{.YAML}}</textarea>
+        <span class="es-form-hint">
+          Required fields: <code class="es-code">name</code>, <code class="es-code">namespace</code>, <code class="es-code">version</code> (SchemaVer format: <code class="es-code">1-0-0</code>).
+          Increment the version for each new publish — the same namespace/name/version triple cannot be overwritten once published.
+        </span>
+      </div>
+
+      <div class="es-form-actions">
+        <button type="submit" class="es-btn es-btn-primary">
+          {{if .IsEdit}}Publish New Version{{else}}Publish Event{{end}}
+        </button>
+        {{if .IsEdit}}
+        <a href="/ui/events/{{.Namespace}}/{{.EventName}}" class="es-btn es-btn-ghost">Cancel</a>
+        {{else}}
+        <a href="/ui/events" class="es-btn es-btn-ghost">Cancel</a>
+        {{end}}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="es-card" style="margin-top:1rem">
+  <div class="es-card-header"><h3 class="es-card-title">YAML Reference</h3></div>
+  <div class="es-card-body">
+    <dl class="es-dl">
+      <dt><code class="es-code">name</code></dt><dd>Snake-case identifier, e.g. <code class="es-code">product_viewed</code></dd>
+      <dt><code class="es-code">namespace</code></dt><dd>Logical grouping, e.g. <code class="es-code">ecommerce</code></dd>
+      <dt><code class="es-code">version</code></dt><dd>SchemaVer with hyphens: <code class="es-code">1-0-0</code>, <code class="es-code">1-2-0</code></dd>
+      <dt><code class="es-code">status</code></dt><dd><code class="es-code">draft</code> · <code class="es-code">active</code> · <code class="es-code">deprecated</code> · <code class="es-code">deleted</code></dd>
+      <dt><code class="es-code">type</code></dt><dd><code class="es-code">track</code> · <code class="es-code">page</code> · <code class="es-code">identify</code> · <code class="es-code">group</code> · <code class="es-code">alias</code></dd>
+      <dt>Property types</dt><dd><code class="es-code">string</code> · <code class="es-code">number</code> · <code class="es-code">integer</code> · <code class="es-code">boolean</code> · <code class="es-code">object</code> · <code class="es-code">array</code></dd>
+    </dl>
+  </div>
+</div>
+{{end}}

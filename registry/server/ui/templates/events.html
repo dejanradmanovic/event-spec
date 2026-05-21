@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="es-toolbar">
+<div class="es-toolbar es-flex es-flex-between" style="align-items:flex-start">
   <form method="GET" action="/ui/events" class="es-filter-bar">
     <select name="namespace" class="es-select">
       <option value="">All namespaces</option>
@@ -20,6 +20,9 @@
     <a href="/ui/events" class="es-btn es-btn-ghost">Clear</a>
     {{end}}
   </form>
+  {{if or (eq .Role "publisher") (eq .Role "admin")}}
+  <a href="/ui/events/new" class="es-btn es-btn-primary" style="flex-shrink:0">+ Publish Event</a>
+  {{end}}
 </div>
 
 <div class="es-card">

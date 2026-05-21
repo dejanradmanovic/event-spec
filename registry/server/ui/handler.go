@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/dejanradmanovic/event-spec/registry"
 	"github.com/dejanradmanovic/event-spec/spec"
 )
@@ -82,6 +84,8 @@ type ServerSetting struct {
 type Store interface {
 	ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
 	GetEvent(ctx context.Context, namespace, name, version string) (*spec.EventDef, error)
+	// PublishEvent creates or updates an event version and appends an audit entry under userID.
+	PublishEvent(ctx context.Context, event spec.EventDef, userID string) error
 	LookupAPIKey(ctx context.Context, keyHash string) (userID, role string, err error)
 	ListAuditLog(ctx context.Context, filter AuditFilter) ([]AuditEntry, error)
 	ListAPIKeys(ctx context.Context) ([]APIKeyRecord, error)
@@ -130,8 +134,12 @@ func (h *Handler) routes() {
 
 	h.mux.HandleFunc("GET /ui/", h.withSession(RoleViewer, h.handleDashboard))
 	h.mux.HandleFunc("GET /ui/events", h.withSession(RoleViewer, h.handleEventList))
+	h.mux.HandleFunc("GET /ui/events/new", h.withSession(RolePublisher, h.handleNewEventForm))
+	h.mux.HandleFunc("POST /ui/events/new", h.withSession(RolePublisher, h.handlePublishNewEvent))
 	h.mux.HandleFunc("GET /ui/events/{ns}/{name}", h.withSession(RoleViewer, h.handleEventDetail))
 	h.mux.HandleFunc("GET /ui/events/{ns}/{name}/diff", h.withSession(RoleViewer, h.handleEventDiff))
+	h.mux.HandleFunc("GET /ui/events/{ns}/{name}/edit", h.withSession(RolePublisher, h.handleEditEventForm))
+	h.mux.HandleFunc("POST /ui/events/{ns}/{name}/edit", h.withSession(RolePublisher, h.handlePublishEventEdit))
 	h.mux.HandleFunc("GET /ui/audit", h.withSession(RoleAdmin, h.handleAudit))
 	h.mux.HandleFunc("GET /ui/settings/keys", h.withSession(RoleAdmin, h.handleKeys))
 	h.mux.HandleFunc("POST /ui/settings/keys", h.withSession(RoleAdmin, h.handleCreateKey))
@@ -706,6 +714,142 @@ func (h *Handler) handleSetConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/ui/settings/config", http.StatusFound)
+}
+
+// --- publisher: event create / edit ---
+
+type eventFormData struct {
+	baseData
+	YAML      string
+	FormError string
+	IsEdit    bool
+	Namespace string
+	EventName string
+}
+
+// newEventYAMLTemplate returns a minimal YAML skeleton for new events.
+func newEventYAMLTemplate() string {
+	return `$schema: "https://event-spec.io/schemas/event/v1"
+
+name: my_event
+display_name: "My Event"
+description: |
+  Describe what this event captures.
+version: "1-0-0"
+changelog: "Initial version"
+status: draft
+namespace: my_namespace
+tags: []
+owner: "team@example.com"
+type: track
+event_name: "My Event"
+
+properties:
+  example_property:
+    type: string
+    required: true
+    description: "An example property"
+
+# property_priority: event_wins
+# sampling:
+#   strategy: none
+#   rate: 1.0
+`
+}
+
+func (h *Handler) handleNewEventForm(w http.ResponseWriter, r *http.Request) {
+	b := newBase(r, "Publish New Event")
+	h.render(w, "event_form", eventFormData{baseData: b, YAML: newEventYAMLTemplate()})
+}
+
+func (h *Handler) handlePublishNewEvent(w http.ResponseWriter, r *http.Request) {
+	h.submitEventForm(w, r, "", "", false)
+}
+
+func (h *Handler) handleEditEventForm(w http.ResponseWriter, r *http.Request) {
+	ns := r.PathValue("ns")
+	name := r.PathValue("name")
+
+	ev, err := h.st.GetEvent(r.Context(), ns, name, "")
+	if err != nil {
+		h.renderErrorPage(w, r, http.StatusNotFound, "Edit Event", err.Error())
+		return
+	}
+
+	raw, err := yaml.Marshal(ev)
+	if err != nil {
+		h.renderErrorPage(w, r, http.StatusInternalServerError, "Edit Event", err.Error())
+		return
+	}
+
+	b := newBase(r, "Edit "+ev.Name)
+	h.render(w, "event_form", eventFormData{
+		baseData:  b,
+		YAML:      string(raw),
+		IsEdit:    true,
+		Namespace: ns,
+		EventName: name,
+	})
+}
+
+func (h *Handler) handlePublishEventEdit(w http.ResponseWriter, r *http.Request) {
+	h.submitEventForm(w, r, r.PathValue("ns"), r.PathValue("name"), true)
+}
+
+// submitEventForm parses the YAML form body, validates, publishes, and redirects on success.
+func (h *Handler) submitEventForm(w http.ResponseWriter, r *http.Request, nsHint, nameHint string, isEdit bool) {
+	if err := r.ParseForm(); err != nil {
+		h.renderErrorPage(w, r, http.StatusBadRequest, "Publish Event", "Invalid form submission.")
+		return
+	}
+
+	rawYAML := r.FormValue("spec_yaml")
+	var ev spec.EventDef
+	if err := yaml.Unmarshal([]byte(rawYAML), &ev); err != nil {
+		b := newBase(r, "Publish Event")
+		h.render(w, "event_form", eventFormData{
+			baseData:  b,
+			YAML:      rawYAML,
+			FormError: "Invalid YAML: " + err.Error(),
+			IsEdit:    isEdit,
+			Namespace: nsHint,
+			EventName: nameHint,
+		})
+		return
+	}
+
+	if ev.Name == "" || ev.Namespace == "" || ev.Version == "" {
+		b := newBase(r, "Publish Event")
+		h.render(w, "event_form", eventFormData{
+			baseData:  b,
+			YAML:      rawYAML,
+			FormError: "name, namespace, and version are required.",
+			IsEdit:    isEdit,
+			Namespace: nsHint,
+			EventName: nameHint,
+		})
+		return
+	}
+
+	if ev.Status == "" {
+		ev.Status = spec.StatusDraft
+	}
+
+	userID, _ := r.Context().Value(ctxUserID).(string)
+	if err := h.st.PublishEvent(r.Context(), ev, userID); err != nil {
+		b := newBase(r, "Publish Event")
+		h.render(w, "event_form", eventFormData{
+			baseData:  b,
+			YAML:      rawYAML,
+			FormError: "Publish failed: " + err.Error(),
+			IsEdit:    isEdit,
+			Namespace: nsHint,
+			EventName: nameHint,
+		})
+		return
+	}
+
+	http.Redirect(w, r, "/ui/events/"+ev.Namespace+"/"+ev.Name, http.StatusFound)
 }
 
 // parseSimpleDuration parses "Nd" (days) and "Ny" (years) in addition to Go duration strings.

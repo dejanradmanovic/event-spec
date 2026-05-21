@@ -143,6 +143,10 @@ code,pre{font-family:"SFMono-Regular",Consolas,monospace}
 .es-modal-body{padding:1.25rem}
 .es-modal-footer{padding:.75rem 1.25rem;border-top:1px solid #e6ebf1;display:flex;justify-content:flex-end;gap:.5rem}
 
+/* Textarea code editor */
+.es-textarea-code{font-family:"SFMono-Regular",Consolas,monospace;font-size:.8rem;line-height:1.5;resize:vertical;width:100%}
+.es-form-actions{display:flex;gap:.5rem;margin-top:1rem}
+
 /* Responsive */
 @media(max-width:768px){
   .es-grid-4{grid-template-columns:repeat(2,1fr)}

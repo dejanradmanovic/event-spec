@@ -23,6 +23,10 @@ func (a *uiStoreAdapter) GetEvent(ctx context.Context, namespace, name, version 
 	return a.st.GetEvent(ctx, namespace, name, version)
 }
 
+func (a *uiStoreAdapter) PublishEvent(ctx context.Context, event spec.EventDef, userID string) error {
+	return a.st.PublishEvent(ctx, event, userID)
+}
+
 func (a *uiStoreAdapter) LookupAPIKey(ctx context.Context, keyHash string) (userID, role string, err error) {
 	return a.st.LookupAPIKey(ctx, keyHash)
 }
