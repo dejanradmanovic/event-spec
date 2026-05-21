@@ -335,6 +335,98 @@ func (st *sqlStore) GetDestination(ctx context.Context, name string) (*spec.Dest
 	return &def, nil
 }
 
+func (st *sqlStore) ListSources(ctx context.Context) ([]spec.SourceDef, error) {
+	rows, err := st.db.QueryContext(ctx, "SELECT spec_yaml FROM sources ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var sources []spec.SourceDef
+	for rows.Next() {
+		var yamlData string
+		if err := rows.Scan(&yamlData); err != nil {
+			return nil, err
+		}
+		var def spec.SourceDef
+		if err := yaml.Unmarshal([]byte(yamlData), &def); err != nil {
+			continue
+		}
+		sources = append(sources, def)
+	}
+	return sources, rows.Err()
+}
+
+func (st *sqlStore) CreateSource(ctx context.Context, src spec.SourceDef, userID string) error {
+	yamlData, err := yaml.Marshal(src)
+	if err != nil {
+		return fmt.Errorf("marshal source yaml: %w", err)
+	}
+	var srcID int64
+	if st.driver == "postgres" {
+		q := `INSERT INTO sources (name, spec_yaml) VALUES ($1, $2) RETURNING id`
+		err = st.db.QueryRowContext(ctx, q, src.Name, string(yamlData)).Scan(&srcID)
+	} else {
+		q := `INSERT INTO sources (name, spec_yaml) VALUES (?, ?)`
+		var res sql.Result
+		res, err = st.db.ExecContext(ctx, q, src.Name, string(yamlData))
+		if err == nil {
+			srcID, err = res.LastInsertId()
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("insert source: %w", err)
+	}
+	details := fmt.Sprintf(`{"name":%q,"language":%q}`, src.Name, src.Language)
+	auditQ := st.ph("INSERT INTO audit_log (action, entity_type, entity_id, user_id, details) VALUES (?, 'source', ?, ?, ?)")
+	_, err = st.db.ExecContext(ctx, auditQ, "create", srcID, userID, details)
+	return err
+}
+
+func (st *sqlStore) UpdateSource(ctx context.Context, src spec.SourceDef, userID string) error {
+	yamlData, err := yaml.Marshal(src)
+	if err != nil {
+		return fmt.Errorf("marshal source yaml: %w", err)
+	}
+	var srcID int64
+	err = st.db.QueryRowContext(ctx, st.ph("SELECT id FROM sources WHERE name = ?"), src.Name).Scan(&srcID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("source %q: %w", src.Name, registry.ErrNotFound)
+	}
+	if err != nil {
+		return err
+	}
+	var q string
+	if st.driver == "postgres" {
+		q = "UPDATE sources SET spec_yaml = $1, updated_at = NOW() WHERE name = $2"
+	} else {
+		q = "UPDATE sources SET spec_yaml = ?, updated_at = datetime('now') WHERE name = ?"
+	}
+	if _, err = st.db.ExecContext(ctx, q, string(yamlData), src.Name); err != nil {
+		return fmt.Errorf("update source: %w", err)
+	}
+	details := fmt.Sprintf(`{"name":%q,"language":%q}`, src.Name, src.Language)
+	auditQ := st.ph("INSERT INTO audit_log (action, entity_type, entity_id, user_id, details) VALUES (?, 'source', ?, ?, ?)")
+	_, err = st.db.ExecContext(ctx, auditQ, "update", srcID, userID, details)
+	return err
+}
+
+func (st *sqlStore) DeleteSource(ctx context.Context, name, userID string) error {
+	var srcID int64
+	_ = st.db.QueryRowContext(ctx, st.ph("SELECT id FROM sources WHERE name = ?"), name).Scan(&srcID)
+	res, err := st.db.ExecContext(ctx, st.ph("DELETE FROM sources WHERE name = ?"), name)
+	if err != nil {
+		return fmt.Errorf("delete source: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("source %q: %w", name, registry.ErrNotFound)
+	}
+	details := fmt.Sprintf(`{"name":%q}`, name)
+	auditQ := st.ph("INSERT INTO audit_log (action, entity_type, entity_id, user_id, details) VALUES (?, 'source', ?, ?, ?)")
+	_, err = st.db.ExecContext(ctx, auditQ, "delete", srcID, userID, details)
+	return err
+}
+
 func (st *sqlStore) ListDestinationsFull(ctx context.Context) ([]spec.DestinationDef, error) {
 	rows, err := st.db.QueryContext(ctx, "SELECT spec_yaml FROM destinations ORDER BY name")
 	if err != nil {

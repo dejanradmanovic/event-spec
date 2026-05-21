@@ -80,6 +80,38 @@ func (m *mockStore) GetSource(_ context.Context, name string) (*spec.SourceDef, 
 	return nil, fmt.Errorf("source %q: %w", name, registry.ErrNotFound)
 }
 
+func (m *mockStore) ListSources(_ context.Context) ([]spec.SourceDef, error) {
+	var out []spec.SourceDef
+	for _, s := range m.sources {
+		out = append(out, *s)
+	}
+	return out, nil
+}
+
+func (m *mockStore) CreateSource(_ context.Context, src spec.SourceDef, _ string) error {
+	if m.sources == nil {
+		m.sources = make(map[string]*spec.SourceDef)
+	}
+	m.sources[src.Name] = &src
+	return nil
+}
+
+func (m *mockStore) UpdateSource(_ context.Context, src spec.SourceDef, _ string) error {
+	if _, ok := m.sources[src.Name]; !ok {
+		return fmt.Errorf("source %q: %w", src.Name, registry.ErrNotFound)
+	}
+	m.sources[src.Name] = &src
+	return nil
+}
+
+func (m *mockStore) DeleteSource(_ context.Context, name, _ string) error {
+	if _, ok := m.sources[name]; !ok {
+		return fmt.Errorf("source %q: %w", name, registry.ErrNotFound)
+	}
+	delete(m.sources, name)
+	return nil
+}
+
 func (m *mockStore) GetDestination(_ context.Context, _ string) (*spec.DestinationDef, error) {
 	return nil, fmt.Errorf("destination: %w", registry.ErrNotFound)
 }
