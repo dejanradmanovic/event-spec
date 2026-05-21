@@ -42,8 +42,9 @@ Teams couple instrumentation directly to a single vendor (Amplitude, Mixpanel, G
 | `registry/server/client` — HTTP client for server mode | ✅ Done |
 | `cmd/event-spec serve` | ✅ Done |
 | `hooks/logging`, `hooks/otel` | ❌ Not yet |
-| `codegen/audit` — AST-based event usage scanning | ❌ Not yet |
-| `cmd/event-spec audit`, `docs` | ❌ Not yet |
+| `codegen/audit` — AST-based event usage scanning (Go, TypeScript, Swift) | ✅ Done |
+| `cmd/event-spec audit` | ✅ Done |
+| `cmd/event-spec docs` | ❌ Not yet |
 | Go providers: PostHog, Mixpanel, Segment, GA4, RudderStack | ❌ Not yet |
 | Swift, Kotlin, Python, Rust, Dart, .NET SDKs | ❌ Not yet |
 
