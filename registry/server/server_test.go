@@ -93,6 +93,10 @@ func (m *mockStore) RegisterWebhook(_ context.Context, webhookURL, _ string) err
 	return nil
 }
 
+func (m *mockStore) ListWebhooks(_ context.Context) ([]string, error) {
+	return m.webhooks, nil
+}
+
 // --- helpers ---
 
 func keyHash(token string) string {
@@ -566,5 +570,103 @@ func TestClient_InvalidKey_Returns401Error(t *testing.T) {
 		// expected
 	} else {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- Webhook firing ---
+
+func TestServer_PublishEvent_FiresWebhook(t *testing.T) {
+	received := make(chan []byte, 1)
+	hook := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		received <- body
+	}))
+	defer hook.Close()
+
+	_, st := newTestSrv(t)
+	st.webhooks = []string{hook.URL}
+
+	// Create a fresh server with the same store so the pre-seeded webhook URL is visible.
+	ts2 := httptest.NewServer(server.New(st, server.Config{}))
+	defer ts2.Close()
+
+	ev := spec.EventDef{
+		Namespace: "payments",
+		Name:      "charge_created",
+		Version:   "1-0-0",
+		Status:    spec.StatusActive,
+		EventName: "Charge Created",
+		Type:      spec.TypeTrack,
+	}
+	resp := postJSON(t, ts2, "/v1/events", "publish-tok", ev)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("want 201, got %d", resp.StatusCode)
+	}
+
+	select {
+	case body := <-received:
+		var payload server.WebhookPayload
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("decode webhook payload: %v", err)
+		}
+		if payload.Event.Name != "charge_created" {
+			t.Errorf("webhook event name = %q, want charge_created", payload.Event.Name)
+		}
+		if payload.PublishedBy != "bob" {
+			t.Errorf("webhook published_by = %q, want bob", payload.PublishedBy)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("webhook not received within 3 seconds")
+	}
+}
+
+// --- Offline mode ---
+
+func TestClient_OfflineMode_ListEvents(t *testing.T) {
+	cacheDir := t.TempDir()
+
+	ts, _ := newTestSrv(t)
+	c := client.New(client.Config{BaseURL: ts.URL, APIKey: "viewer-tok", CacheDir: cacheDir})
+	if _, err := c.ListEvents(context.Background(), registry.ListFilter{}); err != nil {
+		t.Fatalf("warm cache: %v", err)
+	}
+
+	// Point at a dead address — no listener on port 0.
+	c2 := client.New(client.Config{BaseURL: "http://127.0.0.1:0", APIKey: "viewer-tok", CacheDir: cacheDir})
+	events, err := c2.ListEvents(context.Background(), registry.ListFilter{})
+	if err != nil {
+		t.Fatalf("offline fallback: %v", err)
+	}
+	if len(events) != 2 {
+		t.Errorf("want 2 cached events, got %d", len(events))
+	}
+}
+
+func TestClient_OfflineMode_GetEvent(t *testing.T) {
+	cacheDir := t.TempDir()
+
+	ts, _ := newTestSrv(t)
+	c := client.New(client.Config{BaseURL: ts.URL, APIKey: "viewer-tok", CacheDir: cacheDir})
+	if _, err := c.GetEvent(context.Background(), "ecommerce", "product_viewed", "1-0-0"); err != nil {
+		t.Fatalf("warm cache: %v", err)
+	}
+
+	c2 := client.New(client.Config{BaseURL: "http://127.0.0.1:0", APIKey: "viewer-tok", CacheDir: cacheDir})
+	def, err := c2.GetEvent(context.Background(), "ecommerce", "product_viewed", "1-0-0")
+	if err != nil {
+		t.Fatalf("offline fallback: %v", err)
+	}
+	if def.Name != "product_viewed" {
+		t.Errorf("want product_viewed, got %q", def.Name)
+	}
+}
+
+func TestClient_OfflineMode_NoCacheReturnsError(t *testing.T) {
+	// No cache dir — offline should return the transport error, not silently succeed.
+	c := client.New(client.Config{BaseURL: "http://127.0.0.1:0", APIKey: "viewer-tok"})
+	_, err := c.ListEvents(context.Background(), registry.ListFilter{})
+	if err == nil {
+		t.Error("want error when server unreachable and no cache, got nil")
 	}
 }

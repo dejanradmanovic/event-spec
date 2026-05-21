@@ -118,7 +118,34 @@ func (s *Server) handlePublishEvent(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	go s.fireWebhooks(event, userID)
 	w.WriteHeader(http.StatusCreated)
+}
+
+// fireWebhooks dispatches an HTTP POST to every registered webhook URL.
+// It runs in a goroutine so it never blocks the HTTP response.
+func (s *Server) fireWebhooks(event spec.EventDef, publishedBy string) {
+	urls, err := s.st.ListWebhooks(context.Background())
+	if err != nil || len(urls) == 0 {
+		return
+	}
+	payload, err := json.Marshal(WebhookPayload{Event: event, PublishedBy: publishedBy})
+	if err != nil {
+		return
+	}
+	for _, u := range urls {
+		go func(u string) {
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, u, bytes.NewReader(payload))
+			if err != nil {
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := http.DefaultClient.Do(req)
+			if err == nil {
+				_ = resp.Body.Close()
+			}
+		}(u)
+	}
 }
 
 func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
