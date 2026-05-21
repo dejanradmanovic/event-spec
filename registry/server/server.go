@@ -13,8 +13,10 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/dejanradmanovic/event-spec/analytics"
 	"github.com/dejanradmanovic/event-spec/registry"
 	"github.com/dejanradmanovic/event-spec/spec"
 )
@@ -33,6 +35,9 @@ type Server struct {
 	cfg       Config
 	mux       *http.ServeMux
 	startedAt time.Time
+
+	clientsMu sync.RWMutex
+	clients   map[string]*analytics.Client // analytics clients keyed by source name
 }
 
 // New creates a Server backed by st.
@@ -41,7 +46,7 @@ func New(st Store, cfg Config) *Server {
 	if cfg.Port <= 0 {
 		cfg.Port = 8080
 	}
-	s := &Server{st: st, cfg: cfg, mux: http.NewServeMux(), startedAt: time.Now()}
+	s := &Server{st: st, cfg: cfg, mux: http.NewServeMux(), startedAt: time.Now(), clients: make(map[string]*analytics.Client)}
 	s.routes()
 	return s
 }
