@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"encoding/json"
 	"errors"
+	"html/template"
 	"net/http"
 
 	"gopkg.in/yaml.v3"
@@ -17,16 +19,44 @@ type appsData struct {
 
 type appFormData struct {
 	baseData
-	YAML         string
-	FormError    string
-	IsEdit       bool
-	AppName      string
-	Destinations []spec.DestinationDef
+	YAML              string
+	FormError         string
+	IsEdit            bool
+	AppName           string
+	Destinations      []spec.DestinationDef
+	EventVersionsJSON template.JS
 }
 
 type appDetailData struct {
 	baseData
 	App *spec.SourceDef
+}
+
+// buildEventVersionsJSON returns a JSON object mapping "namespace/name" → [version, ...]
+// for use in the Visual Editor's version-pinning dropdown.
+func buildEventVersionsJSON(events []spec.EventDef) template.JS {
+	evMap := make(map[string][]string)
+	for _, ev := range events {
+		path := ev.Namespace + "/" + ev.Name
+		found := false
+		for _, v := range evMap[path] {
+			if v == ev.Version {
+				found = true
+				break
+			}
+		}
+		if !found {
+			evMap[path] = append(evMap[path], ev.Version)
+		}
+	}
+	b, _ := json.Marshal(evMap)
+	return template.JS(b)
+}
+
+func (h *Handler) loadFormExtras(r *http.Request) ([]spec.DestinationDef, template.JS) {
+	dests, _ := h.st.ListDestinationsFull(r.Context())
+	events, _ := h.st.ListAllEvents(r.Context(), registry.ListFilter{})
+	return dests, buildEventVersionsJSON(events)
 }
 
 func (h *Handler) handleAppList(w http.ResponseWriter, r *http.Request) {
@@ -40,9 +70,14 @@ func (h *Handler) handleAppList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleNewAppForm(w http.ResponseWriter, r *http.Request) {
-	dests, _ := h.st.ListDestinationsFull(r.Context())
+	dests, evJSON := h.loadFormExtras(r)
 	b := newBase(r, "New App")
-	h.render(w, "app_form", appFormData{baseData: b, YAML: newAppYAMLTemplate(), Destinations: dests})
+	h.render(w, "app_form", appFormData{
+		baseData:          b,
+		YAML:              newAppYAMLTemplate(),
+		Destinations:      dests,
+		EventVersionsJSON: evJSON,
+	})
 }
 
 func (h *Handler) handleCreateApp(w http.ResponseWriter, r *http.Request) {
@@ -80,14 +115,15 @@ func (h *Handler) handleEditAppForm(w http.ResponseWriter, r *http.Request) {
 		h.renderErrorPage(w, r, http.StatusInternalServerError, "Edit App", err.Error())
 		return
 	}
-	dests, _ := h.st.ListDestinationsFull(r.Context())
+	dests, evJSON := h.loadFormExtras(r)
 	b := newBase(r, "Edit "+name)
 	h.render(w, "app_form", appFormData{
-		baseData:     b,
-		YAML:         string(raw),
-		IsEdit:       true,
-		AppName:      name,
-		Destinations: dests,
+		baseData:          b,
+		YAML:              string(raw),
+		IsEdit:            true,
+		AppName:           name,
+		Destinations:      dests,
+		EventVersionsJSON: evJSON,
 	})
 }
 
@@ -119,14 +155,15 @@ func (h *Handler) submitAppForm(w http.ResponseWriter, r *http.Request, nameHint
 			title = "Edit " + nameHint
 		}
 		b := newBase(r, title)
-		dests, _ := h.st.ListDestinationsFull(r.Context())
+		dests, evJSON := h.loadFormExtras(r)
 		h.render(w, "app_form", appFormData{
-			baseData:     b,
-			YAML:         rawYAML,
-			FormError:    msg,
-			IsEdit:       isEdit,
-			AppName:      nameHint,
-			Destinations: dests,
+			baseData:          b,
+			YAML:              rawYAML,
+			FormError:         msg,
+			IsEdit:            isEdit,
+			AppName:           nameHint,
+			Destinations:      dests,
+			EventVersionsJSON: evJSON,
 		})
 	}
 

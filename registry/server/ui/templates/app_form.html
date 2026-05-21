@@ -97,9 +97,23 @@
 
         {{/* Events */}}
         <div class="es-visual-section" style="margin-top:.5rem">
-          <div class="es-form-group">
-            <label class="es-label">Events <span class="es-text-muted es-text-sm">(one glob per line)</span></label>
-            <textarea id="v-events" class="es-input" rows="4" placeholder="ecommerce/**&#10;auth/user_signed_up" style="resize:vertical;font-family:monospace;font-size:.85rem"></textarea>
+          <div class="es-flex es-flex-between es-flex-center" style="margin-bottom:.4rem">
+            <label class="es-label" style="margin:0">Events <span class="es-text-muted es-text-sm">(glob patterns)</span></label>
+            <button type="button" class="es-btn es-btn-ghost es-btn-sm" id="add-event-btn">+ Add</button>
+          </div>
+          <div style="border:1px solid #e6ebf1;border-radius:.35rem;overflow:hidden">
+            <table class="es-table" id="events-table" style="display:none">
+              <thead>
+                <tr>
+                  <th>Event Glob</th>
+                  <th style="width:32px"></th>
+                </tr>
+              </thead>
+              <tbody id="events-tbody"></tbody>
+            </table>
+            <div id="events-empty" class="es-empty" style="padding:1rem">
+              <p style="margin:0">No events. Click <strong>+ Add</strong> to add event glob patterns.</p>
+            </div>
           </div>
         </div>
 
@@ -230,6 +244,9 @@ window.require = { paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.47
 </script>
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/vs/loader.js"></script>
 <script>
+var eventVersionMap = {{.EventVersionsJSON}};
+var eventPaths = Object.keys(eventVersionMap).sort();
+
 require(['vs/editor/editor.main'], function () {
   var textarea  = document.getElementById('spec_yaml');
   var statusEl  = document.getElementById('validation-status');
@@ -306,6 +323,12 @@ require(['vs/editor/editor.main'], function () {
   document.getElementById('tab-visual').addEventListener('input',  onVisualChange);
   document.getElementById('tab-visual').addEventListener('change', onVisualChange);
 
+  document.getElementById('add-event-btn').addEventListener('click', function () {
+    addEventRow('');
+    updateEventsEmpty();
+    onVisualChange();
+  });
+
   document.getElementById('add-vp-btn').addEventListener('click', function () {
     addVPRow('', '');
     updateVPEmpty();
@@ -315,6 +338,7 @@ require(['vs/editor/editor.main'], function () {
   var initDoc = tryParseYAML(textarea.value);
   if (initDoc && typeof initDoc === 'object') populateVisual(initDoc);
   lastGeneratedYAML = editor.getValue();
+  updateEventsEmpty();
   updateVPEmpty();
   validate();
   toggleRuntimeEndpoint();
@@ -342,8 +366,11 @@ require(['vs/editor/editor.main'], function () {
     if (mode)     doc.mode     = mode;
     if (mode === 'server' && endpoint) doc.runtime_endpoint = endpoint;
 
-    var eventsRaw = gv('v-events');
-    var events = eventsRaw.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    var events = [];
+    document.querySelectorAll('#events-tbody .event-row').forEach(function (row) {
+      var g = row.querySelector('.event-glob').value.trim();
+      if (g) events.push(g);
+    });
     if (events.length) doc.events = events;
 
     var dests = [];
@@ -385,9 +412,7 @@ require(['vs/editor/editor.main'], function () {
     sv('v-runtime-endpoint', doc.runtime_endpoint || '');
     toggleRuntimeEndpoint();
 
-    var events = Array.isArray(doc.events) ? doc.events : [];
-    var evEl = document.getElementById('v-events');
-    if (evEl) evEl.value = events.join('\n');
+    rebuildEventsTable(Array.isArray(doc.events) ? doc.events : []);
 
     document.querySelectorAll('.dest-check').forEach(function (cb) {
       cb.checked = Array.isArray(doc.destinations) && doc.destinations.indexOf(cb.value) !== -1;
@@ -404,6 +429,35 @@ require(['vs/editor/editor.main'], function () {
     rebuildVPTable(vp);
   }
 
+  // ── Events table ─────────────────────────────────────────────────────────
+  function addEventRow(glob) {
+    var tbody = document.getElementById('events-tbody');
+    var tr = document.createElement('tr');
+    tr.className = 'event-row';
+    tr.innerHTML =
+      '<td><input type="text" class="es-input event-glob" style="width:100%;font-family:monospace;font-size:.85rem" placeholder="ecommerce/**" value="' + esc(glob) + '"></td>' +
+      '<td><button type="button" class="es-btn es-btn-ghost es-btn-sm event-remove" style="padding:.15rem .45rem;line-height:1">✕</button></td>';
+    tr.querySelector('.event-remove').addEventListener('click', function () {
+      tr.remove(); updateEventsEmpty(); onVisualChange();
+    });
+    tbody.appendChild(tr);
+  }
+
+  function rebuildEventsTable(events) {
+    document.getElementById('events-tbody').innerHTML = '';
+    (events || []).forEach(function (g) { addEventRow(g); });
+    updateEventsEmpty();
+  }
+
+  function updateEventsEmpty() {
+    var rows = document.querySelectorAll('#events-tbody .event-row').length;
+    var e = document.getElementById('events-empty');
+    var t = document.getElementById('events-table');
+    if (e) e.style.display = rows ? 'none' : '';
+    if (t) t.style.display = rows ? '' : 'none';
+  }
+
+  // ── Version Pinning table ─────────────────────────────────────────────────
   function rebuildVPTable(vp) {
     document.getElementById('vp-tbody').innerHTML = '';
     Object.keys(vp || {}).forEach(function (k) {
@@ -416,10 +470,42 @@ require(['vs/editor/editor.main'], function () {
     var tbody = document.getElementById('vp-tbody');
     var tr = document.createElement('tr');
     tr.className = 'vp-row';
+
+    var keyOpts = '<option value="">— select event —</option>';
+    eventPaths.forEach(function (p) {
+      keyOpts += '<option value="' + esc(p) + '"' + (p === key ? ' selected' : '') + '>' + esc(p) + '</option>';
+    });
+    if (key && eventPaths.indexOf(key) === -1) {
+      keyOpts += '<option value="' + esc(key) + '" selected>' + esc(key) + '</option>';
+    }
+
     tr.innerHTML =
-      '<td><input type="text" class="es-input vp-key" style="width:100%" placeholder="ecommerce/product_viewed" value="' + esc(key) + '"></td>' +
-      '<td><input type="text" class="es-input vp-val" style="width:100%" placeholder="1-0-0" value="' + esc(val) + '"></td>' +
+      '<td><select class="es-select vp-key" style="width:100%">' + keyOpts + '</select></td>' +
+      '<td><select class="es-select vp-val" style="width:100%"></select></td>' +
       '<td><button type="button" class="es-btn es-btn-ghost es-btn-sm vp-remove" style="padding:.15rem .45rem;line-height:1">✕</button></td>';
+
+    var keySelect = tr.querySelector('.vp-key');
+    var valSelect = tr.querySelector('.vp-val');
+
+    function populateVersions(selectedVal) {
+      var versions = eventVersionMap[keySelect.value] || [];
+      valSelect.innerHTML = '<option value="">— any —</option>';
+      versions.forEach(function (v) {
+        var opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        if (v === selectedVal) opt.selected = true;
+        valSelect.appendChild(opt);
+      });
+    }
+
+    populateVersions(val);
+
+    keySelect.addEventListener('change', function () {
+      populateVersions('');
+      onVisualChange();
+    });
+
     tr.querySelector('.vp-remove').addEventListener('click', function () {
       tr.remove(); updateVPEmpty(); onVisualChange();
     });

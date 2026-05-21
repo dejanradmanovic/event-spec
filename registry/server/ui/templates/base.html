@@ -37,13 +37,13 @@
       {{end}}
       {{if eq .Role "admin"}}
       <div class="es-nav-section">Settings</div>
-      <a href="/ui/settings/apps" class="es-nav-link{{if eq .Title "Apps"}} active{{end}}">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-        Apps
-      </a>
       <a href="/ui/settings/destinations" class="es-nav-link{{if eq .Title "Destinations"}} active{{end}}">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><path d="M12 8v4m0 0l-3 3m3-3l3 3"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/></svg>
         Destinations
+      </a>
+      <a href="/ui/settings/apps" class="es-nav-link{{if eq .Title "Apps"}} active{{end}}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        Apps
       </a>
       <a href="/ui/settings/keys" class="es-nav-link{{if eq .Title "API Keys"}} active{{end}}">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
