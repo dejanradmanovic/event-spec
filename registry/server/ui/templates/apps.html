@@ -26,10 +26,11 @@
           </td>
           <td>{{if .Platform}}<span class="es-badge">{{.Platform}}</span>{{end}}</td>
           <td class="es-text-muted es-text-sm">{{.Language}}</td>
-          <td class="es-text-muted es-text-sm">{{if .Mode}}{{.Mode}}{{else}}—{{end}}</td>
+          <td>{{if .Mode}}<span class="es-badge">{{.Mode}}</span>{{else}}<span class="es-text-muted">—</span>{{end}}</td>
           <td class="es-text-muted es-text-sm">{{len .Destinations}}</td>
           <td style="text-align:right">
             <a href="/ui/settings/apps/{{.Name}}" class="es-btn es-btn-ghost es-btn-sm">View</a>
+            <a href="/ui/settings/apps/{{.Name}}/edit" class="es-btn es-btn-ghost es-btn-sm">Edit</a>
             <button
               class="es-btn es-btn-danger es-btn-sm"
               hx-delete="/ui/settings/apps/{{.Name}}"
