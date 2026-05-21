@@ -45,6 +45,33 @@ type Config struct {
 	Port int
 }
 
+// AuditFilter constrains an audit log query. Zero values mean no restriction.
+type AuditFilter struct {
+	Since      *time.Time
+	Until      *time.Time
+	EntityType string // "event" | "source" | "destination"
+	UserID     string
+	Limit      int // 0 means default (50)
+}
+
+// APIKeyRecord is the public metadata for a stored API key (never includes the raw key).
+type APIKeyRecord struct {
+	ID        int64      `json:"id"`
+	Role      string     `json:"role"`
+	Name      string     `json:"name,omitempty"`
+	CreatedBy string     `json:"created_by"`
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+}
+
+// WebhookRecord is a registered webhook entry with its database ID.
+type WebhookRecord struct {
+	ID        int64     `json:"id"`
+	URL       string    `json:"url"`
+	CreatedBy string    `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // AuditEntry is a single record from the audit log.
 type AuditEntry struct {
 	ID         int64     `json:"id"`
@@ -75,19 +102,30 @@ type Store interface {
 	// LookupAPIKey returns the user identity and role for the given SHA-256 key hash.
 	// Returns registry.ErrNotFound when the key does not exist or has expired.
 	LookupAPIKey(ctx context.Context, keyHash string) (userID, role string, err error)
-	ListAuditLog(ctx context.Context) ([]AuditEntry, error)
+	ListAuditLog(ctx context.Context, filter AuditFilter) ([]AuditEntry, error)
 	RegisterWebhook(ctx context.Context, webhookURL, userID string) error
 	// ListWebhooks returns all registered webhook URLs for event publish notifications.
 	ListWebhooks(ctx context.Context) ([]string, error)
+
+	// Admin: API key management.
+	CountAPIKeys(ctx context.Context) (int, error)
+	CreateAPIKey(ctx context.Context, keyHash, role, name, createdBy string, expiresAt *time.Time) (int64, error)
+	ListAPIKeys(ctx context.Context) ([]APIKeyRecord, error)
+	RevokeAPIKey(ctx context.Context, id int64) error
+
+	// Admin: webhook management.
+	ListWebhooksAdmin(ctx context.Context) ([]WebhookRecord, error)
+	DeleteWebhook(ctx context.Context, id int64) error
 }
 
 // Server is the REST API registry server.
 // It implements http.Handler for serving the REST API and registry.Registry for
 // in-process access (e.g. embedded deployments and tests).
 type Server struct {
-	st  Store
-	cfg Config
-	mux *http.ServeMux
+	st        Store
+	cfg       Config
+	mux       *http.ServeMux
+	startedAt time.Time
 }
 
 // New creates a Server backed by st.
@@ -96,7 +134,7 @@ func New(st Store, cfg Config) *Server {
 	if cfg.Port <= 0 {
 		cfg.Port = 8080
 	}
-	s := &Server{st: st, cfg: cfg, mux: http.NewServeMux()}
+	s := &Server{st: st, cfg: cfg, mux: http.NewServeMux(), startedAt: time.Now()}
 	s.routes()
 	return s
 }
@@ -109,6 +147,7 @@ func NewSQL(db *sql.DB, driver string, cfg Config) (*Server, error) {
 	if err := st.migrate(); err != nil {
 		return nil, fmt.Errorf("migrate schema: %w", err)
 	}
+	st.migrateAlter() // best-effort additive column migrations
 	return New(st, cfg), nil
 }
 
@@ -266,6 +305,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
     id         BIGSERIAL PRIMARY KEY,
     key_hash   TEXT NOT NULL UNIQUE,
     role       TEXT NOT NULL,
+    name       TEXT,
     created_by TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ
@@ -315,6 +355,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
     id         INTEGER PRIMARY KEY,
     key_hash   TEXT NOT NULL UNIQUE,
     role       TEXT NOT NULL,
+    name       TEXT,
     created_by TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     expires_at TEXT
@@ -342,6 +383,18 @@ func (st *sqlStore) migrate() error {
 		}
 	}
 	return nil
+}
+
+// migrateAlter applies best-effort additive schema changes for databases created
+// before the current DDL version. Errors are silently ignored — the column may
+// already exist (SQLite) or use IF NOT EXISTS (PostgreSQL).
+func (st *sqlStore) migrateAlter() {
+	alters := []string{
+		"ALTER TABLE api_keys ADD COLUMN name TEXT",
+	}
+	for _, stmt := range alters {
+		_, _ = st.db.ExecContext(context.Background(), stmt)
+	}
 }
 
 func splitStatements(s string) []string {
@@ -557,7 +610,7 @@ func (st *sqlStore) LookupAPIKey(ctx context.Context, keyHash string) (userID, r
 	return userID, role, nil
 }
 
-func (st *sqlStore) ListAuditLog(ctx context.Context) ([]AuditEntry, error) {
+func (st *sqlStore) ListAuditLog(ctx context.Context, filter AuditFilter) ([]AuditEntry, error) {
 	var q string
 	if st.driver == "postgres" {
 		q = `SELECT id, action, entity_type, entity_id, user_id,
@@ -573,6 +626,11 @@ func (st *sqlStore) ListAuditLog(ctx context.Context) ([]AuditEntry, error) {
 	}
 	defer func() { _ = rows.Close() }()
 
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+
 	var entries []AuditEntry
 	for rows.Next() {
 		var e AuditEntry
@@ -585,9 +643,134 @@ func (st *sqlStore) ListAuditLog(ctx context.Context) ([]AuditEntry, error) {
 		} else if t, err := time.Parse("2006-01-02 15:04:05", ts); err == nil {
 			e.Timestamp = t
 		}
+		// Apply in-memory filters.
+		if filter.EntityType != "" && e.EntityType != filter.EntityType {
+			continue
+		}
+		if filter.UserID != "" && e.UserID != filter.UserID {
+			continue
+		}
+		if filter.Since != nil && e.Timestamp.Before(*filter.Since) {
+			continue
+		}
+		if filter.Until != nil && e.Timestamp.After(*filter.Until) {
+			continue
+		}
 		entries = append(entries, e)
+		if len(entries) >= limit {
+			break
+		}
 	}
+	_ = rows.Close()
 	return entries, rows.Err()
+}
+
+func (st *sqlStore) CountAPIKeys(ctx context.Context) (int, error) {
+	var n int
+	err := st.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM api_keys").Scan(&n)
+	return n, err
+}
+
+func (st *sqlStore) CreateAPIKey(ctx context.Context, keyHash, role, name, createdBy string, expiresAt *time.Time) (int64, error) {
+	var expiresStr any
+	if expiresAt != nil {
+		expiresStr = expiresAt.UTC().Format(time.RFC3339)
+	}
+	if st.driver == "postgres" {
+		q := `INSERT INTO api_keys (key_hash, role, name, created_by, expires_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`
+		var id int64
+		err := st.db.QueryRowContext(ctx, q, keyHash, role, name, createdBy, expiresStr).Scan(&id)
+		return id, err
+	}
+	q := `INSERT INTO api_keys (key_hash, role, name, created_by, expires_at) VALUES (?, ?, ?, ?, ?)`
+	res, err := st.db.ExecContext(ctx, q, keyHash, role, name, createdBy, expiresStr)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func (st *sqlStore) ListAPIKeys(ctx context.Context) ([]APIKeyRecord, error) {
+	var q string
+	if st.driver == "postgres" {
+		q = `SELECT id, role, COALESCE(name, ''), created_by,
+			to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+			COALESCE(to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')
+			FROM api_keys ORDER BY id`
+	} else {
+		q = `SELECT id, role, COALESCE(name, ''), created_by, created_at, COALESCE(expires_at, '')
+			FROM api_keys ORDER BY id`
+	}
+	rows, err := st.db.QueryContext(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var records []APIKeyRecord
+	for rows.Next() {
+		var r APIKeyRecord
+		var createdTS, expiresTS string
+		if err := rows.Scan(&r.ID, &r.Role, &r.Name, &r.CreatedBy, &createdTS, &expiresTS); err != nil {
+			return nil, err
+		}
+		if t, err := time.Parse(time.RFC3339, createdTS); err == nil {
+			r.CreatedAt = t
+		} else if t, err := time.Parse("2006-01-02 15:04:05", createdTS); err == nil {
+			r.CreatedAt = t
+		}
+		if expiresTS != "" {
+			if t, err := time.Parse(time.RFC3339, expiresTS); err == nil {
+				r.ExpiresAt = &t
+			} else if t, err := time.Parse("2006-01-02 15:04:05", expiresTS); err == nil {
+				r.ExpiresAt = &t
+			}
+		}
+		records = append(records, r)
+	}
+	return records, rows.Err()
+}
+
+func (st *sqlStore) RevokeAPIKey(ctx context.Context, id int64) error {
+	_, err := st.db.ExecContext(ctx, st.ph("DELETE FROM api_keys WHERE id = ?"), id)
+	return err
+}
+
+func (st *sqlStore) ListWebhooksAdmin(ctx context.Context) ([]WebhookRecord, error) {
+	var q string
+	if st.driver == "postgres" {
+		q = `SELECT id, url, created_by,
+			to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+			FROM webhooks ORDER BY id`
+	} else {
+		q = `SELECT id, url, created_by, created_at FROM webhooks ORDER BY id`
+	}
+	rows, err := st.db.QueryContext(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var records []WebhookRecord
+	for rows.Next() {
+		var r WebhookRecord
+		var createdTS string
+		if err := rows.Scan(&r.ID, &r.URL, &r.CreatedBy, &createdTS); err != nil {
+			return nil, err
+		}
+		if t, err := time.Parse(time.RFC3339, createdTS); err == nil {
+			r.CreatedAt = t
+		} else if t, err := time.Parse("2006-01-02 15:04:05", createdTS); err == nil {
+			r.CreatedAt = t
+		}
+		records = append(records, r)
+	}
+	return records, rows.Err()
+}
+
+func (st *sqlStore) DeleteWebhook(ctx context.Context, id int64) error {
+	_, err := st.db.ExecContext(ctx, st.ph("DELETE FROM webhooks WHERE id = ?"), id)
+	return err
 }
 
 func (st *sqlStore) RegisterWebhook(ctx context.Context, webhookURL, userID string) error {

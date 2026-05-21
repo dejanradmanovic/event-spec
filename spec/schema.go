@@ -173,6 +173,11 @@ type RegistryConfig struct {
 
 	// server mode: REST API endpoint.
 	URL string `yaml:"url,omitempty"`
+
+	// server mode: auth credentials.
+	// APIKey is the raw value, env var name, or file path depending on APIKeySecretType.
+	APIKey           string `yaml:"api_key,omitempty"`
+	APIKeySecretType string `yaml:"api_key_secret_type,omitempty"` // env_var | file | inline
 }
 
 // AuditConfig holds the workspace-level defaults for the audit command.
