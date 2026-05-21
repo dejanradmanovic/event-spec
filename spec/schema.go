@@ -175,6 +175,14 @@ type RegistryConfig struct {
 	URL string `yaml:"url,omitempty"`
 }
 
+// AuditConfig holds the workspace-level defaults for the audit command.
+// All fields are optional; the CLI falls back to these before applying built-in defaults.
+type AuditConfig struct {
+	Path        string  `yaml:"path,omitempty"`         // path to scan
+	CoverageMin float64 `yaml:"coverage_min,omitempty"` // minimum coverage % (0-100)
+	Report      string  `yaml:"report,omitempty"`       // json | text | html
+}
+
 // WorkspaceConfig is the top-level event-spec.yaml configuration.
 type WorkspaceConfig struct {
 	Version         int            `yaml:"version"`
@@ -183,4 +191,5 @@ type WorkspaceConfig struct {
 	SpecsDir        string         `yaml:"specs_dir"`        // local and server modes only
 	SourcesDir      string         `yaml:"sources_dir"`      // always local to the consuming repo
 	DestinationsDir string         `yaml:"destinations_dir"` // always local to the consuming repo
+	Audit           AuditConfig    `yaml:"audit,omitempty"`  // defaults for event-spec audit
 }

@@ -213,6 +213,17 @@ func ValidateWorkspaceConfig(cfg *WorkspaceConfig, path string) []ValidationErro
 		add("registry.url", `required when registry.mode is "server"`)
 	}
 
+	if cfg.Audit.Report != "" {
+		switch cfg.Audit.Report {
+		case "json", "text", "html":
+		default:
+			add("audit.report", fmt.Sprintf("invalid value %q; must be one of: json, text, html", cfg.Audit.Report))
+		}
+	}
+	if cfg.Audit.CoverageMin < 0 || cfg.Audit.CoverageMin > 100 {
+		add("audit.coverage_min", fmt.Sprintf("must be between 0 and 100, got %g", cfg.Audit.CoverageMin))
+	}
+
 	return errs
 }
 
