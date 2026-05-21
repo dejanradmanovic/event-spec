@@ -53,7 +53,12 @@ type Store interface {
 	ListAllEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
 	GetEvent(ctx context.Context, namespace, name, version string) (*spec.EventDef, error)
 	PublishEvent(ctx context.Context, event spec.EventDef, userID string) error
+	GetDestination(ctx context.Context, name string) (*spec.DestinationDef, error)
 	ListDestinations(ctx context.Context) ([]string, error)
+	ListDestinationsFull(ctx context.Context) ([]spec.DestinationDef, error)
+	CreateDestination(ctx context.Context, dest spec.DestinationDef, userID string) error
+	UpdateDestination(ctx context.Context, dest spec.DestinationDef, userID string) error
+	DeleteDestination(ctx context.Context, name string, userID string) error
 	CountAPIKeys(ctx context.Context) (int, error)
 	LookupAPIKey(ctx context.Context, keyHash string) (userID, role string, err error)
 	ListAuditLog(ctx context.Context, filter shared.AuditFilter) ([]shared.AuditEntry, error)

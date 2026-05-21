@@ -151,9 +151,13 @@ func (c *Client) GetSource(_ context.Context, name string) (*spec.SourceDef, err
 	return nil, fmt.Errorf("GetSource %q: %w", name, registry.ErrNotFound)
 }
 
-// GetDestination returns ErrNotFound in server mode — destinations are always local.
-func (c *Client) GetDestination(_ context.Context, name string) (*spec.DestinationDef, error) {
-	return nil, fmt.Errorf("GetDestination %q: %w", name, registry.ErrNotFound)
+// GetDestination calls GET /v1/admin/destinations/{name} (admin role required).
+func (c *Client) GetDestination(ctx context.Context, name string) (*spec.DestinationDef, error) {
+	var dest spec.DestinationDef
+	if err := c.get(ctx, fmt.Sprintf("%s/v1/admin/destinations/%s", c.cfg.BaseURL, name), &dest); err != nil {
+		return nil, err
+	}
+	return &dest, nil
 }
 
 // PublishEvent publishes a new event version to the server.
@@ -249,6 +253,38 @@ func (c *Client) SetConfig(ctx context.Context, key, value string) (*ServerSetti
 		return nil, err
 	}
 	return &result, nil
+}
+
+// ListDestinations calls GET /v1/admin/destinations and returns all destination records (admin role required).
+func (c *Client) ListDestinations(ctx context.Context) ([]spec.DestinationDef, error) {
+	var dests []spec.DestinationDef
+	if err := c.get(ctx, c.cfg.BaseURL+"/v1/admin/destinations", &dests); err != nil {
+		return nil, err
+	}
+	return dests, nil
+}
+
+// CreateDestination calls POST /v1/admin/destinations (admin role required).
+func (c *Client) CreateDestination(ctx context.Context, dest spec.DestinationDef) (*spec.DestinationDef, error) {
+	var result spec.DestinationDef
+	if err := c.post(ctx, c.cfg.BaseURL+"/v1/admin/destinations", dest, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateDestination calls PUT /v1/admin/destinations/{name} (admin role required).
+func (c *Client) UpdateDestination(ctx context.Context, dest spec.DestinationDef) (*spec.DestinationDef, error) {
+	var result spec.DestinationDef
+	if err := c.put(ctx, fmt.Sprintf("%s/v1/admin/destinations/%s", c.cfg.BaseURL, dest.Name), dest, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// DeleteDestination calls DELETE /v1/admin/destinations/{name} (admin role required).
+func (c *Client) DeleteDestination(ctx context.Context, name string) error {
+	return c.delete(ctx, fmt.Sprintf("%s/v1/admin/destinations/%s", c.cfg.BaseURL, name))
 }
 
 // ListAuditLog calls GET /v1/audit with optional query parameters (admin role required).
