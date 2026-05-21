@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"strings"
 
 	"github.com/dejanradmanovic/event-spec/analytics"
 	"github.com/dejanradmanovic/event-spec/provider"
@@ -102,6 +104,39 @@ func mergeEventContext(base, override EventContext) EventContext {
 	return result
 }
 
+// enrichFromRequest fills in missing context attributes from the HTTP request.
+// Client-supplied values always win; server-extracted values are used as fallbacks only.
+// This ensures the MessageContext sent to providers carries real device/IP data even when
+// thin clients (mobile, browser) omit attributes they expect the SDK to collect locally.
+func enrichFromRequest(ec *EventContext, r *http.Request) {
+	if ec.Attributes == nil {
+		ec.Attributes = make(map[string]any)
+	}
+	if _, ok := ec.Attributes["user_agent"]; !ok {
+		if ua := r.Header.Get("User-Agent"); ua != "" {
+			ec.Attributes["user_agent"] = ua
+		}
+	}
+	if _, ok := ec.Attributes["ip_address"]; !ok {
+		if ip := extractClientIP(r); ip != "" {
+			ec.Attributes["ip_address"] = ip
+		}
+	}
+}
+
+// extractClientIP returns the originating client IP, preferring X-Forwarded-For
+// (the leftmost entry, set by the outermost reverse proxy) over RemoteAddr.
+func extractClientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		return strings.TrimSpace(strings.SplitN(xff, ",", 2)[0])
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
 func sourceErrResponse(w http.ResponseWriter, sourceName string, err error) {
 	if errors.Is(err, registry.ErrNotFound) {
 		jsonError(w, "source not found: "+sourceName, http.StatusBadRequest)
@@ -116,6 +151,7 @@ func (s *Server) handleTrack(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	enrichFromRequest(&req.Context, r)
 	if req.Source == "" || req.EventName == "" {
 		jsonError(w, "source and event_name are required", http.StatusBadRequest)
 		return
@@ -148,6 +184,7 @@ func (s *Server) handleIdentify(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	enrichFromRequest(&req.Context, r)
 	if req.Source == "" {
 		jsonError(w, "source is required", http.StatusBadRequest)
 		return
@@ -178,6 +215,7 @@ func (s *Server) handleGroup(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	enrichFromRequest(&req.Context, r)
 	if req.Source == "" {
 		jsonError(w, "source is required", http.StatusBadRequest)
 		return
@@ -208,6 +246,7 @@ func (s *Server) handlePage(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	enrichFromRequest(&req.Context, r)
 	if req.Source == "" || req.Name == "" {
 		jsonError(w, "source and name are required", http.StatusBadRequest)
 		return
@@ -238,6 +277,7 @@ func (s *Server) handleAlias(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	enrichFromRequest(&req.Context, r)
 	if req.Source == "" {
 		jsonError(w, "source is required", http.StatusBadRequest)
 		return
@@ -268,6 +308,7 @@ func (s *Server) handleBatch(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	enrichFromRequest(&req.Context, r)
 	if req.Source == "" {
 		jsonError(w, "source is required", http.StatusBadRequest)
 		return

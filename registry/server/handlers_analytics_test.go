@@ -1,6 +1,8 @@
 package server_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"testing"
 )
@@ -238,5 +240,66 @@ func TestServer_Flush_UnknownSource_Returns400(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("want 400, got %d", resp.StatusCode)
+	}
+}
+
+// TestServer_EnrichFromRequest verifies that a thin client that omits context.attributes
+// entirely still gets a 202 — the server injects User-Agent and IP from the HTTP request
+// so the provider MessageContext is populated even when the client sends nothing.
+func TestServer_EnrichFromRequest(t *testing.T) {
+	ts, _ := newTestSrv(t)
+
+	body, _ := json.Marshal(map[string]any{
+		"source":     "web-app",
+		"event_name": "Login",
+		// deliberately omit context.attributes — server should inject from HTTP headers
+	})
+
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, ts.URL+"/v1/track", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer viewer-tok")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)")
+	req.Header.Set("X-Forwarded-For", "203.0.113.42")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		t.Errorf("want 202, got %d", resp.StatusCode)
+	}
+}
+
+// TestServer_EnrichFromRequest_ClientWins verifies that explicit context.attributes
+// from the client take precedence over what the server could extract from HTTP headers.
+func TestServer_EnrichFromRequest_ClientWins(t *testing.T) {
+	ts, _ := newTestSrv(t)
+
+	body, _ := json.Marshal(map[string]any{
+		"source":     "web-app",
+		"event_name": "Login",
+		"context": map[string]any{
+			"attributes": map[string]any{
+				// Client supplies its own user_agent; server must not overwrite it.
+				"user_agent": "MyApp/2.1 (custom)",
+				"ip_address": "10.0.0.1",
+			},
+		},
+	})
+
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, ts.URL+"/v1/track", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer viewer-tok")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (should be ignored)")
+	req.Header.Set("X-Forwarded-For", "203.0.113.99")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		t.Errorf("want 202, got %d", resp.StatusCode)
 	}
 }
