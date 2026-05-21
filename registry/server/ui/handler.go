@@ -56,6 +56,13 @@ func (h *Handler) routes() {
 	h.mux.HandleFunc("DELETE /ui/settings/webhooks/{id}", h.withSession(RoleAdmin, h.handleRemoveWebhook))
 	h.mux.HandleFunc("GET /ui/settings/config", h.withSession(RoleAdmin, h.handleConfig))
 	h.mux.HandleFunc("PUT /ui/settings/config/{key}", h.withSession(RoleAdmin, h.handleSetConfig))
+	h.mux.HandleFunc("GET /ui/settings/destinations", h.withSession(RoleAdmin, h.handleDestinationList))
+	h.mux.HandleFunc("GET /ui/settings/destinations/new", h.withSession(RoleAdmin, h.handleNewDestinationForm))
+	h.mux.HandleFunc("POST /ui/settings/destinations/new", h.withSession(RoleAdmin, h.handleCreateDestination))
+	h.mux.HandleFunc("GET /ui/settings/destinations/{name}", h.withSession(RoleAdmin, h.handleDestinationDetail))
+	h.mux.HandleFunc("GET /ui/settings/destinations/{name}/edit", h.withSession(RoleAdmin, h.handleEditDestinationForm))
+	h.mux.HandleFunc("POST /ui/settings/destinations/{name}/edit", h.withSession(RoleAdmin, h.handleUpdateDestination))
+	h.mux.HandleFunc("DELETE /ui/settings/destinations/{name}", h.withSession(RoleAdmin, h.handleDeleteDestination))
 }
 
 // --- template rendering ---

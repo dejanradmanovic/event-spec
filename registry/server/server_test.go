@@ -88,6 +88,22 @@ func (m *mockStore) ListDestinations(_ context.Context) ([]string, error) {
 	return nil, nil
 }
 
+func (m *mockStore) ListDestinationsFull(_ context.Context) ([]spec.DestinationDef, error) {
+	return nil, nil
+}
+
+func (m *mockStore) CreateDestination(_ context.Context, _ spec.DestinationDef, _ string) error {
+	return nil
+}
+
+func (m *mockStore) UpdateDestination(_ context.Context, _ spec.DestinationDef, _ string) error {
+	return nil
+}
+
+func (m *mockStore) DeleteDestination(_ context.Context, _ string, _ string) error {
+	return nil
+}
+
 func (m *mockStore) PublishEvent(_ context.Context, event spec.EventDef, _ string) error {
 	m.publishCalled = true
 	m.published = event

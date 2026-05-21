@@ -1,0 +1,60 @@
+{{define "content"}}
+<div class="es-card">
+  <div class="es-card-body">
+    <div class="es-flex es-flex-between" style="align-items:flex-start;gap:1rem">
+      <div>
+        <div class="es-flex" style="align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.4rem">
+          <h2 class="es-event-name">{{.Dest.Name}}</h2>
+          <span class="es-badge">{{.Dest.Provider}}</span>
+        </div>
+      </div>
+      <div class="es-flex" style="gap:.5rem;flex-shrink:0">
+        <a href="/ui/settings/destinations/{{.Dest.Name}}/edit" class="es-btn es-btn-primary">Edit</a>
+        <button
+          class="es-btn es-btn-danger"
+          hx-delete="/ui/settings/destinations/{{.Dest.Name}}"
+          hx-confirm="Delete destination {{.Dest.Name}}?"
+          hx-push-url="/ui/settings/destinations"
+          onclick="window.location='/ui/settings/destinations'"
+        >Delete</button>
+      </div>
+    </div>
+
+    <div class="es-event-meta-grid" style="margin-top:1rem">
+      <div class="es-event-meta-item">
+        <span class="es-event-meta-label">Name</span>
+        <code class="es-code">{{.Dest.Name}}</code>
+      </div>
+      <div class="es-event-meta-item">
+        <span class="es-event-meta-label">Provider</span>
+        <span class="es-text-sm">{{.Dest.Provider}}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{if .ConfigKVs}}
+<div class="es-card" style="margin-top:1rem">
+  <div class="es-card-header"><h3 class="es-card-title">Config</h3></div>
+  <div class="es-card-body es-p0">
+    <table class="es-table">
+      <thead>
+        <tr><th>Key</th><th>Value</th></tr>
+      </thead>
+      <tbody>
+        {{range .ConfigKVs}}
+        <tr>
+          <td><code class="es-code">{{.Key}}</code></td>
+          <td class="es-text-muted es-text-sm">{{.Value}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+
+<div style="margin-top:1rem">
+  <a href="/ui/settings/destinations" class="es-btn es-btn-ghost">← Back to Destinations</a>
+</div>
+{{end}}

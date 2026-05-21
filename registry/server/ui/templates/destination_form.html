@@ -1,0 +1,458 @@
+{{define "content"}}
+<div class="es-card">
+  <div class="es-card-header">
+    <div>
+      <h3 class="es-card-title">{{if .IsEdit}}Edit Destination{{else}}New Destination{{end}}</h3>
+      <p class="es-text-muted es-text-sm">
+        {{if .IsEdit}}
+          Update the destination configuration below.
+        {{else}}
+          Use the Visual tab for guided entry, or switch to YAML for direct editing.
+        {{end}}
+      </p>
+    </div>
+    <div class="es-flex" style="gap:.75rem;align-items:center">
+      <div class="es-tab-bar">
+        <button type="button" class="es-tab-btn active" data-tab="visual">Visual</button>
+        <button type="button" class="es-tab-btn" data-tab="yaml">YAML</button>
+      </div>
+      <a href="/ui/settings/destinations{{if .IsEdit}}/{{.DestName}}{{end}}" class="es-btn es-btn-ghost">Cancel</a>
+    </div>
+  </div>
+
+  <div class="es-card-body">
+    {{if .IsEdit}}
+    <div class="es-form-group" style="margin-bottom:1rem">
+      <label class="es-label">Locked field</label>
+      <span class="es-input es-input-locked" style="width:auto">
+        <span class="es-text-muted es-text-sm">name</span>&ensp;<code class="es-code">{{.DestName}}</code>
+      </span>
+    </div>
+    {{end}}
+
+    {{if .FormError}}
+    <div class="es-alert es-alert-danger" style="white-space:pre-line;margin-bottom:1rem">{{.FormError}}</div>
+    {{end}}
+
+    <form method="POST"
+      action="{{if .IsEdit}}/ui/settings/destinations/{{.DestName}}/edit{{else}}/ui/settings/destinations/new{{end}}"
+      id="dest-form">
+      <textarea id="spec_yaml" name="spec_yaml" style="display:none">{{.YAML}}</textarea>
+
+      {{/* ── Visual Editor Tab ─────────────────────────────────────────── */}}
+      <div id="tab-visual" class="es-tab-panel">
+
+        {{/* Row 1: name / provider */}}
+        <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr;gap:.75rem">
+          <div class="es-form-group">
+            <label class="es-label">Name <span style="color:#c92a2a">*</span></label>
+            {{if .IsEdit}}
+            <span class="es-input es-input-locked">{{.DestName}}</span>
+            <input id="v-name" type="hidden" value="{{.DestName}}">
+            {{else}}
+            <input id="v-name" type="text" class="es-input" placeholder="e.g. amplitude">
+            {{end}}
+          </div>
+          <div class="es-form-group">
+            <label class="es-label" for="v-provider">Provider <span style="color:#c92a2a">*</span></label>
+            <select id="v-provider" class="es-select" style="width:100%">
+              <option value="amplitude">amplitude</option>
+              <option value="posthog">posthog</option>
+              <option value="ga4">ga4</option>
+              <option value="mixpanel">mixpanel</option>
+              <option value="segment">segment</option>
+              <option value="rudderstack">rudderstack</option>
+              <option value="custom">custom</option>
+            </select>
+          </div>
+        </div>
+
+        {{/* Config key-value editor */}}
+        <div class="es-visual-section" style="margin-top:.5rem">
+          <div class="es-flex es-flex-between es-flex-center" style="margin-bottom:.4rem">
+            <label class="es-label" style="margin:0">Config</label>
+            <button type="button" class="es-btn es-btn-ghost es-btn-sm" id="add-config-btn">+ Add Entry</button>
+          </div>
+          <div style="border:1px solid #e6ebf1;border-radius:.35rem;overflow:hidden">
+            <table class="es-table" id="config-table" style="display:none">
+              <thead>
+                <tr>
+                  <th style="width:40%">Key</th>
+                  <th>Value</th>
+                  <th style="width:32px"></th>
+                </tr>
+              </thead>
+              <tbody id="config-tbody"></tbody>
+            </table>
+            <div id="config-empty" class="es-empty" style="padding:1rem">
+              <p style="margin:0">No config entries. Click <strong>+ Add Entry</strong> to add one.</p>
+            </div>
+          </div>
+        </div>
+
+        {{/* Advanced section */}}
+        <details id="visual-advanced" style="margin-top:.75rem">
+          <summary class="es-details-summary" style="padding:.3rem 0;user-select:none">Advanced options</summary>
+          <div style="margin-top:.75rem">
+            <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr;gap:.75rem">
+              <div class="es-form-group">
+                <label class="es-label" for="v-secret_type">Secret Type</label>
+                <select id="v-secret_type" class="es-select" style="width:100%">
+                  <option value="">— not set —</option>
+                  <option value="env_var">env_var</option>
+                  <option value="file">file</option>
+                  <option value="vault">vault</option>
+                  <option value="inline">inline</option>
+                </select>
+              </div>
+              <div class="es-form-group">
+                <label class="es-label" for="v-proxy_mode">Proxy Mode</label>
+                <select id="v-proxy_mode" class="es-select" style="width:100%">
+                  <option value="">— not set —</option>
+                  <option value="direct">direct</option>
+                  <option value="reverse_proxy">reverse_proxy</option>
+                  <option value="custom">custom</option>
+                </select>
+              </div>
+            </div>
+            <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr;gap:.75rem">
+              <div class="es-form-group">
+                <label class="es-label" for="v-proxy_url">Proxy URL</label>
+                <input id="v-proxy_url" type="text" class="es-input" placeholder="https://analytics.example.com/amp">
+              </div>
+              <div class="es-form-group">
+                <label class="es-label" for="v-overflow_policy">Overflow Policy</label>
+                <select id="v-overflow_policy" class="es-select" style="width:100%">
+                  <option value="">— not set —</option>
+                  <option value="drop_oldest">drop_oldest</option>
+                  <option value="drop_newest">drop_newest</option>
+                  <option value="block">block</option>
+                </select>
+              </div>
+            </div>
+            <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr 1fr 1fr;gap:.75rem">
+              <div class="es-form-group">
+                <label class="es-label" for="v-batch_size">Batch Size</label>
+                <input id="v-batch_size" type="number" class="es-input" min="1" placeholder="100">
+              </div>
+              <div class="es-form-group">
+                <label class="es-label" for="v-flush_interval">Flush Interval</label>
+                <input id="v-flush_interval" type="text" class="es-input" placeholder="10s">
+              </div>
+              <div class="es-form-group">
+                <label class="es-label" for="v-max_queue_size">Max Queue Size</label>
+                <input id="v-max_queue_size" type="number" class="es-input" min="1" placeholder="10000">
+              </div>
+              <div class="es-form-group">
+                <label class="es-label" for="v-timeout">Timeout</label>
+                <input id="v-timeout" type="text" class="es-input" placeholder="30s">
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      {{/* ── YAML Editor Tab ──────────────────────────────────────────────── */}}
+      <div id="tab-yaml" class="es-tab-panel" style="display:none">
+        <div class="es-form-group">
+          <div class="es-flex es-flex-between es-flex-center" style="margin-bottom:.4rem">
+            <label class="es-label" style="margin:0">Destination YAML</label>
+            <span id="validation-status" class="es-text-sm"></span>
+          </div>
+          <div id="yaml-editor" style="height:380px;border:1px solid #d1dce8;border-radius:.35rem;overflow:hidden;background:#fff">
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9aa5b4;font-size:.85rem">
+              Loading editor…
+            </div>
+          </div>
+          <span class="es-form-hint" style="margin-top:.35rem">
+            Required: <code class="es-code">name</code>, <code class="es-code">provider</code>.
+            Optional: <code class="es-code">config</code> map with arbitrary key-value pairs.
+          </span>
+        </div>
+
+        <div class="es-card" style="margin-top:1rem">
+          <div class="es-card-header"><h3 class="es-card-title">YAML Reference</h3></div>
+          <div class="es-card-body">
+            <dl class="es-dl">
+              <dt><code class="es-code">name</code></dt><dd>Unique slug, e.g. <code class="es-code">amplitude</code></dd>
+              <dt><code class="es-code">provider</code></dt><dd>Provider type: <code class="es-code">amplitude</code> · <code class="es-code">posthog</code> · <code class="es-code">ga4</code> · <code class="es-code">mixpanel</code> · <code class="es-code">segment</code> · <code class="es-code">rudderstack</code></dd>
+              <dt><code class="es-code">config.api_key</code></dt><dd>API key or secret reference</dd>
+              <dt><code class="es-code">config.secret_type</code></dt><dd><code class="es-code">env_var</code> · <code class="es-code">file</code> · <code class="es-code">vault</code> · <code class="es-code">inline</code></dd>
+              <dt><code class="es-code">config.proxy_url</code></dt><dd>Reverse proxy URL for ad-blocker bypass</dd>
+              <dt><code class="es-code">config.proxy_mode</code></dt><dd><code class="es-code">direct</code> · <code class="es-code">reverse_proxy</code> · <code class="es-code">custom</code></dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+
+      <div class="es-form-actions" style="margin-top:1rem">
+        <button type="submit" class="es-btn es-btn-primary">
+          {{if .IsEdit}}Save Changes{{else}}Create Destination{{end}}
+        </button>
+        <a href="/ui/settings/destinations{{if .IsEdit}}/{{.DestName}}{{end}}" class="es-btn es-btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<script>
+window.MonacoEnvironment = {
+  getWorkerUrl: function (_, label) {
+    return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(
+      'self.MonacoEnvironment={baseUrl:"https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/"};' +
+      'importScripts("https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/vs/base/worker/workerMain.js");'
+    );
+  }
+};
+window.require = { paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/vs' } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/vs/loader.js"></script>
+<script>
+require(['vs/editor/editor.main'], function () {
+  var textarea  = document.getElementById('spec_yaml');
+  var statusEl  = document.getElementById('validation-status');
+  var editorEl  = document.getElementById('yaml-editor');
+  var lastGeneratedYAML = '';
+
+  monaco.editor.defineTheme('event-spec-light', {
+    base: 'vs', inherit: true,
+    rules: [
+      { token: 'key.yaml',     foreground: '206bc4', fontStyle: 'bold' },
+      { token: 'string.yaml',  foreground: '2e7d32' },
+      { token: 'number.yaml',  foreground: 'b5440b' },
+      { token: 'comment.yaml', foreground: '9aa5b4', fontStyle: 'italic' },
+    ],
+    colors: {
+      'editor.background':              '#ffffff',
+      'editor.lineHighlightBackground': '#f4f6f9',
+      'editorGutter.background':        '#f9fafc',
+      'editorLineNumber.foreground':    '#b0bcc9',
+    }
+  });
+
+  editorEl.innerHTML = '';
+  var editor = monaco.editor.create(editorEl, {
+    value:                textarea.value,
+    language:             'yaml',
+    theme:                'event-spec-light',
+    minimap:              { enabled: false },
+    scrollBeyondLastLine: false,
+    fontSize:             13,
+    fontFamily:           "ui-monospace,'Cascadia Code','JetBrains Mono',Menlo,Consolas,monospace",
+    lineNumbers:          'on',
+    tabSize:              2,
+    insertSpaces:         true,
+    automaticLayout:      true,
+    padding:              { top: 10, bottom: 10 },
+    scrollbar:            { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
+    overviewRulerBorder:  false,
+    folding:              true,
+    fixedOverflowWidgets: true,
+  });
+
+  // Tab switching
+  var tabBtns = document.querySelectorAll('.es-tab-btn');
+  tabBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var target = btn.dataset.tab;
+      tabBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === target); });
+      document.getElementById('tab-visual').style.display = target === 'visual' ? '' : 'none';
+      document.getElementById('tab-yaml').style.display   = target === 'yaml'   ? '' : 'none';
+      if (target === 'yaml') setTimeout(function () { editor.layout(); }, 10);
+      if (target === 'visual') {
+        var doc = tryParseYAML(editor.getValue());
+        if (doc && typeof doc === 'object') populateVisual(doc);
+      }
+    });
+  });
+
+  // Monaco → sync textarea + populate visual
+  editor.onDidChangeModelContent(function () {
+    var current = editor.getValue();
+    textarea.value = current;
+    validate();
+    if (current === lastGeneratedYAML) return;
+    var doc = tryParseYAML(current);
+    if (doc && typeof doc === 'object') {
+      lastGeneratedYAML = current;
+      populateVisual(doc);
+    }
+  });
+
+  document.getElementById('dest-form').addEventListener('submit', function () {
+    textarea.value = editor.getValue();
+  });
+
+  // Visual field changes → update YAML
+  document.getElementById('tab-visual').addEventListener('input',  onVisualChange);
+  document.getElementById('tab-visual').addEventListener('change', onVisualChange);
+
+  document.getElementById('add-config-btn').addEventListener('click', function () {
+    addConfigRow('', '');
+    updateConfigEmpty();
+    onVisualChange();
+  });
+
+  // Seed from initial YAML
+  var initDoc = tryParseYAML(textarea.value);
+  if (initDoc && typeof initDoc === 'object') populateVisual(initDoc);
+  lastGeneratedYAML = editor.getValue();
+  updateConfigEmpty();
+  validate();
+
+  // ── Visual → YAML ────────────────────────────────────────────────────────
+  function onVisualChange() {
+    var doc = buildDocFromVisual();
+    var yamlStr = jsyaml.dump(doc, { indent: 2, lineWidth: -1, noRefs: true });
+    if (yamlStr === editor.getValue()) return;
+    lastGeneratedYAML = yamlStr;
+    editor.setValue(yamlStr);
+  }
+
+  function buildDocFromVisual() {
+    var doc = {};
+    var name     = gv('v-name');
+    var provider = gv('v-provider');
+    if (name)     doc.name     = name;
+    if (provider) doc.provider = provider;
+
+    var config = buildConfigFromVisual();
+
+    // Merge advanced fields into config
+    var secretType    = gv('v-secret_type');
+    var proxyMode     = gv('v-proxy_mode');
+    var proxyUrl      = gv('v-proxy_url');
+    var overflowPolicy = gv('v-overflow_policy');
+    var batchSize     = gv('v-batch_size');
+    var flushInterval = gv('v-flush_interval');
+    var maxQueueSize  = gv('v-max_queue_size');
+    var timeout       = gv('v-timeout');
+
+    if (secretType)    config.secret_type     = secretType;
+    if (proxyMode)     config.proxy_mode      = proxyMode;
+    if (proxyUrl)      config.proxy_url       = proxyUrl;
+    if (overflowPolicy) config.overflow_policy = overflowPolicy;
+    if (batchSize)     config.batch_size      = parseInt(batchSize, 10);
+    if (flushInterval) config.flush_interval  = flushInterval;
+    if (maxQueueSize)  config.max_queue_size  = parseInt(maxQueueSize, 10);
+    if (timeout)       config.timeout         = timeout;
+
+    if (Object.keys(config).length) doc.config = config;
+    return doc;
+  }
+
+  function buildConfigFromVisual() {
+    var cfg = {};
+    document.querySelectorAll('#config-tbody .config-row').forEach(function (row) {
+      var k = row.querySelector('.config-key').value.trim();
+      var v = row.querySelector('.config-val').value.trim();
+      if (k) cfg[k] = v;
+    });
+    return cfg;
+  }
+
+  // ── YAML → Visual ────────────────────────────────────────────────────────
+  function populateVisual(doc) {
+    sv('v-name',     doc.name     || '');
+    sv('v-provider', doc.provider || 'amplitude');
+
+    var cfg = (doc.config && typeof doc.config === 'object') ? doc.config : {};
+
+    // Advanced fields — remove from cfg before building the table
+    var advancedKeys = ['secret_type','proxy_mode','proxy_url','overflow_policy','batch_size','flush_interval','max_queue_size','timeout'];
+    sv('v-secret_type',    cfg.secret_type     || '');
+    sv('v-proxy_mode',     cfg.proxy_mode      || '');
+    sv('v-proxy_url',      cfg.proxy_url       || '');
+    sv('v-overflow_policy', cfg.overflow_policy || '');
+    sv('v-batch_size',     cfg.batch_size      !== undefined ? String(cfg.batch_size)     : '');
+    sv('v-flush_interval', cfg.flush_interval  || '');
+    sv('v-max_queue_size', cfg.max_queue_size  !== undefined ? String(cfg.max_queue_size) : '');
+    sv('v-timeout',        cfg.timeout         || '');
+
+    var hasAdv = advancedKeys.some(function (k) { return cfg[k] !== undefined; });
+    if (hasAdv) {
+      var adv = document.getElementById('visual-advanced');
+      if (adv && !adv.open) adv.open = true;
+    }
+
+    var plainCfg = {};
+    Object.keys(cfg).forEach(function (k) {
+      if (advancedKeys.indexOf(k) === -1) plainCfg[k] = cfg[k];
+    });
+    rebuildConfigTable(plainCfg);
+  }
+
+  function rebuildConfigTable(cfg) {
+    document.getElementById('config-tbody').innerHTML = '';
+    Object.keys(cfg || {}).forEach(function (k) {
+      addConfigRow(k, String(cfg[k] === null ? '' : cfg[k]));
+    });
+    updateConfigEmpty();
+  }
+
+  function addConfigRow(key, val) {
+    var tbody = document.getElementById('config-tbody');
+    var tr = document.createElement('tr');
+    tr.className = 'config-row';
+    tr.innerHTML =
+      '<td><input type="text" class="es-input config-key" style="width:100%" placeholder="key" value="' + esc(key) + '"></td>' +
+      '<td><input type="text" class="es-input config-val" style="width:100%" placeholder="value" value="' + esc(val) + '"></td>' +
+      '<td><button type="button" class="es-btn es-btn-ghost es-btn-sm config-remove" style="padding:.15rem .45rem;line-height:1">✕</button></td>';
+    tr.querySelector('.config-remove').addEventListener('click', function () {
+      tr.remove(); updateConfigEmpty(); onVisualChange();
+    });
+    tbody.appendChild(tr);
+  }
+
+  function updateConfigEmpty() {
+    var rows = document.querySelectorAll('#config-tbody .config-row').length;
+    var e = document.getElementById('config-empty');
+    var t = document.getElementById('config-table');
+    if (e) e.style.display = rows ? 'none' : '';
+    if (t) t.style.display = rows ? '' : 'none';
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function tryParseYAML(s) {
+    try { return jsyaml.load(s); } catch (e) { return null; }
+  }
+
+  function validate() {
+    if (!statusEl) return;
+    var doc = tryParseYAML(editor.getValue());
+    if (!doc || typeof doc !== 'object') {
+      statusEl.textContent = '✗ invalid YAML';
+      statusEl.style.color = '#c92a2a';
+    } else if (!doc.name || !doc.provider) {
+      statusEl.textContent = '⚠ name and provider required';
+      statusEl.style.color = '#e67700';
+    } else {
+      statusEl.textContent = '✓ valid';
+      statusEl.style.color = '#2b8a3e';
+    }
+  }
+
+  function gv(id) {
+    var el = document.getElementById(id);
+    return el ? el.value : '';
+  }
+
+  function sv(id, val) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'SELECT') {
+      for (var i = 0; i < el.options.length; i++) {
+        if (el.options[i].value === val) { el.selectedIndex = i; break; }
+      }
+    } else {
+      el.value = val;
+    }
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+});
+</script>
+{{end}}

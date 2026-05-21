@@ -335,6 +335,98 @@ func (st *sqlStore) GetDestination(ctx context.Context, name string) (*spec.Dest
 	return &def, nil
 }
 
+func (st *sqlStore) ListDestinationsFull(ctx context.Context) ([]spec.DestinationDef, error) {
+	rows, err := st.db.QueryContext(ctx, "SELECT spec_yaml FROM destinations ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var dests []spec.DestinationDef
+	for rows.Next() {
+		var yamlData string
+		if err := rows.Scan(&yamlData); err != nil {
+			return nil, err
+		}
+		var def spec.DestinationDef
+		if err := yaml.Unmarshal([]byte(yamlData), &def); err != nil {
+			continue
+		}
+		dests = append(dests, def)
+	}
+	return dests, rows.Err()
+}
+
+func (st *sqlStore) CreateDestination(ctx context.Context, dest spec.DestinationDef, userID string) error {
+	yamlData, err := yaml.Marshal(dest)
+	if err != nil {
+		return fmt.Errorf("marshal destination yaml: %w", err)
+	}
+	var destID int64
+	if st.driver == "postgres" {
+		q := `INSERT INTO destinations (name, spec_yaml) VALUES ($1, $2) RETURNING id`
+		err = st.db.QueryRowContext(ctx, q, dest.Name, string(yamlData)).Scan(&destID)
+	} else {
+		q := `INSERT INTO destinations (name, spec_yaml) VALUES (?, ?)`
+		var res sql.Result
+		res, err = st.db.ExecContext(ctx, q, dest.Name, string(yamlData))
+		if err == nil {
+			destID, err = res.LastInsertId()
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("insert destination: %w", err)
+	}
+	details := fmt.Sprintf(`{"name":%q,"provider":%q}`, dest.Name, dest.Provider)
+	auditQ := st.ph("INSERT INTO audit_log (action, entity_type, entity_id, user_id, details) VALUES (?, 'destination', ?, ?, ?)")
+	_, err = st.db.ExecContext(ctx, auditQ, "create", destID, userID, details)
+	return err
+}
+
+func (st *sqlStore) UpdateDestination(ctx context.Context, dest spec.DestinationDef, userID string) error {
+	yamlData, err := yaml.Marshal(dest)
+	if err != nil {
+		return fmt.Errorf("marshal destination yaml: %w", err)
+	}
+	var destID int64
+	err = st.db.QueryRowContext(ctx, st.ph("SELECT id FROM destinations WHERE name = ?"), dest.Name).Scan(&destID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("destination %q: %w", dest.Name, registry.ErrNotFound)
+	}
+	if err != nil {
+		return err
+	}
+	var q string
+	if st.driver == "postgres" {
+		q = "UPDATE destinations SET spec_yaml = $1, updated_at = NOW() WHERE name = $2"
+	} else {
+		q = "UPDATE destinations SET spec_yaml = ?, updated_at = datetime('now') WHERE name = ?"
+	}
+	if _, err = st.db.ExecContext(ctx, q, string(yamlData), dest.Name); err != nil {
+		return fmt.Errorf("update destination: %w", err)
+	}
+	details := fmt.Sprintf(`{"name":%q,"provider":%q}`, dest.Name, dest.Provider)
+	auditQ := st.ph("INSERT INTO audit_log (action, entity_type, entity_id, user_id, details) VALUES (?, 'destination', ?, ?, ?)")
+	_, err = st.db.ExecContext(ctx, auditQ, "update", destID, userID, details)
+	return err
+}
+
+func (st *sqlStore) DeleteDestination(ctx context.Context, name string, userID string) error {
+	var destID int64
+	_ = st.db.QueryRowContext(ctx, st.ph("SELECT id FROM destinations WHERE name = ?"), name).Scan(&destID)
+	res, err := st.db.ExecContext(ctx, st.ph("DELETE FROM destinations WHERE name = ?"), name)
+	if err != nil {
+		return fmt.Errorf("delete destination: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("destination %q: %w", name, registry.ErrNotFound)
+	}
+	details := fmt.Sprintf(`{"name":%q}`, name)
+	auditQ := st.ph("INSERT INTO audit_log (action, entity_type, entity_id, user_id, details) VALUES (?, 'destination', ?, ?, ?)")
+	_, err = st.db.ExecContext(ctx, auditQ, "delete", destID, userID, details)
+	return err
+}
+
 func (st *sqlStore) ListDestinations(ctx context.Context) ([]string, error) {
 	rows, err := st.db.QueryContext(ctx, "SELECT name FROM destinations ORDER BY name")
 	if err != nil {
