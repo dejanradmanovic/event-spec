@@ -195,7 +195,7 @@ func sourceErrResponse(w http.ResponseWriter, sourceName string, err error) {
 // dispatchErr converts a hook-cancelled error to the correct HTTP response.
 // sampling.ErrSampled → 202 (silent drop); everything else → 400.
 // Returns true if the handler should stop (response already written).
-func writeSampledOrError(w http.ResponseWriter, err error, context string) bool {
+func writeSampledOrError(w http.ResponseWriter, err error, errCtx string) bool {
 	if err == nil {
 		return false
 	}
@@ -203,7 +203,7 @@ func writeSampledOrError(w http.ResponseWriter, err error, context string) bool 
 		w.WriteHeader(http.StatusAccepted)
 		return true
 	}
-	jsonError(w, context+err.Error(), http.StatusBadRequest)
+	jsonError(w, errCtx+err.Error(), http.StatusBadRequest)
 	return true
 }
 
