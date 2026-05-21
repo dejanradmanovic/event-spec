@@ -38,10 +38,12 @@ Teams couple instrumentation directly to a single vendor (Amplitude, Mixpanel, G
 | `cmd/event-spec diff` | ✅ Done |
 | `registry/git` — remote-repo pull and cache | ✅ Done |
 | `cmd/event-spec pull` | ✅ Done |
-| `registry/server` — REST API backend | ❌ Not yet |
+| `registry/server` — REST API backend | ✅ Done |
+| `registry/server/client` — HTTP client for server mode | ✅ Done |
+| `cmd/event-spec serve` | ✅ Done |
 | `hooks/logging`, `hooks/otel` | ❌ Not yet |
 | `codegen/audit` — AST-based event usage scanning | ❌ Not yet |
-| `cmd/event-spec audit`, `docs`, `serve` | ❌ Not yet |
+| `cmd/event-spec audit`, `docs` | ❌ Not yet |
 | Go providers: PostHog, Mixpanel, Segment, GA4, RudderStack | ❌ Not yet |
 | Swift, Kotlin, Python, Rust, Dart, .NET SDKs | ❌ Not yet |
 

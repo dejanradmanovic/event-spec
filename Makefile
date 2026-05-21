@@ -1,10 +1,14 @@
-.PHONY: build test lint fmt vet tidy install-tools hooks help
+.PHONY: build run test lint fmt vet tidy install-tools hooks help
 
 BIN := event-spec
 
 ## build: compile the CLI binary
 build:
 	go build -o $(BIN) ./cmd/event-spec
+
+## run: build and start the registry server (PORT and DB_DSN env vars override defaults)
+run: build
+	./$(BIN) serve --port $${PORT:-8080} --db $${DB_DSN:-file:./registry.db}
 
 ## test: run all tests
 test:
