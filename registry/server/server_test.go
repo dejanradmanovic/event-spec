@@ -30,6 +30,11 @@ type mockStore struct {
 	audit    []server.AuditEntry
 	webhooks []string
 
+	// keysWithID tracks API key records for list/revoke tests.
+	keysWithID []server.APIKeyRecord
+	// webhookRecords tracks full webhook records for admin list/delete tests.
+	webhookRecords []server.WebhookRecord
+
 	publishCalled bool
 	published     spec.EventDef
 }
@@ -84,12 +89,78 @@ func (m *mockStore) LookupAPIKey(_ context.Context, keyHash string) (userID, rol
 	return "", "", registry.ErrNotFound
 }
 
-func (m *mockStore) ListAuditLog(_ context.Context) ([]server.AuditEntry, error) {
-	return m.audit, nil
+func (m *mockStore) ListAuditLog(_ context.Context, filter server.AuditFilter) ([]server.AuditEntry, error) {
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	var out []server.AuditEntry
+	for _, e := range m.audit {
+		if filter.EntityType != "" && e.EntityType != filter.EntityType {
+			continue
+		}
+		if filter.UserID != "" && e.UserID != filter.UserID {
+			continue
+		}
+		if filter.Since != nil && e.Timestamp.Before(*filter.Since) {
+			continue
+		}
+		if filter.Until != nil && e.Timestamp.After(*filter.Until) {
+			continue
+		}
+		out = append(out, e)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
 }
 
-func (m *mockStore) RegisterWebhook(_ context.Context, webhookURL, _ string) error {
+func (m *mockStore) CountAPIKeys(_ context.Context) (int, error) {
+	return len(m.apiKeys), nil
+}
+
+func (m *mockStore) CreateAPIKey(_ context.Context, keyHash, role, name, createdBy string, _ *time.Time) (int64, error) {
+	m.apiKeys[keyHash] = keyEntry{userID: createdBy, role: role}
+	id := int64(len(m.keysWithID) + 1)
+	m.keysWithID = append(m.keysWithID, server.APIKeyRecord{ID: id, Role: role, Name: name, CreatedBy: createdBy, CreatedAt: time.Now()})
+	return id, nil
+}
+
+func (m *mockStore) ListAPIKeys(_ context.Context) ([]server.APIKeyRecord, error) {
+	return m.keysWithID, nil
+}
+
+func (m *mockStore) RevokeAPIKey(_ context.Context, id int64) error {
+	filtered := m.keysWithID[:0]
+	for _, r := range m.keysWithID {
+		if r.ID != id {
+			filtered = append(filtered, r)
+		}
+	}
+	m.keysWithID = filtered
+	return nil
+}
+
+func (m *mockStore) ListWebhooksAdmin(_ context.Context) ([]server.WebhookRecord, error) {
+	return m.webhookRecords, nil
+}
+
+func (m *mockStore) DeleteWebhook(_ context.Context, id int64) error {
+	filtered := m.webhookRecords[:0]
+	for _, r := range m.webhookRecords {
+		if r.ID != id {
+			filtered = append(filtered, r)
+		}
+	}
+	m.webhookRecords = filtered
+	return nil
+}
+
+func (m *mockStore) RegisterWebhook(_ context.Context, webhookURL, userID string) error {
 	m.webhooks = append(m.webhooks, webhookURL)
+	id := int64(len(m.webhookRecords) + 1)
+	m.webhookRecords = append(m.webhookRecords, server.WebhookRecord{ID: id, URL: webhookURL, CreatedBy: userID, CreatedAt: time.Now()})
 	return nil
 }
 
@@ -668,5 +739,218 @@ func TestClient_OfflineMode_NoCacheReturnsError(t *testing.T) {
 	_, err := c.ListEvents(context.Background(), registry.ListFilter{})
 	if err == nil {
 		t.Error("want error when server unreachable and no cache, got nil")
+	}
+}
+
+// --- Health / status ---
+
+func TestServer_Health_Returns200(t *testing.T) {
+	ts, _ := newTestSrv(t)
+	resp := get(t, ts, "/v1/health", "") // no auth required
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("want 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestClient_Status_OK(t *testing.T) {
+	ts, _ := newTestSrv(t)
+	c := client.New(client.Config{BaseURL: ts.URL, APIKey: "viewer-tok"})
+	s, err := c.Status(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Status != "ok" {
+		t.Errorf("want status ok, got %q", s.Status)
+	}
+}
+
+// --- API key management ---
+
+func TestServer_CreateAPIKey_Bootstrap(t *testing.T) {
+	// Fresh server with zero keys.
+	st := &mockStore{
+		apiKeys:  map[string]keyEntry{},
+		sources:  map[string]*spec.SourceDef{},
+		webhooks: []string{},
+	}
+	ts := httptest.NewServer(server.New(st, server.Config{}))
+	t.Cleanup(ts.Close)
+
+	resp := postJSON(t, ts, "/v1/admin/keys", "", map[string]string{"role": "admin"})
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("want 201, got %d", resp.StatusCode)
+	}
+	var result struct {
+		ID   int64  `json:"id"`
+		Key  string `json:"key"`
+		Role string `json:"role"`
+	}
+	json.NewDecoder(resp.Body).Decode(&result)
+	if result.Key == "" {
+		t.Error("expected raw key in response")
+	}
+	if result.Role != "admin" {
+		t.Errorf("want role admin, got %q", result.Role)
+	}
+}
+
+func TestServer_CreateAPIKey_RequiresAdminAfterBootstrap(t *testing.T) {
+	ts, _ := newTestSrv(t)
+	// Server already has keys — viewer token should get 403.
+	resp := postJSON(t, ts, "/v1/admin/keys", "viewer-tok", map[string]string{"role": "viewer"})
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("want 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestServer_CreateAPIKey_AdminCanCreate(t *testing.T) {
+	ts, _ := newTestSrv(t)
+	resp := postJSON(t, ts, "/v1/admin/keys", "admin-tok", map[string]string{"role": "viewer", "name": "ci-key"})
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("want 201, got %d", resp.StatusCode)
+	}
+}
+
+func TestServer_ListAPIKeys_AdminReturns200(t *testing.T) {
+	ts, _ := newTestSrv(t)
+	resp := get(t, ts, "/v1/admin/keys", "admin-tok")
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		t.Fatalf("want 200, got %d", resp.StatusCode)
+	}
+	var records []server.APIKeyRecord
+	json.NewDecoder(resp.Body).Decode(&records)
+	resp.Body.Close()
+	// mockStore has no keysWithID seeded — expect empty list.
+	if records == nil {
+		t.Error("want non-nil slice, got nil")
+	}
+}
+
+func TestServer_RevokeAPIKey_AdminReturns204(t *testing.T) {
+	ts, st := newTestSrv(t)
+	// Seed a key record.
+	st.keysWithID = append(st.keysWithID, server.APIKeyRecord{ID: 99, Role: "viewer"})
+
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodDelete, ts.URL+"/v1/admin/keys/99", http.NoBody)
+	req.Header.Set("Authorization", "Bearer admin-tok")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("want 204, got %d", resp.StatusCode)
+	}
+}
+
+// --- Webhook admin ---
+
+func TestServer_ListWebhooksAdmin_Returns200(t *testing.T) {
+	ts, st := newTestSrv(t)
+	st.webhookRecords = []server.WebhookRecord{{ID: 1, URL: "https://example.com/hook", CreatedBy: "alice", CreatedAt: time.Now()}}
+
+	resp := get(t, ts, "/v1/webhooks", "admin-tok")
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		t.Fatalf("want 200, got %d", resp.StatusCode)
+	}
+	var records []server.WebhookRecord
+	json.NewDecoder(resp.Body).Decode(&records)
+	resp.Body.Close()
+	if len(records) != 1 {
+		t.Errorf("want 1 record, got %d", len(records))
+	}
+}
+
+func TestServer_DeleteWebhook_Returns204(t *testing.T) {
+	ts, st := newTestSrv(t)
+	st.webhookRecords = []server.WebhookRecord{{ID: 5, URL: "https://example.com/hook", CreatedBy: "alice"}}
+
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodDelete, ts.URL+"/v1/webhooks/5", http.NoBody)
+	req.Header.Set("Authorization", "Bearer admin-tok")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("want 204, got %d", resp.StatusCode)
+	}
+	if len(st.webhookRecords) != 0 {
+		t.Errorf("want 0 records after delete, got %d", len(st.webhookRecords))
+	}
+}
+
+// --- Audit log filtering ---
+
+func TestServer_AuditLog_FilterByEntity(t *testing.T) {
+	ts, st := newTestSrv(t)
+	st.audit = append(st.audit, server.AuditEntry{ID: 2, Action: "create", EntityType: "source", EntityID: 2, UserID: "bob", Timestamp: time.Now()})
+
+	resp := get(t, ts, "/v1/audit?entity=event&limit=10", "admin-tok")
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		t.Fatalf("want 200, got %d", resp.StatusCode)
+	}
+	var entries []server.AuditEntry
+	json.NewDecoder(resp.Body).Decode(&entries)
+	resp.Body.Close()
+	for _, e := range entries {
+		if e.EntityType != "event" {
+			t.Errorf("filter failed: got entity_type %q, want event", e.EntityType)
+		}
+	}
+}
+
+// --- Client admin methods ---
+
+func TestClient_CreateAPIKey_Bootstrap(t *testing.T) {
+	st := &mockStore{
+		apiKeys:  map[string]keyEntry{},
+		sources:  map[string]*spec.SourceDef{},
+		webhooks: []string{},
+	}
+	ts := httptest.NewServer(server.New(st, server.Config{}))
+	t.Cleanup(ts.Close)
+
+	c := client.New(client.Config{BaseURL: ts.URL}) // no API key — bootstrap
+	key, err := c.CreateAPIKey(context.Background(), "admin", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key.Key == "" {
+		t.Error("expected raw key")
+	}
+}
+
+func TestClient_ListWebhooksAdmin(t *testing.T) {
+	ts, st := newTestSrv(t)
+	st.webhookRecords = []server.WebhookRecord{{ID: 1, URL: "https://x.com/hook", CreatedBy: "carol"}}
+
+	c := client.New(client.Config{BaseURL: ts.URL, APIKey: "admin-tok"})
+	records, err := c.ListWebhooksAdmin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(records) != 1 || records[0].URL != "https://x.com/hook" {
+		t.Errorf("unexpected records: %v", records)
+	}
+}
+
+func TestClient_RemoveWebhook(t *testing.T) {
+	ts, st := newTestSrv(t)
+	st.webhookRecords = []server.WebhookRecord{{ID: 3, URL: "https://x.com/hook", CreatedBy: "carol"}}
+
+	c := client.New(client.Config{BaseURL: ts.URL, APIKey: "admin-tok"})
+	if err := c.RemoveWebhook(context.Background(), 3); err != nil {
+		t.Fatal(err)
+	}
+	if len(st.webhookRecords) != 0 {
+		t.Errorf("want 0 records after remove, got %d", len(st.webhookRecords))
 	}
 }

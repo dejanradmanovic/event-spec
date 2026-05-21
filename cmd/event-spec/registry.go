@@ -33,7 +33,15 @@ func openRegistry(cfg *spec.WorkspaceConfig) (registry.Registry, error) {
 		if cfg.Registry.URL == "" {
 			return nil, fmt.Errorf("registry mode %q: registry.url must be set in event-spec.yaml", cfg.Registry.Mode)
 		}
-		return serverclient.New(serverclient.Config{BaseURL: cfg.Registry.URL}), nil
+		var apiKey string
+		if cfg.Registry.APIKey != "" {
+			var err error
+			apiKey, err = spec.ResolveSecret(cfg.Registry.APIKey, cfg.Registry.APIKeySecretType)
+			if err != nil {
+				return nil, fmt.Errorf("resolve api key: %w", err)
+			}
+		}
+		return serverclient.New(serverclient.Config{BaseURL: cfg.Registry.URL, APIKey: apiKey}), nil
 	default: // local or empty
 		specsDir := cfg.SpecsDir
 		if specsDir == "" {

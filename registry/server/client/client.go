@@ -15,10 +15,54 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/dejanradmanovic/event-spec/registry"
 	"github.com/dejanradmanovic/event-spec/spec"
 )
+
+// StatusResponse is the body returned by GET /v1/health.
+type StatusResponse struct {
+	Status string `json:"status"`
+	Uptime string `json:"uptime,omitempty"`
+}
+
+// APIKeyRecord is the public metadata for a stored API key.
+type APIKeyRecord struct {
+	ID        int64      `json:"id"`
+	Role      string     `json:"role"`
+	Name      string     `json:"name,omitempty"`
+	CreatedBy string     `json:"created_by"`
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+}
+
+// CreatedAPIKey is the response body for POST /v1/admin/keys.
+// The raw key is returned once and is not recoverable thereafter.
+type CreatedAPIKey struct {
+	ID   int64  `json:"id"`
+	Key  string `json:"key"`
+	Role string `json:"role"`
+}
+
+// WebhookRecord is a registered webhook entry with its database ID.
+type WebhookRecord struct {
+	ID        int64     `json:"id"`
+	URL       string    `json:"url"`
+	CreatedBy string    `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// AuditEntry is a single record from the server's audit log.
+type AuditEntry struct {
+	ID         int64     `json:"id"`
+	Action     string    `json:"action"`
+	EntityType string    `json:"entity_type"`
+	EntityID   int64     `json:"entity_id"`
+	UserID     string    `json:"user_id"`
+	Timestamp  time.Time `json:"timestamp"`
+	Details    string    `json:"details,omitempty"`
+}
 
 // Config configures the HTTP client.
 type Config struct {
@@ -111,6 +155,81 @@ func (c *Client) Diff(ctx context.Context, namespace, name, from, to string) ([]
 	return changes, nil
 }
 
+// Status calls GET /v1/health and returns the server status. An error is returned
+// if the server is unreachable or returns a non-2xx status.
+func (c *Client) Status(ctx context.Context) (*StatusResponse, error) {
+	var s StatusResponse
+	if err := c.get(ctx, c.cfg.BaseURL+"/v1/health", &s); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+// CreateAPIKey calls POST /v1/admin/keys. On a fresh server with no keys, no API key
+// credential is required. The returned CreatedAPIKey contains the raw key (shown once).
+// expiresIn uses extended duration syntax: "90d", "1y", or standard Go durations.
+func (c *Client) CreateAPIKey(ctx context.Context, role, name, expiresIn string) (*CreatedAPIKey, error) {
+	body := map[string]string{"role": role}
+	if name != "" {
+		body["name"] = name
+	}
+	if expiresIn != "" {
+		body["expires_in"] = expiresIn
+	}
+	var result CreatedAPIKey
+	if err := c.post(ctx, c.cfg.BaseURL+"/v1/admin/keys", body, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// ListAPIKeys calls GET /v1/admin/keys (admin role required).
+func (c *Client) ListAPIKeys(ctx context.Context) ([]APIKeyRecord, error) {
+	var records []APIKeyRecord
+	if err := c.get(ctx, c.cfg.BaseURL+"/v1/admin/keys", &records); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+// RevokeAPIKey calls DELETE /v1/admin/keys/{id} (admin role required).
+func (c *Client) RevokeAPIKey(ctx context.Context, id int64) error {
+	return c.delete(ctx, fmt.Sprintf("%s/v1/admin/keys/%d", c.cfg.BaseURL, id))
+}
+
+// RegisterWebhook calls POST /v1/webhooks to register a webhook URL (admin role required).
+func (c *Client) RegisterWebhook(ctx context.Context, webhookURL string) error {
+	return c.post(ctx, c.cfg.BaseURL+"/v1/webhooks", map[string]string{"url": webhookURL}, nil)
+}
+
+// ListWebhooksAdmin calls GET /v1/webhooks (admin role required).
+func (c *Client) ListWebhooksAdmin(ctx context.Context) ([]WebhookRecord, error) {
+	var records []WebhookRecord
+	if err := c.get(ctx, c.cfg.BaseURL+"/v1/webhooks", &records); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+// RemoveWebhook calls DELETE /v1/webhooks/{id} (admin role required).
+func (c *Client) RemoveWebhook(ctx context.Context, id int64) error {
+	return c.delete(ctx, fmt.Sprintf("%s/v1/webhooks/%d", c.cfg.BaseURL, id))
+}
+
+// ListAuditLog calls GET /v1/audit with optional query parameters (admin role required).
+// Supported params: limit, since, until, entity, user.
+func (c *Client) ListAuditLog(ctx context.Context, params url.Values) ([]AuditEntry, error) {
+	u := c.cfg.BaseURL + "/v1/audit"
+	if len(params) > 0 {
+		u += "?" + params.Encode()
+	}
+	var entries []AuditEntry
+	if err := c.get(ctx, u, &entries); err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
 func (c *Client) auth(req *http.Request) {
 	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
 }
@@ -127,6 +246,20 @@ func (c *Client) get(ctx context.Context, u string, dst any) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	return c.decode(resp, dst)
+}
+
+func (c *Client) delete(ctx context.Context, u string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, u, http.NoBody)
+	if err != nil {
+		return err
+	}
+	c.auth(req)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return c.decode(resp, nil)
 }
 
 func (c *Client) post(ctx context.Context, u string, body, dst any) error {
@@ -155,6 +288,8 @@ func (c *Client) decode(resp *http.Response, dst any) error {
 		if dst != nil {
 			return json.NewDecoder(resp.Body).Decode(dst)
 		}
+		return nil
+	case http.StatusNoContent:
 		return nil
 	case http.StatusNotFound:
 		return registry.ErrNotFound
@@ -205,6 +340,8 @@ func (c *Client) getWithCache(ctx context.Context, u string, dst any) error {
 		if dst != nil {
 			return json.Unmarshal(body, dst)
 		}
+		return nil
+	case http.StatusNoContent:
 		return nil
 	case http.StatusNotFound:
 		return registry.ErrNotFound
