@@ -22,6 +22,7 @@
   </div>
 </div>
 
+{{if eq .Role "admin"}}
 <div class="es-card" style="margin-top:1.5rem">
   <div class="es-card-header">
     <h3 class="es-card-title">Recent Activity</h3>
@@ -54,4 +55,5 @@
     {{end}}
   </div>
 </div>
+{{end}}
 {{end}}

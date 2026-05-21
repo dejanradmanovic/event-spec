@@ -14,16 +14,18 @@ import (
 
 type eventFormData struct {
 	baseData
-	YAML      string
-	FormError string
-	IsEdit    bool
-	Namespace string
-	EventName string
+	YAML                  string
+	FormError             string
+	IsEdit                bool
+	Namespace             string
+	EventName             string
+	AvailableDestinations []string
 }
 
 func (h *Handler) handleNewEventForm(w http.ResponseWriter, r *http.Request) {
 	b := newBase(r, "Publish New Event")
-	h.render(w, "event_form", eventFormData{baseData: b, YAML: newEventYAMLTemplate()})
+	dests, _ := h.st.ListDestinations(r.Context())
+	h.render(w, "event_form", eventFormData{baseData: b, YAML: newEventYAMLTemplate(), AvailableDestinations: dests})
 }
 
 func (h *Handler) handlePublishNewEvent(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +36,7 @@ func (h *Handler) handleEditEventForm(w http.ResponseWriter, r *http.Request) {
 	ns := r.PathValue("ns")
 	name := r.PathValue("name")
 
-	ev, err := h.st.GetEvent(r.Context(), ns, name, "")
+	ev, err := h.getEventLatest(r.Context(), ns, name)
 	if err != nil {
 		h.renderErrorPage(w, r, http.StatusNotFound, "Edit Event", err.Error())
 		return
@@ -46,13 +48,15 @@ func (h *Handler) handleEditEventForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dests, _ := h.st.ListDestinations(r.Context())
 	b := newBase(r, "Edit "+ev.Name)
 	h.render(w, "event_form", eventFormData{
-		baseData:  b,
-		YAML:      string(raw),
-		IsEdit:    true,
-		Namespace: ns,
-		EventName: name,
+		baseData:              b,
+		YAML:                  string(raw),
+		IsEdit:                true,
+		Namespace:             ns,
+		EventName:             name,
+		AvailableDestinations: dests,
 	})
 }
 
@@ -83,7 +87,9 @@ func (h *Handler) submitEventForm(w http.ResponseWriter, r *http.Request, nsHint
 	}
 
 	var ev spec.EventDef
-	if err := yaml.Unmarshal([]byte(rawYAML), &ev); err != nil {
+	dec := yaml.NewDecoder(strings.NewReader(rawYAML))
+	dec.KnownFields(true)
+	if err := dec.Decode(&ev); err != nil {
 		renderFormErr("Invalid YAML: " + err.Error())
 		return
 	}
@@ -98,9 +104,16 @@ func (h *Handler) submitEventForm(w http.ResponseWriter, r *http.Request, nsHint
 		return
 	}
 
+	// Lock name and namespace to the URL path in edit mode — they are the event's
+	// identity and cannot be changed via an edit.
+	if isEdit && nsHint != "" && nameHint != "" {
+		ev.Namespace = nsHint
+		ev.Name = nameHint
+	}
+
 	// For edits, enforce that the version bump is consistent with the detected changes.
 	if isEdit && nsHint != "" && nameHint != "" {
-		prev, err := h.st.GetEvent(r.Context(), nsHint, nameHint, "")
+		prev, err := h.getEventLatest(r.Context(), nsHint, nameHint)
 		if err == nil {
 			changes := spec.Diff(prev, &ev)
 			if bumpErr := spec.ValidateVersionBump(prev, &ev, changes); bumpErr != nil {
@@ -129,18 +142,18 @@ func (h *Handler) submitEventForm(w http.ResponseWriter, r *http.Request, nsHint
 func newEventYAMLTemplate() string {
 	return `$schema: "https://event-spec.io/schemas/event/v1"
 
+namespace: my_namespace
 name: my_event
+event_name: "My Event"
 display_name: "My Event"
 description: |
   Describe what this event captures.
 version: "1-0-0"
 changelog: "Initial version"
 status: draft
-namespace: my_namespace
 tags: []
 owner: "team@example.com"
 type: track
-event_name: "My Event"
 
 properties:
   example_property:
@@ -148,9 +161,9 @@ properties:
     required: true
     description: "An example property"
 
-# property_priority: event_wins
+# property_priority: event_wins   # event_wins | context_wins | merge
 # sampling:
-#   strategy: none
+#   strategy: none                 # none | user_id_hash | random
 #   rate: 1.0
 `
 }

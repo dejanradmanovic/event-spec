@@ -1,13 +1,13 @@
 {{define "content"}}
 <div class="es-toolbar es-flex es-flex-between" style="align-items:flex-start">
   <form method="GET" action="/ui/events" class="es-filter-bar">
-    <select name="namespace" class="es-select">
+    <select name="namespace" class="es-select" onchange="this.form.submit()">
       <option value="">All namespaces</option>
       {{range .Namespaces}}
       <option value="{{.}}"{{if eq . $.NSFilter}} selected{{end}}>{{.}}</option>
       {{end}}
     </select>
-    <select name="status" class="es-select">
+    <select name="status" class="es-select" onchange="this.form.submit()">
       <option value="">All statuses</option>
       <option value="active"{{if eq .StatFilter "active"}} selected{{end}}>Active</option>
       <option value="draft"{{if eq .StatFilter "draft"}} selected{{end}}>Draft</option>
@@ -37,6 +37,7 @@
           <th>Status</th>
           <th>Owner</th>
           <th>Tags</th>
+          <th>Required</th>
           <th></th>
         </tr>
       </thead>
@@ -55,6 +56,9 @@
           <td class="es-text-muted es-text-sm">{{.Owner}}</td>
           <td>
             {{range .Tags}}<span class="es-tag">{{.}}</span> {{end}}
+          </td>
+          <td>
+            {{if .Required}}<span class="es-badge es-badge-required">required</span>{{else}}<span class="es-text-muted">—</span>{{end}}
           </td>
           <td>
             <a href="/ui/events/{{.Namespace}}/{{.Name}}" class="es-btn es-btn-ghost es-btn-sm">View</a>

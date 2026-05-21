@@ -93,9 +93,9 @@ func New(cfg Config) *Client {
 	return &Client{cfg: cfg, http: &http.Client{}}
 }
 
-// ListEvents fetches all events matching filter from the server.
+// ListAllEvents fetches all events matching filter from the server without deduplication.
 // When the server is unreachable and CacheDir is configured, the last cached response is returned.
-func (c *Client) ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
+func (c *Client) ListAllEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
 	q := url.Values{}
 	if filter.Namespace != "" {
 		q.Set("namespace", filter.Namespace)
@@ -115,6 +115,16 @@ func (c *Client) ListEvents(ctx context.Context, filter registry.ListFilter) ([]
 		return nil, err
 	}
 	return events, nil
+}
+
+// ListEvents fetches events matching filter and returns one per (namespace, name) pair —
+// the highest SchemaVer that matches the filter. See ListAllEvents for the raw list.
+func (c *Client) ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
+	all, err := c.ListAllEvents(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	return registry.DeduplicateByLatest(all), nil
 }
 
 // GetEvent fetches an event by namespace and name.

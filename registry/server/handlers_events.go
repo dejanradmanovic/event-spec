@@ -22,7 +22,7 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 		Status:    spec.EventStatus(q.Get("status")),
 		Tags:      q["tag"],
 	}
-	events, err := s.st.ListEvents(r.Context(), filter)
+	events, err := s.st.ListAllEvents(r.Context(), filter)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -139,7 +139,7 @@ func (s *Server) handleSourcePull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	all, err := s.st.ListEvents(r.Context(), registry.ListFilter{})
+	all, err := s.st.ListAllEvents(r.Context(), registry.ListFilter{})
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return

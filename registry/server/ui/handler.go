@@ -36,6 +36,8 @@ func (h *Handler) routes() {
 	h.mux.HandleFunc("GET /ui/login", h.handleLoginForm)
 	h.mux.HandleFunc("POST /ui/login", h.handleLogin)
 	h.mux.HandleFunc("POST /ui/logout", h.handleLogout)
+	h.mux.HandleFunc("GET /ui/bootstrap", h.handleBootstrapForm)
+	h.mux.HandleFunc("POST /ui/bootstrap", h.handleBootstrap)
 
 	h.mux.HandleFunc("GET /ui/", h.withSession(RoleViewer, h.handleDashboard))
 	h.mux.HandleFunc("GET /ui/events", h.withSession(RoleViewer, h.handleEventList))

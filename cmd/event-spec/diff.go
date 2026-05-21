@@ -177,7 +177,7 @@ func runDiffAll(cmd *cobra.Command, sourceName string, breakingOnly bool, format
 	seen := map[eventKey]bool{}
 	var events []pinnedEvent
 
-	allDefs, err := reg.ListEvents(context.Background(), registry.ListFilter{})
+	allDefs, err := reg.ListAllEvents(context.Background(), registry.ListFilter{})
 	if err != nil {
 		return &exitCodeError{code: 2, err: fmt.Errorf("list events: %w", err)}
 	}
@@ -412,7 +412,7 @@ func renderJSON(cmd *cobra.Command, results []diffResult, breakingOnly bool) err
 // a local registry on ./specs when no workspace config is present.
 func openDiffRegistry() (interface {
 	GetEvent(ctx context.Context, namespace, name, version string) (*spec.EventDef, error)
-	ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
+	ListAllEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
 }, error) {
 	cfg, err := spec.LoadWorkspaceConfig("event-spec.yaml")
 	if err != nil {
@@ -424,9 +424,9 @@ func openDiffRegistry() (interface {
 
 // findLatestTwo finds the two latest active versions of an event in the registry.
 func findLatestTwo(reg interface {
-	ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
+	ListAllEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
 }, namespace, name string) (older, newer *spec.EventDef, err error) {
-	all, err := reg.ListEvents(context.Background(), registry.ListFilter{Namespace: namespace, Status: spec.StatusActive})
+	all, err := reg.ListAllEvents(context.Background(), registry.ListFilter{Namespace: namespace, Status: spec.StatusActive})
 	if err != nil {
 		return nil, nil, fmt.Errorf("list events: %w", err)
 	}

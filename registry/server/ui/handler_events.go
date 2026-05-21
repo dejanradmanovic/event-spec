@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
@@ -18,6 +20,10 @@ type dashboardData struct {
 }
 
 func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/ui/" {
+		h.renderErrorPage(w, r, http.StatusNotFound, "Page Not Found", "The page you're looking for doesn't exist.")
+		return
+	}
 	events, err := h.st.ListEvents(r.Context(), registry.ListFilter{})
 	if err != nil {
 		h.renderErrorPage(w, r, http.StatusInternalServerError, "Dashboard", err.Error())
@@ -29,7 +35,10 @@ func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			counts[string(e.Status)]++
 		}
 	}
-	recent, _ := h.st.ListAuditLog(r.Context(), AuditFilter{Limit: 10})
+	var recent []AuditEntry
+	if role, _ := r.Context().Value(ctxRole).(string); role == RoleAdmin {
+		recent, _ = h.st.ListAuditLog(r.Context(), AuditFilter{Limit: 10})
+	}
 	b := newBase(r, "Dashboard")
 	h.render(w, "dashboard", dashboardData{b, counts, recent})
 }
@@ -71,6 +80,13 @@ func (h *Handler) handleEventList(w http.ResponseWriter, r *http.Request) {
 		events = filtered
 	}
 
+	sort.Slice(events, func(i, j int) bool {
+		if events[i].Namespace != events[j].Namespace {
+			return events[i].Namespace < events[j].Namespace
+		}
+		return events[i].Name < events[j].Name
+	})
+
 	// Collect unique namespaces from all events (unfiltered) for the filter dropdown.
 	all, _ := h.st.ListEvents(r.Context(), registry.ListFilter{})
 	nsSet := map[string]struct{}{}
@@ -85,6 +101,21 @@ func (h *Handler) handleEventList(w http.ResponseWriter, r *http.Request) {
 
 	b := newBase(r, "Event Catalog")
 	h.render(w, "events", eventsData{b, events, namespaces, ns, status, search})
+}
+
+// getEventLatest returns the highest-versioned event for ns/name regardless of status.
+// ListEvents deduplicates to one per (namespace, name), so a simple name lookup suffices.
+func (h *Handler) getEventLatest(ctx context.Context, ns, name string) (*spec.EventDef, error) {
+	events, err := h.st.ListEvents(ctx, registry.ListFilter{Namespace: ns})
+	if err != nil {
+		return nil, err
+	}
+	for i := range events {
+		if events[i].Name == name {
+			return &events[i], nil
+		}
+	}
+	return nil, fmt.Errorf("event %s/%s: not found", ns, name)
 }
 
 // --- event detail ---
@@ -105,15 +136,15 @@ func (h *Handler) handleEventDetail(w http.ResponseWriter, r *http.Request) {
 	ns := r.PathValue("ns")
 	name := r.PathValue("name")
 
-	ev, err := h.st.GetEvent(r.Context(), ns, name, "")
+	ev, err := h.getEventLatest(r.Context(), ns, name)
 	if err != nil {
 		h.renderErrorPage(w, r, http.StatusNotFound, "Event Detail", err.Error())
 		return
 	}
 
-	all, _ := h.st.ListEvents(r.Context(), registry.ListFilter{Namespace: ns})
+	allVersions, _ := h.st.ListAllEvents(r.Context(), registry.ListFilter{Namespace: ns})
 	var versions []spec.EventDef
-	for _, e := range all {
+	for _, e := range allVersions {
 		if e.Name == name {
 			versions = append(versions, e)
 		}
@@ -149,6 +180,7 @@ type eventDiffData struct {
 	EventName string
 	From      string
 	To        string
+	Versions  []spec.EventDef
 	Changes   []spec.Change
 	FromDef   *spec.EventDef
 	ToDef     *spec.EventDef
@@ -160,24 +192,48 @@ func (h *Handler) handleEventDiff(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	to := r.URL.Query().Get("to")
 
+	allVersions, _ := h.st.ListAllEvents(r.Context(), registry.ListFilter{Namespace: ns})
+	var versions []spec.EventDef
+	for _, e := range allVersions {
+		if e.Name == name {
+			versions = append(versions, e)
+		}
+	}
+	sort.Slice(versions, func(i, j int) bool {
+		vi, _ := spec.ParseSchemaVer(versions[i].Version)
+		vj, _ := spec.ParseSchemaVer(versions[j].Version)
+		return spec.CompareSchemaVer(vi, vj) > 0
+	})
+
+	// Auto-populate: default to comparing second-latest against latest.
+	if to == "" && len(versions) >= 1 {
+		to = versions[0].Version
+	}
+	if from == "" && len(versions) >= 2 {
+		from = versions[1].Version
+	}
+
 	b := newBase(r, "Diff: "+name)
-
-	if from == "" || to == "" {
-		h.render(w, "event_diff", eventDiffData{baseData: b, Namespace: ns, EventName: name})
-		return
+	data := eventDiffData{
+		baseData:  b,
+		Namespace: ns,
+		EventName: name,
+		From:      from,
+		To:        to,
+		Versions:  versions,
 	}
 
-	fromDef, err := h.st.GetEvent(r.Context(), ns, name, from)
-	if err != nil {
-		h.renderErrorPage(w, r, http.StatusNotFound, "Diff", "version "+from+" not found")
-		return
-	}
-	toDef, err := h.st.GetEvent(r.Context(), ns, name, to)
-	if err != nil {
-		h.renderErrorPage(w, r, http.StatusNotFound, "Diff", "version "+to+" not found")
-		return
+	if from != "" && to != "" {
+		fromDef, err := h.st.GetEvent(r.Context(), ns, name, from)
+		if err == nil {
+			toDef, err := h.st.GetEvent(r.Context(), ns, name, to)
+			if err == nil {
+				data.FromDef = fromDef
+				data.ToDef = toDef
+				data.Changes = spec.Diff(fromDef, toDef)
+			}
+		}
 	}
 
-	changes := spec.Diff(fromDef, toDef)
-	h.render(w, "event_diff", eventDiffData{b, ns, name, from, to, changes, fromDef, toDef})
+	h.render(w, "event_diff", data)
 }

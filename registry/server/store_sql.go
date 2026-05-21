@@ -186,7 +186,7 @@ func splitStatements(s string) []string {
 	return out
 }
 
-func (st *sqlStore) ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
+func (st *sqlStore) ListAllEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
 	query := "SELECT spec_yaml FROM events WHERE 1=1"
 	var args []any
 	if filter.Namespace != "" {
@@ -219,6 +219,14 @@ func (st *sqlStore) ListEvents(ctx context.Context, filter registry.ListFilter) 
 		results = append(results, def)
 	}
 	return results, rows.Err()
+}
+
+func (st *sqlStore) ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
+	all, err := st.ListAllEvents(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	return registry.DeduplicateByLatest(all), nil
 }
 
 func containsAll(tags, required []string) bool {
@@ -325,6 +333,23 @@ func (st *sqlStore) GetDestination(ctx context.Context, name string) (*spec.Dest
 		return nil, fmt.Errorf("parse destination yaml: %w", err)
 	}
 	return &def, nil
+}
+
+func (st *sqlStore) ListDestinations(ctx context.Context) ([]string, error) {
+	rows, err := st.db.QueryContext(ctx, "SELECT name FROM destinations ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	return names, rows.Err()
 }
 
 func (st *sqlStore) PublishEvent(ctx context.Context, event spec.EventDef, userID string) error {

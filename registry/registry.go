@@ -25,11 +25,42 @@ type ListFilter struct {
 	Tags      []string         // all listed tags must be present; nil means no tag filter
 }
 
+// DeduplicateByLatest returns one EventDef per (Namespace, Name) pair — the one
+// with the highest SchemaVer. Events with unparseable versions are skipped.
+// Filters are applied before deduplication, so a status filter yields the highest
+// version that satisfies the filter, not the highest overall.
+func DeduplicateByLatest(events []spec.EventDef) []spec.EventDef {
+	type key struct{ ns, name string }
+	best := map[key]spec.EventDef{}
+	bestVer := map[key]spec.SchemaVer{}
+	for _, ev := range events {
+		k := key{ev.Namespace, ev.Name}
+		sv, err := spec.ParseSchemaVer(ev.Version)
+		if err != nil {
+			continue
+		}
+		if _, ok := best[k]; !ok || spec.CompareSchemaVer(sv, bestVer[k]) > 0 {
+			best[k] = ev
+			bestVer[k] = sv
+		}
+	}
+	out := make([]spec.EventDef, 0, len(best))
+	for _, ev := range best {
+		out = append(out, ev)
+	}
+	return out
+}
+
 // Registry provides access to event specs, sources, and destinations.
 // Both the git-backed and server implementations satisfy this interface;
 // the CLI and codegen engine never import a concrete implementation directly.
 type Registry interface {
+	// ListEvents returns one EventDef per (namespace, name) pair — the one with the
+	// highest SchemaVer that matches filter. Use ListAllEvents when all versions are needed.
 	ListEvents(ctx context.Context, filter ListFilter) ([]spec.EventDef, error)
+	// ListAllEvents returns every matching EventDef without deduplication.
+	// Use this when all versions are needed (e.g. codegen with version pinning, diff views).
+	ListAllEvents(ctx context.Context, filter ListFilter) ([]spec.EventDef, error)
 	GetEvent(ctx context.Context, namespace, name, version string) (*spec.EventDef, error)
 	GetSource(ctx context.Context, name string) (*spec.SourceDef, error)
 	GetDestination(ctx context.Context, name string) (*spec.DestinationDef, error)

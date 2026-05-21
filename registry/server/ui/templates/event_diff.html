@@ -4,11 +4,19 @@
     <form method="GET" action="/ui/events/{{.Namespace}}/{{.EventName}}/diff" class="es-filter-bar">
       <div class="es-form-group es-inline">
         <label class="es-label">From version</label>
-        <input type="text" name="from" class="es-input es-input-sm" value="{{.From}}" placeholder="e.g. 1-0-0">
+        <select name="from" class="es-select es-select-sm">
+          {{range .Versions}}
+          <option value="{{.Version}}"{{if eq .Version $.From}} selected{{end}}>{{.Version}} ({{.Status}})</option>
+          {{end}}
+        </select>
       </div>
       <div class="es-form-group es-inline">
         <label class="es-label">To version</label>
-        <input type="text" name="to" class="es-input es-input-sm" value="{{.To}}" placeholder="e.g. 1-2-0">
+        <select name="to" class="es-select es-select-sm">
+          {{range .Versions}}
+          <option value="{{.Version}}"{{if eq .Version $.To}} selected{{end}}>{{.Version}} ({{.Status}})</option>
+          {{end}}
+        </select>
       </div>
       <button type="submit" class="es-btn es-btn-primary">Compare</button>
     </form>

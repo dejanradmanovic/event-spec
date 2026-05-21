@@ -135,6 +135,11 @@ func (s *Server) ListEvents(ctx context.Context, filter registry.ListFilter) ([]
 	return s.st.ListEvents(ctx, filter)
 }
 
+// ListAllEvents implements registry.Registry.
+func (s *Server) ListAllEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
+	return s.st.ListAllEvents(ctx, filter)
+}
+
 // GetEvent implements registry.Registry.
 func (s *Server) GetEvent(ctx context.Context, namespace, name, version string) (*spec.EventDef, error) {
 	return s.st.GetEvent(ctx, namespace, name, version)

@@ -50,8 +50,11 @@ type ServerSetting = shared.ServerSetting
 // this interface, so it can be passed directly without an adapter.
 type Store interface {
 	ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
+	ListAllEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error)
 	GetEvent(ctx context.Context, namespace, name, version string) (*spec.EventDef, error)
 	PublishEvent(ctx context.Context, event spec.EventDef, userID string) error
+	ListDestinations(ctx context.Context) ([]string, error)
+	CountAPIKeys(ctx context.Context) (int, error)
 	LookupAPIKey(ctx context.Context, keyHash string) (userID, role string, err error)
 	ListAuditLog(ctx context.Context, filter shared.AuditFilter) ([]shared.AuditEntry, error)
 	ListAPIKeys(ctx context.Context) ([]shared.APIKeyRecord, error)

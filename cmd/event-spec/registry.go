@@ -55,10 +55,10 @@ func openRegistry(cfg *spec.WorkspaceConfig) (registry.Registry, error) {
 	}
 }
 
-// listAllEvents returns every event in the registry as a pointer slice,
-// suitable for codegen.Run.
+// listAllEvents returns every event version in the registry as a pointer slice,
+// suitable for applySourceConfig (which handles version pinning) and codegen.Run.
 func listAllEvents(ctx context.Context, reg registry.Registry) ([]*spec.EventDef, error) {
-	defs, err := reg.ListEvents(ctx, registry.ListFilter{})
+	defs, err := reg.ListAllEvents(ctx, registry.ListFilter{})
 	if err != nil {
 		return nil, err
 	}

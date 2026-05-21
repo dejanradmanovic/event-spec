@@ -1,0 +1,43 @@
+{{define "bootstrap"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Setup — event-spec</title>
+  <link rel="stylesheet" href="/ui/static/tabler.min.css">
+</head>
+<body class="es-login-body">
+  <div class="es-login-card">
+    <div class="es-login-header">
+      <h1 class="es-login-title">event-spec</h1>
+      <p class="es-login-subtitle">First-time Setup</p>
+    </div>
+    {{if .Flash}}
+    <div class="es-alert es-alert-danger">{{.Flash}}</div>
+    {{end}}
+    {{if .NewKey}}
+    <div class="es-alert es-alert-success">Setup complete. Copy your admin key now — it will not be shown again.</div>
+    <div class="es-key-display" style="margin-bottom:1rem">
+      <code id="bootstrap-key" class="es-code es-code-block">{{.NewKey}}</code>
+      <button class="es-btn es-btn-ghost es-btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('bootstrap-key').textContent)">Copy</button>
+    </div>
+    <a href="/ui/" class="es-btn es-btn-primary es-btn-full">Go to Dashboard</a>
+    {{else}}
+    <p class="es-form-hint" style="margin-bottom:1rem">No API keys exist yet. Create your first admin key to get started.</p>
+    <form method="POST" action="/ui/bootstrap" class="es-login-form">
+      <div class="es-form-group">
+        <label class="es-label" for="identity">Your Name</label>
+        <input id="identity" name="identity" type="text" class="es-input" placeholder="e.g. Dejan Radmanovic" autofocus required>
+        <span class="es-form-hint">Used to identify you in audit logs.</span>
+      </div>
+      <div class="es-form-group">
+        <label class="es-label" for="name">Key Label (optional)</label>
+        <input id="name" name="name" type="text" class="es-input" placeholder="e.g. admin">
+      </div>
+      <button type="submit" class="es-btn es-btn-primary es-btn-full">Create Admin Key</button>
+    </form>
+    {{end}}
+  </div>
+</body>
+</html>
+{{end}}

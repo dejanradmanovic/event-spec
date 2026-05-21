@@ -79,8 +79,8 @@ func eventKey(namespace, name, version string) string {
 	return namespace + "/" + name + "/" + version
 }
 
-// ListEvents returns all indexed events that match filter.
-func (r *Resolver) ListEvents(_ context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
+// ListAllEvents returns all indexed events that match filter, including all versions.
+func (r *Resolver) ListAllEvents(_ context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -98,6 +98,17 @@ func (r *Resolver) ListEvents(_ context.Context, filter registry.ListFilter) ([]
 		out = append(out, *def)
 	}
 	return out, nil
+}
+
+// ListEvents returns one EventDef per (namespace, name) pair — the highest SchemaVer
+// that matches filter. Deduplication runs after filtering, so a status filter yields
+// the highest version satisfying the filter, not the highest version overall.
+func (r *Resolver) ListEvents(ctx context.Context, filter registry.ListFilter) ([]spec.EventDef, error) {
+	all, err := r.ListAllEvents(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	return registry.DeduplicateByLatest(all), nil
 }
 
 // GetEvent looks up an event by namespace, name, and version.

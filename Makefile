@@ -1,6 +1,8 @@
 .PHONY: build run test lint fmt vet tidy install-tools hooks help
 
 BIN := event-spec
+PORT ?= 8080
+DB_DSN ?= file:./registry.db
 
 ## build: compile the CLI binary
 build:
@@ -8,7 +10,7 @@ build:
 
 ## run: build and start the registry server (PORT and DB_DSN env vars override defaults)
 run: build
-	./$(BIN) serve --port $${PORT:-8080} --db $${DB_DSN:-file:./registry.db}
+	./$(BIN) serve --port $(PORT) --db $(DB_DSN)
 
 ## test: run all tests
 test:

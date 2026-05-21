@@ -77,6 +77,7 @@ func (h *Handler) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 	}
 	role := r.FormValue("role")
 	name := r.FormValue("name")
+	identity := strings.TrimSpace(r.FormValue("identity"))
 	expiresIn := r.FormValue("expires_in")
 
 	if role == "" || roleLevel(role) < 0 {
@@ -99,8 +100,11 @@ func (h *Handler) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 	rawKey := hex.EncodeToString(rawBytes)
 	keyHash := sha256hex(rawKey)
 
-	userID, _ := r.Context().Value(ctxUserID).(string)
-	id, err := h.st.CreateAPIKey(r.Context(), keyHash, role, name, userID, expiresAt)
+	sessionUser, _ := r.Context().Value(ctxUserID).(string)
+	if identity == "" {
+		identity = sessionUser
+	}
+	id, err := h.st.CreateAPIKey(r.Context(), keyHash, role, name, identity, expiresAt)
 	if err != nil {
 		http.Redirect(w, r, "/ui/settings/keys", http.StatusFound)
 		return
