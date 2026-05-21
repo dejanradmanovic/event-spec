@@ -26,7 +26,7 @@ type Matcher interface {
 	// FindUsages parses content and returns a map of method name → locations
 	// where EventSpec methods were called, and a separate map of raw event
 	// names extracted from untyped Track calls (rogue candidates).
-	FindUsages(path string, content []byte) (methodCalls map[string][]Location, rawTrackCalls map[string][]Location, err error)
+	FindUsages(path string, content []byte) (methodCalls, rawTrackCalls map[string][]Location, err error)
 }
 
 // NewGoMatcher returns a Matcher for Go source files.
@@ -47,12 +47,12 @@ type goMatcher struct{}
 func (goMatcher) Language() string         { return "go" }
 func (goMatcher) FileExtensions() []string { return []string{".go"} }
 
-func (goMatcher) FindUsages(path string, content []byte) (map[string][]Location, map[string][]Location, error) {
+func (goMatcher) FindUsages(path string, content []byte) (methodCalls, rawTrackCalls map[string][]Location, err error) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, path, content, 0)
-	if err != nil {
+	f, parseErr := parser.ParseFile(fset, path, content, 0)
+	if parseErr != nil {
 		// Skip files that do not compile (e.g. build-tag excluded files).
-		return nil, nil, nil
+		return nil, nil, nil //nolint:nilerr // intentional: parse errors in user code are non-fatal
 	}
 
 	methods := make(map[string][]Location)
@@ -127,7 +127,7 @@ type tsMatcher struct{}
 func (tsMatcher) Language() string         { return "typescript" }
 func (tsMatcher) FileExtensions() []string { return []string{".ts", ".tsx", ".js", ".jsx"} }
 
-func (tsMatcher) FindUsages(path string, content []byte) (map[string][]Location, map[string][]Location, error) {
+func (tsMatcher) FindUsages(path string, content []byte) (methodCalls, rawTrackCalls map[string][]Location, err error) {
 	methods := make(map[string][]Location)
 	rawTracks := make(map[string][]Location)
 
@@ -177,7 +177,7 @@ type swiftMatcher struct{}
 func (swiftMatcher) Language() string         { return "swift" }
 func (swiftMatcher) FileExtensions() []string { return []string{".swift"} }
 
-func (swiftMatcher) FindUsages(path string, content []byte) (map[string][]Location, map[string][]Location, error) {
+func (swiftMatcher) FindUsages(path string, content []byte) (methodCalls, rawTrackCalls map[string][]Location, err error) {
 	methods := make(map[string][]Location)
 	rawTracks := make(map[string][]Location)
 

@@ -135,53 +135,53 @@ func methodNameForLanguage(language, rawName string) string {
 // WriteText writes a human-readable text report to w.
 func (r *Report) WriteText(w io.Writer) {
 	sep := strings.Repeat("=", 80)
-	fmt.Fprintln(w, "")
-	fmt.Fprintf(w, "Event Coverage Report: %s\n", r.Source)
-	fmt.Fprintln(w, sep)
-	fmt.Fprintf(w, "Source:     %s (%s)\n", r.Source, r.Language)
-	fmt.Fprintf(w, "Scanned:    %d files\n", r.ScannedFiles)
-	fmt.Fprintf(w, "Events:     %d defined, %d used (%.1f%% coverage)\n",
+	_, _ = fmt.Fprintln(w, "")
+	_, _ = fmt.Fprintf(w, "Event Coverage Report: %s\n", r.Source)
+	_, _ = fmt.Fprintln(w, sep)
+	_, _ = fmt.Fprintf(w, "Source:     %s (%s)\n", r.Source, r.Language)
+	_, _ = fmt.Fprintf(w, "Scanned:    %d files\n", r.ScannedFiles)
+	_, _ = fmt.Fprintf(w, "Events:     %d defined, %d used (%.1f%% coverage)\n",
 		r.TotalDefined, len(r.Used), r.CoveragePct)
-	fmt.Fprintln(w, "")
+	_, _ = fmt.Fprintln(w, "")
 
 	if len(r.Used) > 0 {
-		fmt.Fprintf(w, "✅ USED (%d events)\n", len(r.Used))
+		_, _ = fmt.Fprintf(w, "✅ USED (%d events)\n", len(r.Used))
 		for _, e := range r.Used {
 			firstLoc := ""
 			if len(e.Locations) > 0 {
 				firstLoc = fmt.Sprintf("  %s:%d", e.Locations[0].File, e.Locations[0].Line)
 			}
-			fmt.Fprintf(w, "  %-50s%s\n", e.EventKey, firstLoc)
+			_, _ = fmt.Fprintf(w, "  %-50s%s\n", e.EventKey, firstLoc)
 		}
-		fmt.Fprintln(w, "")
+		_, _ = fmt.Fprintln(w, "")
 	}
 
 	if len(r.Unused) > 0 {
-		fmt.Fprintf(w, "⚠️  UNUSED (%d events - defined in spec but not found in code)\n", len(r.Unused))
+		_, _ = fmt.Fprintf(w, "⚠️  UNUSED (%d events - defined in spec but not found in code)\n", len(r.Unused))
 		for _, e := range r.Unused {
 			req := ""
 			if e.Required {
 				req = " [required]"
 			}
-			fmt.Fprintf(w, "  %-50s Declared in %s%s\n", e.EventKey, e.SpecFile, req)
+			_, _ = fmt.Fprintf(w, "  %-50s Declared in %s%s\n", e.EventKey, e.SpecFile, req)
 		}
-		fmt.Fprintln(w, "")
+		_, _ = fmt.Fprintln(w, "")
 	}
 
 	if len(r.Rogue) > 0 {
-		fmt.Fprintf(w, "❌ ROGUE EVENTS (%d - sent but not in spec)\n", len(r.Rogue))
+		_, _ = fmt.Fprintf(w, "❌ ROGUE EVENTS (%d - sent but not in spec)\n", len(r.Rogue))
 		for _, e := range r.Rogue {
 			firstLoc := ""
 			if len(e.Locations) > 0 {
 				firstLoc = fmt.Sprintf("  %s:%d", e.Locations[0].File, e.Locations[0].Line)
 			}
-			fmt.Fprintf(w, "  %-50s%s\n", e.EventName, firstLoc)
+			_, _ = fmt.Fprintf(w, "  %-50s%s\n", e.EventName, firstLoc)
 		}
-		fmt.Fprintln(w, "")
+		_, _ = fmt.Fprintln(w, "")
 	}
 
 	if len(r.Rogue) == 0 && len(r.Unused) == 0 {
-		fmt.Fprintf(w, "✅ All %d events are used. No rogue events detected.\n", r.TotalDefined)
+		_, _ = fmt.Fprintf(w, "✅ All %d events are used. No rogue events detected.\n", r.TotalDefined)
 	}
 }
 
@@ -244,7 +244,7 @@ func (r *Report) WriteJSON(w io.Writer) error {
 	for _, e := range r.Used {
 		jlocs := make([]jsonLocation, len(e.Locations))
 		for i, l := range e.Locations {
-			jlocs[i] = jsonLocation{File: l.File, Line: l.Line}
+			jlocs[i] = jsonLocation(l)
 		}
 		jr.Used = append(jr.Used, jsonUsed{Event: e.EventKey, Version: e.Version, Locations: jlocs})
 	}
@@ -254,7 +254,7 @@ func (r *Report) WriteJSON(w io.Writer) error {
 	for _, e := range r.Rogue {
 		jlocs := make([]jsonLocation, len(e.Locations))
 		for i, l := range e.Locations {
-			jlocs[i] = jsonLocation{File: l.File, Line: l.Line}
+			jlocs[i] = jsonLocation(l)
 		}
 		jr.Rogue = append(jr.Rogue, jsonRogue{EventName: e.EventName, Locations: jlocs})
 	}
@@ -265,9 +265,7 @@ func (r *Report) WriteJSON(w io.Writer) error {
 
 // WriteHTML writes an HTML report to w.
 func (r *Report) WriteHTML(w io.Writer) {
-	e := func(s string) string { return html.EscapeString(s) }
-
-	fmt.Fprintf(w, `<!DOCTYPE html>
+	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -294,54 +292,54 @@ td{border-bottom:1px solid #eee;padding:.4rem .6rem;vertical-align:top}
 <p>%d defined &nbsp;·&nbsp; <strong>%d used</strong> &nbsp;·&nbsp; %d unused &nbsp;·&nbsp; %d rogue</p>
 </div>
 `,
-		e(r.Source),
-		e(r.Source),
-		e(r.Source), e(r.Language), r.ScannedFiles,
+		html.EscapeString(r.Source),
+		html.EscapeString(r.Source),
+		html.EscapeString(r.Source), html.EscapeString(r.Language), r.ScannedFiles,
 		r.CoveragePct,
 		r.TotalDefined, len(r.Used), len(r.Unused), len(r.Rogue),
 	)
 
 	if len(r.Used) > 0 {
-		fmt.Fprintln(w, "<h2>✅ Used Events</h2>")
-		fmt.Fprintln(w, "<table><tr><th>Event</th><th>Version</th><th>Location</th></tr>")
+		_, _ = fmt.Fprintln(w, "<h2>✅ Used Events</h2>")
+		_, _ = fmt.Fprintln(w, "<table><tr><th>Event</th><th>Version</th><th>Location</th></tr>")
 		for _, ev := range r.Used {
 			loc := ""
 			if len(ev.Locations) > 0 {
-				loc = fmt.Sprintf("%s:%d", e(ev.Locations[0].File), ev.Locations[0].Line)
+				loc = fmt.Sprintf("%s:%d", html.EscapeString(ev.Locations[0].File), ev.Locations[0].Line)
 			}
-			fmt.Fprintf(w, "<tr class=\"used\"><td>%s</td><td>%s</td><td>%s</td></tr>\n",
-				e(ev.EventKey), e(ev.Version), loc)
+			_, _ = fmt.Fprintf(w, "<tr class=\"used\"><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+				html.EscapeString(ev.EventKey), html.EscapeString(ev.Version), loc)
 		}
-		fmt.Fprintln(w, "</table>")
+		_, _ = fmt.Fprintln(w, "</table>")
 	}
 
 	if len(r.Unused) > 0 {
-		fmt.Fprintln(w, "<h2>⚠️ Unused Events</h2>")
-		fmt.Fprintln(w, "<table><tr><th>Event</th><th>Version</th><th>Spec File</th></tr>")
+		_, _ = fmt.Fprintln(w, "<h2>⚠️ Unused Events</h2>")
+		_, _ = fmt.Fprintln(w, "<table><tr><th>Event</th><th>Version</th><th>Spec File</th></tr>")
 		for _, ev := range r.Unused {
 			req := ""
 			if ev.Required {
 				req = ` <span class="req">[required]</span>`
 			}
-			fmt.Fprintf(w, "<tr class=\"unused\"><td>%s%s</td><td>%s</td><td>%s</td></tr>\n",
-				e(ev.EventKey), req, e(ev.Version), e(ev.SpecFile))
+			_, _ = fmt.Fprintf(w, "<tr class=\"unused\"><td>%s%s</td><td>%s</td><td>%s</td></tr>\n",
+				html.EscapeString(ev.EventKey), req, html.EscapeString(ev.Version), html.EscapeString(ev.SpecFile))
 		}
-		fmt.Fprintln(w, "</table>")
+		_, _ = fmt.Fprintln(w, "</table>")
 	}
 
 	if len(r.Rogue) > 0 {
-		fmt.Fprintln(w, "<h2>❌ Rogue Events</h2>")
-		fmt.Fprintln(w, "<table><tr><th>Event</th><th>Location</th></tr>")
+		_, _ = fmt.Fprintln(w, "<h2>❌ Rogue Events</h2>")
+		_, _ = fmt.Fprintln(w, "<table><tr><th>Event</th><th>Location</th></tr>")
 		for _, ev := range r.Rogue {
 			loc := ""
 			if len(ev.Locations) > 0 {
-				loc = fmt.Sprintf("%s:%d", e(ev.Locations[0].File), ev.Locations[0].Line)
+				loc = fmt.Sprintf("%s:%d", html.EscapeString(ev.Locations[0].File), ev.Locations[0].Line)
 			}
-			fmt.Fprintf(w, "<tr class=\"rogue\"><td>%s</td><td>%s</td></tr>\n",
-				e(ev.EventName), loc)
+			_, _ = fmt.Fprintf(w, "<tr class=\"rogue\"><td>%s</td><td>%s</td></tr>\n",
+				html.EscapeString(ev.EventName), loc)
 		}
-		fmt.Fprintln(w, "</table>")
+		_, _ = fmt.Fprintln(w, "</table>")
 	}
 
-	fmt.Fprintln(w, "</body></html>")
+	_, _ = fmt.Fprintln(w, "</body></html>")
 }

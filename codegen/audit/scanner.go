@@ -79,10 +79,10 @@ func (s *Scanner) ScanDir(dir string) (*ScanResult, error) {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
 
-		methods, rawTracks, err := s.matcher.FindUsages(path, content)
-		if err != nil {
+		methods, rawTracks, findErr := s.matcher.FindUsages(path, content)
+		if findErr != nil {
 			// Non-fatal: skip files that cannot be parsed.
-			return nil
+			return nil //nolint:nilerr // intentional: parse errors in user code are non-fatal
 		}
 
 		result.ScannedFiles++
