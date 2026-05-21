@@ -5,8 +5,8 @@
       <div>
         <div class="es-flex" style="align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.4rem">
           <h2 class="es-event-name">{{.App.Name}}</h2>
-          {{if .App.Platform}}<span class="es-badge">{{.App.Platform}}</span>{{end}}
-          {{if .App.Mode}}<span class="es-badge">{{.App.Mode}}</span>{{end}}
+          {{if .App.Platform}}<span class="es-tag">{{.App.Platform}}</span>{{end}}
+          {{if .App.Mode}}<span class="es-tag">{{.App.Mode}}</span>{{end}}
         </div>
       </div>
       <div class="es-flex" style="gap:.5rem;flex-shrink:0">
@@ -32,13 +32,13 @@
       {{if .App.Platform}}
       <div class="es-event-meta-item">
         <span class="es-event-meta-label">Platform</span>
-        <span class="es-badge">{{.App.Platform}}</span>
+        <span class="es-tag">{{.App.Platform}}</span>
       </div>
       {{end}}
       {{if .App.Mode}}
       <div class="es-event-meta-item">
         <span class="es-event-meta-label">Mode</span>
-        <span class="es-badge">{{.App.Mode}}</span>
+        <span class="es-tag">{{.App.Mode}}</span>
       </div>
       {{end}}
       {{if .App.RuntimeEndpoint}}

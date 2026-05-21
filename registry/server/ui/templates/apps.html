@@ -24,9 +24,9 @@
           <td>
             <a href="/ui/settings/apps/{{.Name}}" class="es-link-strong">{{.Name}}</a>
           </td>
-          <td>{{if .Platform}}<span class="es-badge">{{.Platform}}</span>{{end}}</td>
+          <td>{{if .Platform}}<span class="es-tag">{{.Platform}}</span>{{end}}</td>
           <td class="es-text-muted es-text-sm">{{.Language}}</td>
-          <td>{{if .Mode}}<span class="es-badge">{{.Mode}}</span>{{else}}<span class="es-text-muted">—</span>{{end}}</td>
+          <td>{{if .Mode}}<span class="es-tag">{{.Mode}}</span>{{else}}<span class="es-text-muted">—</span>{{end}}</td>
           <td class="es-text-muted es-text-sm">{{len .Destinations}}</td>
           <td style="text-align:right">
             <a href="/ui/settings/apps/{{.Name}}" class="es-btn es-btn-ghost es-btn-sm">View</a>
