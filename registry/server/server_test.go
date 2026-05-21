@@ -29,6 +29,7 @@ type mockStore struct {
 	apiKeys  map[string]keyEntry // sha256hex(rawToken) → entry
 	audit    []server.AuditEntry
 	webhooks []string
+	settings map[string]string // runtime config key-value
 
 	// keysWithID tracks API key records for list/revoke tests.
 	keysWithID []server.APIKeyRecord
@@ -168,6 +169,33 @@ func (m *mockStore) ListWebhooks(_ context.Context) ([]string, error) {
 	return m.webhooks, nil
 }
 
+func (m *mockStore) GetSetting(_ context.Context, key string) (string, error) {
+	if m.settings == nil {
+		return "", registry.ErrNotFound
+	}
+	v, ok := m.settings[key]
+	if !ok {
+		return "", registry.ErrNotFound
+	}
+	return v, nil
+}
+
+func (m *mockStore) SetSetting(_ context.Context, key, value string) error {
+	if m.settings == nil {
+		m.settings = make(map[string]string)
+	}
+	m.settings[key] = value
+	return nil
+}
+
+func (m *mockStore) ListSettings(_ context.Context) ([]server.ServerSetting, error) {
+	var out []server.ServerSetting
+	for k, v := range m.settings {
+		out = append(out, server.ServerSetting{Key: k, Value: v})
+	}
+	return out, nil
+}
+
 // --- helpers ---
 
 func keyHash(token string) string {
@@ -175,9 +203,9 @@ func keyHash(token string) string {
 	return hex.EncodeToString(h[:])
 }
 
-func newTestSrv(t *testing.T) (*httptest.Server, *mockStore) {
+func newTestStore(t *testing.T) *mockStore {
 	t.Helper()
-	st := &mockStore{
+	return &mockStore{
 		apiKeys: map[string]keyEntry{
 			keyHash("viewer-tok"):  {"alice", server.RoleViewer},
 			keyHash("publish-tok"): {"bob", server.RolePublisher},
@@ -215,7 +243,21 @@ func newTestSrv(t *testing.T) (*httptest.Server, *mockStore) {
 			},
 		},
 	}
+}
+
+func newTestSrv(t *testing.T) (*httptest.Server, *mockStore) {
+	t.Helper()
+	st := newTestStore(t)
 	ts := httptest.NewServer(server.New(st, server.Config{}))
+	t.Cleanup(ts.Close)
+	return ts, st
+}
+
+// newTestSrvWithConfig creates a test server with a custom Config, using the standard test store.
+func newTestSrvWithConfig(t *testing.T, cfg server.Config) (*httptest.Server, *mockStore) {
+	t.Helper()
+	st := newTestStore(t)
+	ts := httptest.NewServer(server.New(st, cfg))
 	t.Cleanup(ts.Close)
 	return ts, st
 }

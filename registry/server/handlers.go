@@ -15,6 +15,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/admin/keys", s.handleCreateAPIKey)
 	s.mux.HandleFunc("GET /v1/admin/keys", s.withAuth(RoleAdmin, s.handleListAPIKeys))
 	s.mux.HandleFunc("DELETE /v1/admin/keys/{id}", s.withAuth(RoleAdmin, s.handleRevokeAPIKey))
+	s.mux.HandleFunc("GET /v1/admin/config", s.withAuth(RoleAdmin, s.handleGetConfig))
+	s.mux.HandleFunc("PUT /v1/admin/config/{key}", s.withAuth(RoleAdmin, s.handleSetConfig))
 
 	// Analytics relay endpoints — thin clients POST events; server dispatches to providers.
 	s.mux.HandleFunc("POST /v1/track", s.withAuth(RoleViewer, s.handleTrack))

@@ -17,6 +17,7 @@ func newAdminCmd() *cobra.Command {
 	cmd.AddCommand(newAdminKeysCmd())
 	cmd.AddCommand(newAdminAuditCmd())
 	cmd.AddCommand(newAdminWebhooksCmd())
+	cmd.AddCommand(newAdminConfigCmd())
 	return cmd
 }
 

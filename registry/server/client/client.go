@@ -53,6 +53,12 @@ type WebhookRecord struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// ServerSetting is a runtime configuration key-value pair stored in the server DB.
+type ServerSetting struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 // AuditEntry is a single record from the server's audit log.
 type AuditEntry struct {
 	ID         int64     `json:"id"`
@@ -216,6 +222,25 @@ func (c *Client) RemoveWebhook(ctx context.Context, id int64) error {
 	return c.delete(ctx, fmt.Sprintf("%s/v1/webhooks/%d", c.cfg.BaseURL, id))
 }
 
+// GetConfig calls GET /v1/admin/config and returns all runtime settings (admin role required).
+func (c *Client) GetConfig(ctx context.Context) ([]ServerSetting, error) {
+	var settings []ServerSetting
+	if err := c.get(ctx, c.cfg.BaseURL+"/v1/admin/config", &settings); err != nil {
+		return nil, err
+	}
+	return settings, nil
+}
+
+// SetConfig calls PUT /v1/admin/config/{key} to update a runtime setting (admin role required).
+// The only valid key is currently "hooks_enabled"; its value must be "true" or "false".
+func (c *Client) SetConfig(ctx context.Context, key, value string) (*ServerSetting, error) {
+	var result ServerSetting
+	if err := c.put(ctx, fmt.Sprintf("%s/v1/admin/config/%s", c.cfg.BaseURL, key), map[string]string{"value": value}, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // ListAuditLog calls GET /v1/audit with optional query parameters (admin role required).
 // Supported params: limit, since, until, entity, user.
 func (c *Client) ListAuditLog(ctx context.Context, params url.Values) ([]AuditEntry, error) {
@@ -239,6 +264,25 @@ func (c *Client) get(ctx context.Context, u string, dst any) error {
 	if err != nil {
 		return err
 	}
+	c.auth(req)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return c.decode(resp, dst)
+}
+
+func (c *Client) put(ctx context.Context, u string, body, dst any) error {
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u, bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
 	c.auth(req)
 	resp, err := c.http.Do(req)
 	if err != nil {

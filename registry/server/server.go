@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dejanradmanovic/event-spec/analytics"
@@ -25,6 +26,13 @@ import (
 type Config struct {
 	// Port is the HTTP listen port. Defaults to 8080 when zero.
 	Port int
+	// HooksDisabled turns off the validation and per-event sampling hooks on analytics
+	// relay endpoints. By default (zero value) hooks are enabled: the server applies
+	// validation.Hook (schema checks, deleted-event gates) and sampling.Hook (per-event
+	// SamplingConfig from the spec) to every relay call. The runtime value can be
+	// overridden at any time via the PUT /v1/admin/config/hooks_enabled endpoint without
+	// a restart.
+	HooksDisabled bool
 }
 
 // Server is the REST API registry server.
@@ -38,6 +46,17 @@ type Server struct {
 
 	clientsMu sync.RWMutex
 	clients   map[string]*analytics.Client // analytics clients keyed by source name
+
+	// hooksEnabled is the live toggle for analytics relay hooks.
+	// Reads/writes use atomic operations so the admin endpoint can flip the flag
+	// without locking or restarting clients.
+	hooksEnabled atomic.Bool
+
+	// eventsByName is a lazily-populated, write-invalidated cache of EventName → EventDef.
+	// Used by eventLookup to avoid a DB round-trip on every relay call.
+	eventCacheMu    sync.RWMutex
+	eventCacheReady bool
+	eventsByName    map[string]*spec.EventDef
 }
 
 // New creates a Server backed by st.
@@ -46,7 +65,21 @@ func New(st Store, cfg Config) *Server {
 	if cfg.Port <= 0 {
 		cfg.Port = 8080
 	}
-	s := &Server{st: st, cfg: cfg, mux: http.NewServeMux(), startedAt: time.Now(), clients: make(map[string]*analytics.Client)}
+	s := &Server{
+		st:        st,
+		cfg:       cfg,
+		mux:       http.NewServeMux(),
+		startedAt: time.Now(),
+		clients:   make(map[string]*analytics.Client),
+	}
+	s.hooksEnabled.Store(!cfg.HooksDisabled)
+
+	// DB setting overrides the startup Config value so the admin endpoint
+	// can toggle hooks without a server restart.
+	if val, err := st.GetSetting(context.Background(), "hooks_enabled"); err == nil {
+		s.hooksEnabled.Store(val == "true")
+	}
+
 	s.routes()
 	return s
 }
@@ -119,9 +152,17 @@ func (s *Server) GetDestination(ctx context.Context, name string) (*spec.Destina
 
 // PublishEvent implements registry.Registry.
 // The userID is extracted from ctx (populated by the auth middleware for HTTP requests).
+// Invalidates the event name cache so hook lookups pick up the new definition immediately.
 func (s *Server) PublishEvent(ctx context.Context, event spec.EventDef) error {
 	userID, _ := ctx.Value(ctxUserID).(string)
-	return s.st.PublishEvent(ctx, event, userID)
+	err := s.st.PublishEvent(ctx, event, userID)
+	if err == nil {
+		s.eventCacheMu.Lock()
+		s.eventCacheReady = false
+		s.eventsByName = nil
+		s.eventCacheMu.Unlock()
+	}
+	return err
 }
 
 // Diff implements registry.Registry.

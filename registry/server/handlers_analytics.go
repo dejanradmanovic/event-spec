@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/dejanradmanovic/event-spec/analytics"
+	"github.com/dejanradmanovic/event-spec/hooks/sampling"
+	"github.com/dejanradmanovic/event-spec/hooks/validation"
 	"github.com/dejanradmanovic/event-spec/provider"
 	"github.com/dejanradmanovic/event-spec/provider/amplitude"
 	"github.com/dejanradmanovic/event-spec/provider/noop"
@@ -20,6 +22,9 @@ import (
 // clientForSource returns (or lazily builds) the analytics.Client for sourceName.
 // The client is constructed from the source's destinations stored in the DB and cached
 // for the lifetime of the server. Thread-safe via double-checked locking.
+// Hooks (validation + per-event sampling) are always registered; the eventLookup
+// function respects the hooksEnabled toggle so hook behaviour changes instantly
+// without recreating cached clients.
 func (s *Server) clientForSource(ctx context.Context, sourceName string) (*analytics.Client, error) {
 	s.clientsMu.RLock()
 	c, ok := s.clients[sourceName]
@@ -56,9 +61,51 @@ func (s *Server) clientForSource(ctx context.Context, sourceName string) (*analy
 		ps = []provider.Provider{noop.New()}
 	}
 
-	c = analytics.NewClient(analytics.WithProviders(ps...))
+	c = analytics.NewClient(
+		analytics.WithProviders(ps...),
+		analytics.WithHooks(
+			validation.New(s.eventLookup, nil),
+			sampling.New(s.eventLookup),
+		),
+	)
 	s.clients[sourceName] = c
 	return c, nil
+}
+
+// eventLookup satisfies the hooks.LookupFunc signature used by validation.Hook and sampling.Hook.
+// Returns (nil, false) when hooks are disabled, so both hooks pass every event through unchanged.
+// Results are cached in s.eventsByName and invalidated whenever a new event is published.
+func (s *Server) eventLookup(eventName string) (*spec.EventDef, bool) {
+	if !s.hooksEnabled.Load() {
+		return nil, false
+	}
+
+	s.eventCacheMu.RLock()
+	def, ready := s.eventsByName[eventName], s.eventCacheReady
+	s.eventCacheMu.RUnlock()
+	if ready {
+		return def, def != nil
+	}
+
+	// Cache miss — populate from the store once, then return.
+	events, err := s.st.ListEvents(context.Background(), registry.ListFilter{})
+	if err != nil {
+		return nil, false
+	}
+
+	s.eventCacheMu.Lock()
+	defer s.eventCacheMu.Unlock()
+	if s.eventCacheReady {
+		def = s.eventsByName[eventName]
+		return def, def != nil
+	}
+	s.eventsByName = make(map[string]*spec.EventDef, len(events))
+	for i := range events {
+		s.eventsByName[events[i].EventName] = &events[i]
+	}
+	s.eventCacheReady = true
+	def = s.eventsByName[eventName]
+	return def, def != nil
 }
 
 // buildProvider constructs a provider.Provider from a DestinationDef.
@@ -145,6 +192,21 @@ func sourceErrResponse(w http.ResponseWriter, sourceName string, err error) {
 	}
 }
 
+// dispatchErr converts a hook-cancelled error to the correct HTTP response.
+// sampling.ErrSampled → 202 (silent drop); everything else → 400.
+// Returns true if the handler should stop (response already written).
+func writeSampledOrError(w http.ResponseWriter, err error, context string) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, sampling.ErrSampled) {
+		w.WriteHeader(http.StatusAccepted)
+		return true
+	}
+	jsonError(w, context+err.Error(), http.StatusBadRequest)
+	return true
+}
+
 func (s *Server) handleTrack(w http.ResponseWriter, r *http.Request) {
 	var req TrackRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -163,15 +225,15 @@ func (s *Server) handleTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := c.Track(r.Context(), analytics.Event{
+	err = c.Track(r.Context(), analytics.Event{
 		Name:       req.EventName,
 		Properties: req.Properties,
 	}, analytics.WithContextOverride(analytics.AnalyticsContext{
 		UserID:      req.Context.UserID,
 		AnonymousID: req.Context.AnonymousID,
 		Attributes:  req.Context.Attributes,
-	})); err != nil {
-		jsonError(w, err.Error(), http.StatusBadRequest)
+	}))
+	if writeSampledOrError(w, err, "") {
 		return
 	}
 
@@ -196,13 +258,13 @@ func (s *Server) handleIdentify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := c.Identify(r.Context(), req.UserID, req.Traits,
+	err = c.Identify(r.Context(), req.UserID, req.Traits,
 		analytics.WithContextOverride(analytics.AnalyticsContext{
 			UserID:      req.Context.UserID,
 			AnonymousID: req.Context.AnonymousID,
 			Attributes:  req.Context.Attributes,
-		})); err != nil {
-		jsonError(w, err.Error(), http.StatusBadRequest)
+		}))
+	if writeSampledOrError(w, err, "") {
 		return
 	}
 
@@ -227,13 +289,13 @@ func (s *Server) handleGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := c.Group(r.Context(), req.GroupID, req.Traits,
+	err = c.Group(r.Context(), req.GroupID, req.Traits,
 		analytics.WithContextOverride(analytics.AnalyticsContext{
 			UserID:      req.Context.UserID,
 			AnonymousID: req.Context.AnonymousID,
 			Attributes:  req.Context.Attributes,
-		})); err != nil {
-		jsonError(w, err.Error(), http.StatusBadRequest)
+		}))
+	if writeSampledOrError(w, err, "") {
 		return
 	}
 
@@ -258,13 +320,13 @@ func (s *Server) handlePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := c.Page(r.Context(), req.Name, req.Properties,
+	err = c.Page(r.Context(), req.Name, req.Properties,
 		analytics.WithContextOverride(analytics.AnalyticsContext{
 			UserID:      req.Context.UserID,
 			AnonymousID: req.Context.AnonymousID,
 			Attributes:  req.Context.Attributes,
-		})); err != nil {
-		jsonError(w, err.Error(), http.StatusBadRequest)
+		}))
+	if writeSampledOrError(w, err, "") {
 		return
 	}
 
@@ -289,13 +351,13 @@ func (s *Server) handleAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := c.Alias(r.Context(), req.UserID, req.PreviousID,
+	err = c.Alias(r.Context(), req.UserID, req.PreviousID,
 		analytics.WithContextOverride(analytics.AnalyticsContext{
 			UserID:      req.Context.UserID,
 			AnonymousID: req.Context.AnonymousID,
 			Attributes:  req.Context.Attributes,
-		})); err != nil {
-		jsonError(w, err.Error(), http.StatusBadRequest)
+		}))
+	if writeSampledOrError(w, err, "") {
 		return
 	}
 
@@ -346,6 +408,10 @@ func (s *Server) handleBatch(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if dispatchErr != nil {
+			// Sampled-out items are silently skipped; other errors abort the batch.
+			if errors.Is(dispatchErr, sampling.ErrSampled) {
+				continue
+			}
 			jsonError(w, fmt.Sprintf("events[%d]: %s", i, dispatchErr), http.StatusBadRequest)
 			return
 		}

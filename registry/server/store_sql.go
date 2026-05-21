@@ -84,6 +84,10 @@ CREATE TABLE IF NOT EXISTS webhooks (
     url        TEXT NOT NULL,
     created_by TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS server_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 )
 `
 
@@ -134,6 +138,10 @@ CREATE TABLE IF NOT EXISTS webhooks (
     url        TEXT NOT NULL,
     created_by TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS server_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 )
 `
 
@@ -562,4 +570,43 @@ func (st *sqlStore) ListWebhooks(ctx context.Context) ([]string, error) {
 		urls = append(urls, u)
 	}
 	return urls, rows.Err()
+}
+
+func (st *sqlStore) GetSetting(ctx context.Context, key string) (string, error) {
+	var value string
+	err := st.db.QueryRowContext(ctx, st.ph("SELECT value FROM server_settings WHERE key = ?"), key).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", registry.ErrNotFound
+	}
+	return value, err
+}
+
+func (st *sqlStore) SetSetting(ctx context.Context, key, value string) error {
+	var q string
+	if st.driver == "postgres" {
+		q = `INSERT INTO server_settings (key, value) VALUES ($1, $2)
+             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`
+	} else {
+		q = `INSERT INTO server_settings (key, value) VALUES (?, ?)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+	}
+	_, err := st.db.ExecContext(ctx, q, key, value)
+	return err
+}
+
+func (st *sqlStore) ListSettings(ctx context.Context) ([]ServerSetting, error) {
+	rows, err := st.db.QueryContext(ctx, "SELECT key, value FROM server_settings ORDER BY key")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var settings []ServerSetting
+	for rows.Next() {
+		var s ServerSetting
+		if err := rows.Scan(&s.Key, &s.Value); err != nil {
+			return nil, err
+		}
+		settings = append(settings, s)
+	}
+	return settings, rows.Err()
 }
