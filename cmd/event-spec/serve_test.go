@@ -30,7 +30,8 @@ func TestServeCmd_MissingDB(t *testing.T) {
 
 func TestServeCmd_StartsAndShutdown(t *testing.T) {
 	// Find a free port.
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	lc := &net.ListenConfig{}
+	ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,9 +64,10 @@ registry:
 
 	// Wait for the server to be ready.
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	dialer := &net.Dialer{}
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if conn, err := net.Dial("tcp", addr); err == nil {
+		if conn, err := dialer.DialContext(context.Background(), "tcp", addr); err == nil {
 			_ = conn.Close()
 			break
 		}

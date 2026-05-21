@@ -30,22 +30,6 @@ destinations_dir: destinations
 	}
 }
 
-// writeServerWorkspaceConfig writes an event-spec.yaml with registry mode "server".
-func writeServerWorkspaceConfig(t *testing.T, dir string) {
-	t.Helper()
-	content := `version: 1
-workspace: test-workspace
-registry:
-  mode: server
-  url: https://registry.example.com
-sources_dir: sources
-destinations_dir: destinations
-`
-	if err := os.WriteFile(filepath.Join(dir, "event-spec.yaml"), []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // withWorkDir changes the working directory to dir for the duration of the test
 // and restores the original via t.Cleanup.
 func withWorkDir(t *testing.T, dir string) {
