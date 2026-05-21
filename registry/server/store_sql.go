@@ -410,7 +410,7 @@ func (st *sqlStore) UpdateDestination(ctx context.Context, dest spec.Destination
 	return err
 }
 
-func (st *sqlStore) DeleteDestination(ctx context.Context, name string, userID string) error {
+func (st *sqlStore) DeleteDestination(ctx context.Context, name, userID string) error {
 	var destID int64
 	_ = st.db.QueryRowContext(ctx, st.ph("SELECT id FROM destinations WHERE name = ?"), name).Scan(&destID)
 	res, err := st.db.ExecContext(ctx, st.ph("DELETE FROM destinations WHERE name = ?"), name)
