@@ -235,7 +235,7 @@ require(['vs/editor/editor.main'], function () {
   var editor = monaco.editor.create(editorEl, {
     value:                textarea.value,
     language:             'yaml',
-    theme:                'event-spec-light',
+    theme:                document.documentElement.getAttribute('data-theme') === 'dark' ? 'vs-dark' : 'event-spec-light',
     minimap:              { enabled: false },
     scrollBeyondLastLine: false,
     fontSize:             13,
@@ -250,6 +250,7 @@ require(['vs/editor/editor.main'], function () {
     folding:              true,
     fixedOverflowWidgets: true,
   });
+  window._esEditor = editor;
 
   // Tab switching
   var tabBtns = document.querySelectorAll('.es-tab-btn');
