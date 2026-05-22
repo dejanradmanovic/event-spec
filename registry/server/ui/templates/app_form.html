@@ -1,0 +1,565 @@
+{{define "content"}}
+<div class="es-card">
+  <div class="es-card-header">
+    <div>
+      <h3 class="es-card-title">{{if .IsEdit}}Edit App{{else}}New App{{end}}</h3>
+      <p class="es-text-muted es-text-sm">
+        {{if .IsEdit}}
+          Update the app configuration below.
+        {{else}}
+          Use the Visual tab for guided entry, or switch to YAML for direct editing.
+        {{end}}
+      </p>
+    </div>
+    <div class="es-flex" style="gap:.75rem;align-items:center">
+      <div class="es-tab-bar">
+        <button type="button" class="es-tab-btn active" data-tab="visual">Visual</button>
+        <button type="button" class="es-tab-btn" data-tab="yaml">YAML</button>
+      </div>
+      <a href="/ui/settings/apps{{if .IsEdit}}/{{.AppName}}{{end}}" class="es-btn es-btn-ghost">Cancel</a>
+    </div>
+  </div>
+
+  <div class="es-card-body">
+    {{if .IsEdit}}
+    <div class="es-form-group" style="margin-bottom:1rem">
+      <label class="es-label">Locked field</label>
+      <span class="es-input es-input-locked" style="width:auto">
+        <span class="es-text-muted es-text-sm">name</span>&ensp;<code class="es-code">{{.AppName}}</code>
+      </span>
+    </div>
+    {{end}}
+
+    {{if .FormError}}
+    <div class="es-alert es-alert-danger" style="white-space:pre-line;margin-bottom:1rem">{{.FormError}}</div>
+    {{end}}
+
+    <form method="POST"
+      action="{{if .IsEdit}}/ui/settings/apps/{{.AppName}}/edit{{else}}/ui/settings/apps/new{{end}}"
+      id="app-form">
+      <textarea id="spec_yaml" name="spec_yaml" style="display:none">{{.YAML}}</textarea>
+
+      {{/* ── Visual Editor Tab ─────────────────────────────────────────── */}}
+      <div id="tab-visual" class="es-tab-panel">
+
+        {{/* Row 1: name / platform / language */}}
+        <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr 1fr;gap:.75rem">
+          <div class="es-form-group">
+            <label class="es-label">Name <span style="color:#c92a2a">*</span></label>
+            {{if .IsEdit}}
+            <span class="es-input es-input-locked">{{.AppName}}</span>
+            <input id="v-name" type="hidden" value="{{.AppName}}">
+            {{else}}
+            <input id="v-name" type="text" class="es-input" placeholder="e.g. web-app">
+            {{end}}
+          </div>
+          <div class="es-form-group">
+            <label class="es-label" for="v-platform">Platform</label>
+            <select id="v-platform" class="es-select" style="width:100%">
+              <option value="">— not set —</option>
+              <option value="web">web</option>
+              <option value="ios">ios</option>
+              <option value="android">android</option>
+              <option value="server">server</option>
+            </select>
+          </div>
+          <div class="es-form-group">
+            <label class="es-label" for="v-language">Language <span style="color:#c92a2a">*</span></label>
+            <select id="v-language" class="es-select" style="width:100%">
+              <option value="">— select —</option>
+              <option value="typescript">typescript</option>
+              <option value="go">go</option>
+              <option value="swift">swift</option>
+              <option value="kotlin">kotlin</option>
+              <option value="java">java</option>
+              <option value="rust">rust</option>
+              <option value="dart">dart</option>
+              <option value="python">python</option>
+            </select>
+          </div>
+        </div>
+
+        {{/* Row 2: mode / runtime_endpoint */}}
+        <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.5rem">
+          <div class="es-form-group">
+            <label class="es-label" for="v-mode">Mode</label>
+            <select id="v-mode" class="es-select" style="width:100%">
+              <option value="">— not set —</option>
+              <option value="client">client</option>
+              <option value="server">server</option>
+            </select>
+          </div>
+          <div class="es-form-group" id="runtime-endpoint-group" style="display:none">
+            <label class="es-label" for="v-runtime-endpoint">Runtime Endpoint</label>
+            <input id="v-runtime-endpoint" type="text" class="es-input" placeholder="https://analytics.example.com/v1/track">
+          </div>
+        </div>
+
+        {{/* Events */}}
+        <div class="es-visual-section" style="margin-top:.5rem">
+          <div class="es-flex es-flex-between es-flex-center" style="margin-bottom:.4rem">
+            <label class="es-label" style="margin:0">Events <span class="es-text-muted es-text-sm">(glob patterns)</span></label>
+            <button type="button" class="es-btn es-btn-ghost es-btn-sm" id="add-event-btn">+ Add</button>
+          </div>
+          <div style="border:1px solid #e6ebf1;border-radius:.35rem;overflow:hidden">
+            <table class="es-table" id="events-table" style="display:none">
+              <thead>
+                <tr>
+                  <th>Event Glob</th>
+                  <th style="width:32px"></th>
+                </tr>
+              </thead>
+              <tbody id="events-tbody"></tbody>
+            </table>
+            <div id="events-empty" class="es-empty" style="padding:1rem">
+              <p style="margin:0">No events. Click <strong>+ Add</strong> to add event glob patterns.</p>
+            </div>
+          </div>
+        </div>
+
+        {{/* Destinations */}}
+        {{if .Destinations}}
+        <div class="es-visual-section" style="margin-top:.5rem">
+          <label class="es-label" style="margin-bottom:.35rem;display:block">Destinations</label>
+          <div style="display:flex;flex-wrap:wrap;gap:.5rem" id="dest-checkboxes">
+            {{range .Destinations}}
+            <label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;border:1px solid #e6ebf1;border-radius:.3rem;padding:.3rem .6rem">
+              <input type="checkbox" class="dest-check" value="{{.Name}}">
+              <span class="es-text-sm">{{.Name}}</span>
+            </label>
+            {{end}}
+          </div>
+        </div>
+        {{end}}
+
+        {{/* Output */}}
+        <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.5rem">
+          <div class="es-form-group">
+            <label class="es-label">Output Path <span style="color:#c92a2a">*</span></label>
+            <input id="v-output-path" type="text" class="es-input" placeholder="./src/analytics/generated">
+          </div>
+          <div class="es-form-group">
+            <label class="es-label" for="v-output-package">Output Package</label>
+            <input id="v-output-package" type="text" class="es-input" placeholder="@my-company/analytics">
+          </div>
+        </div>
+
+        {{/* Client Validation */}}
+        <div class="es-visual-section" style="margin-top:.5rem">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+            <input id="v-client-validation" type="checkbox">
+            <span class="es-text-sm">Client Validation — validate events client-side before sending</span>
+          </label>
+        </div>
+
+        {{/* Version Pinning */}}
+        <div class="es-visual-section" style="margin-top:.75rem">
+          <div class="es-flex es-flex-between es-flex-center" style="margin-bottom:.4rem">
+            <label class="es-label" style="margin:0">Version Pinning</label>
+            <button type="button" class="es-btn es-btn-ghost es-btn-sm" id="add-vp-btn">+ Add Entry</button>
+          </div>
+          <div style="border:1px solid #e6ebf1;border-radius:.35rem;overflow:hidden">
+            <table class="es-table" id="vp-table" style="display:none">
+              <thead>
+                <tr>
+                  <th style="width:50%">Event Path</th>
+                  <th>Version</th>
+                  <th style="width:32px"></th>
+                </tr>
+              </thead>
+              <tbody id="vp-tbody"></tbody>
+            </table>
+            <div id="vp-empty" class="es-empty" style="padding:1rem">
+              <p style="margin:0">No version pinning. Click <strong>+ Add Entry</strong> to pin specific event versions.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {{/* ── YAML Editor Tab ──────────────────────────────────────────────── */}}
+      <div id="tab-yaml" class="es-tab-panel" style="display:none">
+        <div class="es-form-group">
+          <div class="es-flex es-flex-between es-flex-center" style="margin-bottom:.4rem">
+            <label class="es-label" style="margin:0">App YAML</label>
+            <span id="validation-status" class="es-text-sm"></span>
+          </div>
+          <div id="yaml-editor" style="height:420px;border:1px solid #d1dce8;border-radius:.35rem;overflow:hidden;background:#fff">
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9aa5b4;font-size:.85rem">
+              Loading editor…
+            </div>
+          </div>
+          <span class="es-form-hint" style="margin-top:.35rem">
+            Required: <code class="es-code">name</code>, <code class="es-code">language</code>.
+          </span>
+        </div>
+
+        <div class="es-card" style="margin-top:1rem">
+          <div class="es-card-header"><h3 class="es-card-title">YAML Reference</h3></div>
+          <div class="es-card-body">
+            <dl class="es-dl">
+              <dt><code class="es-code">name</code></dt><dd>Unique app identifier, e.g. <code class="es-code">web-app</code></dd>
+              <dt><code class="es-code">platform</code></dt><dd><code class="es-code">web</code> · <code class="es-code">ios</code> · <code class="es-code">android</code> · <code class="es-code">server</code></dd>
+              <dt><code class="es-code">language</code></dt><dd><code class="es-code">typescript</code> · <code class="es-code">go</code> · <code class="es-code">swift</code> · <code class="es-code">kotlin</code> · <code class="es-code">java</code> · <code class="es-code">rust</code> · <code class="es-code">dart</code> · <code class="es-code">python</code></dd>
+              <dt><code class="es-code">mode</code></dt><dd><code class="es-code">client</code> (embedded) · <code class="es-code">server</code> (server-proxied)</dd>
+              <dt><code class="es-code">runtime_endpoint</code></dt><dd>Server endpoint URL when <code class="es-code">mode: server</code></dd>
+              <dt><code class="es-code">events</code></dt><dd>List of event glob patterns, e.g. <code class="es-code">ecommerce/**</code></dd>
+              <dt><code class="es-code">destinations</code></dt><dd>List of destination names to route events to</dd>
+              <dt><code class="es-code">output.path</code></dt><dd>Codegen output directory</dd>
+              <dt><code class="es-code">output.package</code></dt><dd>Package name for generated SDK code</dd>
+              <dt><code class="es-code">version_pinning</code></dt><dd>Map of event path → version, e.g. <code class="es-code">ecommerce/product_viewed: "1-0-0"</code></dd>
+              <dt><code class="es-code">client_validation</code></dt><dd><code class="es-code">true</code> to validate events client-side before sending to server</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+
+      <div class="es-form-actions" style="margin-top:1rem">
+        <button type="submit" class="es-btn es-btn-primary">
+          {{if .IsEdit}}Save Changes{{else}}Create App{{end}}
+        </button>
+        <a href="/ui/settings/apps{{if .IsEdit}}/{{.AppName}}{{end}}" class="es-btn es-btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<script>
+function toggleRuntimeEndpoint() {
+  var mode = document.getElementById('v-mode');
+  var grp  = document.getElementById('runtime-endpoint-group');
+  if (mode && grp) grp.style.display = mode.value === 'server' ? '' : 'none';
+}
+
+window.MonacoEnvironment = {
+  getWorkerUrl: function (_, label) {
+    return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(
+      'self.MonacoEnvironment={baseUrl:"https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/"};' +
+      'importScripts("https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/vs/base/worker/workerMain.js");'
+    );
+  }
+};
+window.require = { paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/vs' } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/vs/loader.js"></script>
+<script>
+var eventVersionMap = {{.EventVersionsJSON}};
+var eventPaths = Object.keys(eventVersionMap).sort();
+
+require(['vs/editor/editor.main'], function () {
+  var textarea  = document.getElementById('spec_yaml');
+  var statusEl  = document.getElementById('validation-status');
+  var editorEl  = document.getElementById('yaml-editor');
+  var lastGeneratedYAML = '';
+
+  monaco.editor.defineTheme('event-spec-light', {
+    base: 'vs', inherit: true,
+    rules: [
+      { token: 'key.yaml',     foreground: '206bc4', fontStyle: 'bold' },
+      { token: 'string.yaml',  foreground: '2e7d32' },
+      { token: 'number.yaml',  foreground: 'b5440b' },
+      { token: 'comment.yaml', foreground: '9aa5b4', fontStyle: 'italic' },
+    ],
+    colors: {
+      'editor.background':              '#ffffff',
+      'editor.lineHighlightBackground': '#f4f6f9',
+      'editorGutter.background':        '#f9fafc',
+      'editorLineNumber.foreground':    '#b0bcc9',
+    }
+  });
+
+  editorEl.innerHTML = '';
+  var editor = monaco.editor.create(editorEl, {
+    value:                textarea.value,
+    language:             'yaml',
+    theme:                document.documentElement.getAttribute('data-theme') === 'dark' ? 'vs-dark' : 'event-spec-light',
+    minimap:              { enabled: false },
+    scrollBeyondLastLine: false,
+    fontSize:             13,
+    fontFamily:           "ui-monospace,'Cascadia Code','JetBrains Mono',Menlo,Consolas,monospace",
+    lineNumbers:          'on',
+    tabSize:              2,
+    insertSpaces:         true,
+    automaticLayout:      true,
+    padding:              { top: 10, bottom: 10 },
+    scrollbar:            { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
+    overviewRulerBorder:  false,
+    folding:              true,
+    fixedOverflowWidgets: true,
+  });
+  window._esEditor = editor;
+
+  var tabBtns = document.querySelectorAll('.es-tab-btn');
+  tabBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var target = btn.dataset.tab;
+      tabBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === target); });
+      document.getElementById('tab-visual').style.display = target === 'visual' ? '' : 'none';
+      document.getElementById('tab-yaml').style.display   = target === 'yaml'   ? '' : 'none';
+      if (target === 'yaml') setTimeout(function () { editor.layout(); }, 10);
+      if (target === 'visual') {
+        var doc = tryParseYAML(editor.getValue());
+        if (doc && typeof doc === 'object') populateVisual(doc);
+      }
+    });
+  });
+
+  editor.onDidChangeModelContent(function () {
+    var current = editor.getValue();
+    textarea.value = current;
+    validate();
+    if (current === lastGeneratedYAML) return;
+    var doc = tryParseYAML(current);
+    if (doc && typeof doc === 'object') {
+      lastGeneratedYAML = current;
+      populateVisual(doc);
+    }
+  });
+
+  document.getElementById('app-form').addEventListener('submit', function () {
+    textarea.value = editor.getValue();
+  });
+
+  document.getElementById('tab-visual').addEventListener('input',  onVisualChange);
+  document.getElementById('tab-visual').addEventListener('change', onVisualChange);
+
+  document.getElementById('add-event-btn').addEventListener('click', function () {
+    addEventRow('');
+    updateEventsEmpty();
+    onVisualChange();
+  });
+
+  document.getElementById('add-vp-btn').addEventListener('click', function () {
+    addVPRow('', '');
+    updateVPEmpty();
+    onVisualChange();
+  });
+
+  var initDoc = tryParseYAML(textarea.value);
+  if (initDoc && typeof initDoc === 'object') populateVisual(initDoc);
+  lastGeneratedYAML = editor.getValue();
+  updateEventsEmpty();
+  updateVPEmpty();
+  validate();
+  toggleRuntimeEndpoint();
+
+  // ── Visual → YAML ────────────────────────────────────────────────────────
+  function onVisualChange() {
+    var doc = buildDocFromVisual();
+    var yamlStr = jsyaml.dump(doc, { indent: 2, lineWidth: -1, noRefs: true });
+    if (yamlStr === editor.getValue()) return;
+    lastGeneratedYAML = yamlStr;
+    editor.setValue(yamlStr);
+  }
+
+  function buildDocFromVisual() {
+    var doc = {};
+    var name     = gv('v-name');
+    var platform = gv('v-platform');
+    var language = gv('v-language');
+    var mode     = gv('v-mode');
+    var endpoint = gv('v-runtime-endpoint');
+
+    if (name)     doc.name     = name;
+    if (platform) doc.platform = platform;
+    if (language) doc.language = language;
+    if (mode)     doc.mode     = mode;
+    if (mode === 'server' && endpoint) doc.runtime_endpoint = endpoint;
+
+    var events = [];
+    document.querySelectorAll('#events-tbody .event-row').forEach(function (row) {
+      var g = row.querySelector('.event-glob').value.trim();
+      if (g) events.push(g);
+    });
+    if (events.length) doc.events = events;
+
+    var dests = [];
+    document.querySelectorAll('.dest-check:checked').forEach(function (cb) { dests.push(cb.value); });
+    if (dests.length) doc.destinations = dests;
+
+    var outPath = gv('v-output-path');
+    var outPkg  = gv('v-output-package');
+    if (outPath) {
+      doc.output = { path: outPath };
+      if (outPkg) doc.output['package'] = outPkg;
+    }
+
+    var cv = document.getElementById('v-client-validation');
+    if (cv && cv.checked) doc.client_validation = true;
+
+    var vp = buildVPFromVisual();
+    if (Object.keys(vp).length) doc.version_pinning = vp;
+
+    return doc;
+  }
+
+  function buildVPFromVisual() {
+    var vp = {};
+    document.querySelectorAll('#vp-tbody .vp-row').forEach(function (row) {
+      var k = row.querySelector('.vp-key').value.trim();
+      var v = row.querySelector('.vp-val').value.trim();
+      if (k) vp[k] = v;
+    });
+    return vp;
+  }
+
+  // ── YAML → Visual ────────────────────────────────────────────────────────
+  function populateVisual(doc) {
+    sv('v-name',     doc.name     || '');
+    sv('v-platform', doc.platform || '');
+    sv('v-language', doc.language || '');
+    sv('v-mode',     doc.mode     || '');
+    sv('v-runtime-endpoint', doc.runtime_endpoint || '');
+    toggleRuntimeEndpoint();
+
+    rebuildEventsTable(Array.isArray(doc.events) ? doc.events : []);
+
+    document.querySelectorAll('.dest-check').forEach(function (cb) {
+      cb.checked = Array.isArray(doc.destinations) && doc.destinations.indexOf(cb.value) !== -1;
+    });
+
+    var out = (doc.output && typeof doc.output === 'object') ? doc.output : {};
+    sv('v-output-path',    out.path    || '');
+    sv('v-output-package', out['package'] || '');
+
+    var cv = document.getElementById('v-client-validation');
+    if (cv) cv.checked = !!doc.client_validation;
+
+    var vp = (doc.version_pinning && typeof doc.version_pinning === 'object') ? doc.version_pinning : {};
+    rebuildVPTable(vp);
+  }
+
+  // ── Events table ─────────────────────────────────────────────────────────
+  function addEventRow(glob) {
+    var tbody = document.getElementById('events-tbody');
+    var tr = document.createElement('tr');
+    tr.className = 'event-row';
+    tr.innerHTML =
+      '<td><input type="text" class="es-input event-glob" style="width:100%;font-family:monospace;font-size:.85rem" placeholder="ecommerce/**" value="' + esc(glob) + '"></td>' +
+      '<td><button type="button" class="es-btn es-btn-ghost es-btn-sm event-remove" style="padding:.15rem .45rem;line-height:1">✕</button></td>';
+    tr.querySelector('.event-remove').addEventListener('click', function () {
+      tr.remove(); updateEventsEmpty(); onVisualChange();
+    });
+    tbody.appendChild(tr);
+  }
+
+  function rebuildEventsTable(events) {
+    document.getElementById('events-tbody').innerHTML = '';
+    (events || []).forEach(function (g) { addEventRow(g); });
+    updateEventsEmpty();
+  }
+
+  function updateEventsEmpty() {
+    var rows = document.querySelectorAll('#events-tbody .event-row').length;
+    var e = document.getElementById('events-empty');
+    var t = document.getElementById('events-table');
+    if (e) e.style.display = rows ? 'none' : '';
+    if (t) t.style.display = rows ? '' : 'none';
+  }
+
+  // ── Version Pinning table ─────────────────────────────────────────────────
+  function rebuildVPTable(vp) {
+    document.getElementById('vp-tbody').innerHTML = '';
+    Object.keys(vp || {}).forEach(function (k) {
+      addVPRow(k, String(vp[k] === null ? '' : vp[k]));
+    });
+    updateVPEmpty();
+  }
+
+  function addVPRow(key, val) {
+    var tbody = document.getElementById('vp-tbody');
+    var tr = document.createElement('tr');
+    tr.className = 'vp-row';
+
+    var keyOpts = '<option value="">— select event —</option>';
+    eventPaths.forEach(function (p) {
+      keyOpts += '<option value="' + esc(p) + '"' + (p === key ? ' selected' : '') + '>' + esc(p) + '</option>';
+    });
+    if (key && eventPaths.indexOf(key) === -1) {
+      keyOpts += '<option value="' + esc(key) + '" selected>' + esc(key) + '</option>';
+    }
+
+    tr.innerHTML =
+      '<td><select class="es-select vp-key" style="width:100%">' + keyOpts + '</select></td>' +
+      '<td><select class="es-select vp-val" style="width:100%"></select></td>' +
+      '<td><button type="button" class="es-btn es-btn-ghost es-btn-sm vp-remove" style="padding:.15rem .45rem;line-height:1">✕</button></td>';
+
+    var keySelect = tr.querySelector('.vp-key');
+    var valSelect = tr.querySelector('.vp-val');
+
+    function populateVersions(selectedVal) {
+      var versions = eventVersionMap[keySelect.value] || [];
+      valSelect.innerHTML = '<option value="">— any —</option>';
+      versions.forEach(function (v) {
+        var opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        if (v === selectedVal) opt.selected = true;
+        valSelect.appendChild(opt);
+      });
+    }
+
+    populateVersions(val);
+
+    keySelect.addEventListener('change', function () {
+      populateVersions('');
+      onVisualChange();
+    });
+
+    tr.querySelector('.vp-remove').addEventListener('click', function () {
+      tr.remove(); updateVPEmpty(); onVisualChange();
+    });
+    tbody.appendChild(tr);
+  }
+
+  function updateVPEmpty() {
+    var rows = document.querySelectorAll('#vp-tbody .vp-row').length;
+    var e = document.getElementById('vp-empty');
+    var t = document.getElementById('vp-table');
+    if (e) e.style.display = rows ? 'none' : '';
+    if (t) t.style.display = rows ? '' : 'none';
+  }
+
+  function tryParseYAML(s) {
+    try { return jsyaml.load(s); } catch (e) { return null; }
+  }
+
+  function validate() {
+    if (!statusEl) return;
+    var doc = tryParseYAML(editor.getValue());
+    if (!doc || typeof doc !== 'object') {
+      statusEl.textContent = '✗ invalid YAML';
+      statusEl.style.color = '#c92a2a';
+    } else if (!doc.name || !doc.language) {
+      statusEl.textContent = '⚠ name and language required';
+      statusEl.style.color = '#e67700';
+    } else {
+      statusEl.textContent = '✓ valid';
+      statusEl.style.color = '#2b8a3e';
+    }
+  }
+
+  function gv(id) {
+    var el = document.getElementById(id);
+    return el ? el.value : '';
+  }
+
+  function sv(id, val) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'SELECT') {
+      for (var i = 0; i < el.options.length; i++) {
+        if (el.options[i].value === val) { el.selectedIndex = i; break; }
+      }
+    } else {
+      el.value = val;
+    }
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+});
+</script>
+{{end}}

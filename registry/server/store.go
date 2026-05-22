@@ -30,6 +30,12 @@ type Store interface {
 	// ListWebhooks returns all registered webhook URLs for event publish notifications.
 	ListWebhooks(ctx context.Context) ([]string, error)
 
+	// Admin: source management.
+	ListSources(ctx context.Context) ([]spec.SourceDef, error)
+	CreateSource(ctx context.Context, src spec.SourceDef, userID string) error
+	UpdateSource(ctx context.Context, src spec.SourceDef, userID string) error
+	DeleteSource(ctx context.Context, name string, userID string) error
+
 	// Admin: destination management.
 	ListDestinationsFull(ctx context.Context) ([]spec.DestinationDef, error)
 	CreateDestination(ctx context.Context, dest spec.DestinationDef, userID string) error

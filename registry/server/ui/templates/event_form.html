@@ -368,7 +368,7 @@ require(['vs/editor/editor.main'], function () {
   var editor = monaco.editor.create(editorEl, {
     value:                textarea.value,
     language:             'yaml',
-    theme:                'event-spec-light',
+    theme:                document.documentElement.getAttribute('data-theme') === 'dark' ? 'vs-dark' : 'event-spec-light',
     minimap:              { enabled: false },
     scrollBeyondLastLine: false,
     fontSize:             13,
@@ -388,6 +388,7 @@ require(['vs/editor/editor.main'], function () {
     fixedOverflowWidgets: true,
   });
   editorInstance = editor;
+  window._esEditor = editor;
 
   // ── Tab switching (inside require so populateVisual/tryParseYAML are in scope)
   var tabBtns = document.querySelectorAll('.es-tab-btn');

@@ -1,0 +1,53 @@
+{{define "content"}}
+<div class="es-toolbar es-flex es-flex-between" style="margin-bottom:1rem">
+  <span></span>
+  <a href="/ui/settings/apps/new" class="es-btn es-btn-primary">+ Add App</a>
+</div>
+
+<div class="es-card">
+  <div class="es-card-body es-p0">
+    {{if .Apps}}
+    <table class="es-table" id="apps-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Platform</th>
+          <th>Language</th>
+          <th>Mode</th>
+          <th>Destinations</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Apps}}
+        <tr id="app-row-{{.Name}}">
+          <td>
+            <a href="/ui/settings/apps/{{.Name}}" class="es-link-strong">{{.Name}}</a>
+          </td>
+          <td>{{if .Platform}}<span class="es-tag">{{.Platform}}</span>{{end}}</td>
+          <td class="es-text-muted es-text-sm">{{.Language}}</td>
+          <td>{{if .Mode}}<span class="es-tag">{{.Mode}}</span>{{else}}<span class="es-text-muted">—</span>{{end}}</td>
+          <td class="es-text-muted es-text-sm">{{len .Destinations}}</td>
+          <td style="text-align:right">
+            <a href="/ui/settings/apps/{{.Name}}" class="es-btn es-btn-ghost es-btn-sm">View</a>
+            <a href="/ui/settings/apps/{{.Name}}/edit" class="es-btn es-btn-ghost es-btn-sm">Edit</a>
+            <button
+              class="es-btn es-btn-danger es-btn-sm"
+              hx-delete="/ui/settings/apps/{{.Name}}"
+              hx-target="#app-row-{{.Name}}"
+              hx-swap="outerHTML"
+              hx-confirm="Delete app {{.Name}}?"
+            >Delete</button>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="es-empty">
+      <p>No apps configured. <a href="/ui/settings/apps/new">Add one</a>.</p>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}

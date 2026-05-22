@@ -1,0 +1,128 @@
+{{define "content"}}
+<div class="es-card">
+  <div class="es-card-body">
+    <div class="es-flex es-flex-between" style="align-items:flex-start;gap:1rem">
+      <div>
+        <div class="es-flex" style="align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.4rem">
+          <h2 class="es-event-name">{{.App.Name}}</h2>
+          {{if .App.Platform}}<span class="es-tag">{{.App.Platform}}</span>{{end}}
+          {{if .App.Mode}}<span class="es-tag">{{.App.Mode}}</span>{{end}}
+        </div>
+      </div>
+      <div class="es-flex" style="gap:.5rem;flex-shrink:0">
+        <a href="/ui/settings/apps/{{.App.Name}}/edit" class="es-btn es-btn-primary">Edit</a>
+        <button
+          class="es-btn es-btn-danger"
+          hx-delete="/ui/settings/apps/{{.App.Name}}"
+          hx-confirm="Delete app {{.App.Name}}?"
+          onclick="window.location='/ui/settings/apps'"
+        >Delete</button>
+      </div>
+    </div>
+
+    <div class="es-event-meta-grid" style="margin-top:1rem">
+      <div class="es-event-meta-item">
+        <span class="es-event-meta-label">Name</span>
+        <code class="es-code">{{.App.Name}}</code>
+      </div>
+      <div class="es-event-meta-item">
+        <span class="es-event-meta-label">Language</span>
+        <span class="es-text-sm">{{.App.Language}}</span>
+      </div>
+      {{if .App.Platform}}
+      <div class="es-event-meta-item">
+        <span class="es-event-meta-label">Platform</span>
+        <span class="es-tag">{{.App.Platform}}</span>
+      </div>
+      {{end}}
+      {{if .App.Mode}}
+      <div class="es-event-meta-item">
+        <span class="es-event-meta-label">Mode</span>
+        <span class="es-tag">{{.App.Mode}}</span>
+      </div>
+      {{end}}
+      {{if .App.RuntimeEndpoint}}
+      <div class="es-event-meta-item">
+        <span class="es-event-meta-label">Runtime Endpoint</span>
+        <code class="es-code">{{.App.RuntimeEndpoint}}</code>
+      </div>
+      {{end}}
+      {{if .App.Output.Path}}
+      <div class="es-event-meta-item">
+        <span class="es-event-meta-label">Output Path</span>
+        <code class="es-code">{{.App.Output.Path}}</code>
+      </div>
+      {{end}}
+      {{if .App.Output.Package}}
+      <div class="es-event-meta-item">
+        <span class="es-event-meta-label">Output Package</span>
+        <code class="es-code">{{.App.Output.Package}}</code>
+      </div>
+      {{end}}
+      {{if .App.ClientValidation}}
+      <div class="es-event-meta-item">
+        <span class="es-event-meta-label">Client Validation</span>
+        <span class="es-text-sm">enabled</span>
+      </div>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+{{if .App.Events}}
+<div class="es-card" style="margin-top:1rem">
+  <div class="es-card-header"><h3 class="es-card-title">Events</h3></div>
+  <div class="es-card-body es-p0">
+    <table class="es-table">
+      <tbody>
+        {{range .App.Events}}
+        <tr>
+          <td><code class="es-code">{{.}}</code></td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+
+{{if .App.Destinations}}
+<div class="es-card" style="margin-top:1rem">
+  <div class="es-card-header"><h3 class="es-card-title">Destinations</h3></div>
+  <div class="es-card-body es-p0">
+    <table class="es-table">
+      <tbody>
+        {{range .App.Destinations}}
+        <tr>
+          <td><span class="es-badge">{{.}}</span></td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+
+{{if .App.VersionPinning}}
+<div class="es-card" style="margin-top:1rem">
+  <div class="es-card-header"><h3 class="es-card-title">Version Pinning</h3></div>
+  <div class="es-card-body es-p0">
+    <table class="es-table">
+      <thead><tr><th>Event Path</th><th>Version</th></tr></thead>
+      <tbody>
+        {{range $k, $v := .App.VersionPinning}}
+        <tr>
+          <td><code class="es-code">{{$k}}</code></td>
+          <td class="es-text-muted es-text-sm">{{$v}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+
+<div style="margin-top:1rem">
+  <a href="/ui/settings/apps" class="es-btn es-btn-ghost">← Back to Apps</a>
+</div>
+{{end}}

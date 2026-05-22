@@ -255,6 +255,47 @@ func (c *Client) SetConfig(ctx context.Context, key, value string) (*ServerSetti
 	return &result, nil
 }
 
+// ListApps calls GET /v1/admin/sources and returns all source records (admin role required).
+func (c *Client) ListApps(ctx context.Context) ([]spec.SourceDef, error) {
+	var sources []spec.SourceDef
+	if err := c.get(ctx, c.cfg.BaseURL+"/v1/admin/sources", &sources); err != nil {
+		return nil, err
+	}
+	return sources, nil
+}
+
+// GetApp calls GET /v1/admin/sources/{name} (admin role required).
+func (c *Client) GetApp(ctx context.Context, name string) (*spec.SourceDef, error) {
+	var src spec.SourceDef
+	if err := c.get(ctx, fmt.Sprintf("%s/v1/admin/sources/%s", c.cfg.BaseURL, name), &src); err != nil {
+		return nil, err
+	}
+	return &src, nil
+}
+
+// CreateApp calls POST /v1/admin/sources (admin role required).
+func (c *Client) CreateApp(ctx context.Context, src spec.SourceDef) (*spec.SourceDef, error) {
+	var result spec.SourceDef
+	if err := c.post(ctx, c.cfg.BaseURL+"/v1/admin/sources", src, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// UpdateApp calls PUT /v1/admin/sources/{name} (admin role required).
+func (c *Client) UpdateApp(ctx context.Context, src spec.SourceDef) (*spec.SourceDef, error) {
+	var result spec.SourceDef
+	if err := c.put(ctx, fmt.Sprintf("%s/v1/admin/sources/%s", c.cfg.BaseURL, src.Name), src, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// DeleteApp calls DELETE /v1/admin/sources/{name} (admin role required).
+func (c *Client) DeleteApp(ctx context.Context, name string) error {
+	return c.delete(ctx, fmt.Sprintf("%s/v1/admin/sources/%s", c.cfg.BaseURL, name))
+}
+
 // ListDestinations calls GET /v1/admin/destinations and returns all destination records (admin role required).
 func (c *Client) ListDestinations(ctx context.Context) ([]spec.DestinationDef, error) {
 	var dests []spec.DestinationDef
