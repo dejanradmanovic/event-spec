@@ -4,13 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.Title}} — event-spec</title>
+  <link rel="icon" type="image/svg+xml" href="/ui/static/favicon.svg">
   <link rel="stylesheet" href="/ui/static/tabler.min.css">
+  <script>
+    (function(){var t=localStorage.getItem('es-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();
+  </script>
 </head>
 <body>
 <div class="es-wrapper">
   <aside class="es-sidebar">
     <div class="es-sidebar-brand">
-      <a href="/ui/" class="es-brand-link">event-spec</a>
+      <a href="/ui/" class="es-brand-link">
+        <svg width="22" height="22" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+          <rect width="32" height="32" rx="7" fill="rgba(255,255,255,.15)"/>
+          <path d="M20 4L11 17h6l-3 11 10-15h-6z" fill="#fff" fill-opacity=".95"/>
+        </svg>
+        event-spec
+      </a>
     </div>
     <nav class="es-nav">
       <div class="es-nav-section">Catalog</div>
@@ -64,6 +74,10 @@
         <span class="es-user-id">{{.UserID}}</span>
         <span class="es-role-badge es-role-{{.Role}}">{{.Role}}</span>
       </div>
+      <button type="button" class="es-theme-btn" id="theme-toggle" onclick="esToggleTheme()" style="margin-bottom:.5rem">
+        <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
+        <span id="theme-label"></span>
+      </button>
       <form method="POST" action="/ui/logout">
         <button type="submit" class="es-btn es-btn-ghost es-btn-sm">Sign out</button>
       </form>
@@ -85,6 +99,31 @@
 </div>
 <script src="/ui/static/htmx.min.js"></script>
 <script src="/ui/static/tabler.min.js"></script>
+<script>
+var _esSunPath  = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+var _esMoonPath = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+
+function esUpdateThemeBtn() {
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  var icon = document.getElementById('theme-icon');
+  var label = document.getElementById('theme-label');
+  if (icon)  icon.innerHTML  = dark ? _esSunPath : _esMoonPath;
+  if (label) label.textContent = dark ? 'Light mode' : 'Dark mode';
+}
+
+function esToggleTheme() {
+  var html = document.documentElement;
+  var next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('es-theme', next);
+  esUpdateThemeBtn();
+  if (window.monaco && window._esEditor) {
+    monaco.editor.setTheme(next === 'dark' ? 'vs-dark' : 'event-spec-light');
+  }
+}
+
+esUpdateThemeBtn();
+</script>
 </body>
 </html>
 {{end}}

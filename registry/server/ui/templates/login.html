@@ -4,12 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sign in — event-spec</title>
+  <link rel="icon" type="image/svg+xml" href="/ui/static/favicon.svg">
   <link rel="stylesheet" href="/ui/static/tabler.min.css">
+  <script>
+    (function(){var t=localStorage.getItem('es-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();
+  </script>
 </head>
 <body class="es-login-body">
   <div class="es-login-card">
     <div class="es-login-header">
-      <h1 class="es-login-title">event-spec</h1>
+      <div style="display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:.5rem">
+        <svg width="28" height="28" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="7" fill="#1a2332"/>
+          <path d="M20 4L11 17h6l-3 11 10-15h-6z" fill="#fff" fill-opacity=".95"/>
+        </svg>
+        <h1 class="es-login-title" style="margin:0">event-spec</h1>
+      </div>
       <p class="es-login-subtitle">Admin UI</p>
     </div>
     {{if .Flash}}
