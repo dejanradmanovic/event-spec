@@ -140,15 +140,20 @@
             <label class="es-label" style="margin:0">Properties</label>
             <button type="button" class="es-btn es-btn-ghost es-btn-sm" id="add-prop-btn">+ Add Property</button>
           </div>
-          <div style="border:1px solid #e6ebf1;border-radius:.35rem;overflow:hidden">
-            <table class="es-table" id="props-table" style="display:none">
+          <div style="border:1px solid #e6ebf1;border-radius:.35rem;overflow-x:auto">
+            <table class="es-table" id="props-table" style="display:none;min-width:1000px">
               <thead>
                 <tr>
-                  <th style="width:18%">Name</th>
-                  <th style="width:11%">Type</th>
-                  <th style="width:7%;text-align:center">Required</th>
-                  <th>Description</th>
-                  <th style="width:20%">Enum values (comma-sep)</th>
+                  <th style="width:120px">Name</th>
+                  <th style="width:90px">Type</th>
+                  <th style="width:64px;text-align:center">Required</th>
+                  <th style="min-width:110px">Description</th>
+                  <th style="width:120px">Enum (comma-sep)</th>
+                  <th style="width:115px">Default</th>
+                  <th id="th-pattern" style="width:140px">Pattern</th>
+                  <th id="th-min" style="width:80px">Min</th>
+                  <th id="th-max" style="width:80px">Max</th>
+                  <th style="width:120px">Aliases (comma-sep)</th>
                   <th style="width:32px"></th>
                 </tr>
               </thead>
@@ -283,6 +288,13 @@
               <dt><code class="es-code">status</code></dt><dd><code class="es-code">draft</code> · <code class="es-code">active</code> · <code class="es-code">deprecated</code> · <code class="es-code">deleted</code></dd>
               <dt><code class="es-code">type</code></dt><dd><code class="es-code">track</code> · <code class="es-code">page</code> · <code class="es-code">identify</code> · <code class="es-code">group</code> · <code class="es-code">alias</code></dd>
               <dt>Property types</dt><dd><code class="es-code">string</code> · <code class="es-code">number</code> · <code class="es-code">integer</code> · <code class="es-code">boolean</code> · <code class="es-code">object</code> · <code class="es-code">array</code></dd>
+              <dt>Property fields</dt><dd>
+                <code class="es-code">type</code> · <code class="es-code">required</code> · <code class="es-code">description</code> · <code class="es-code">enum</code> (list of allowed values)<br>
+                <code class="es-code">default</code>: default value (any type) — used in documentation and catalog; not enforced at runtime<br>
+                <code class="es-code">pattern</code>: regex pattern string — string type only<br>
+                <code class="es-code">minimum</code> / <code class="es-code">maximum</code>: numeric bounds — number / integer types only<br>
+                <code class="es-code">aliases</code>: list of alternative property names for ingestion normalization
+              </dd>
               <dt><code class="es-code">property_priority</code></dt><dd><code class="es-code">event_wins</code> · <code class="es-code">context_wins</code> · <code class="es-code">merge</code> — collision resolution when merging event props with context traits</dd>
               <dt><code class="es-code">sampling</code></dt><dd>
                 Optional sampling block:<br>
@@ -440,7 +452,7 @@ require(['vs/editor/editor.main'], function () {
   document.getElementById('tab-visual').addEventListener('change', onVisualChange);
 
   document.getElementById('add-prop-btn').addEventListener('click', function () {
-    addPropRow('', 'string', false, '', '');
+    addPropRow('', 'string', false, '', '', '', '', '', '', '');
     updatePropsEmpty();
     onVisualChange();
   });
@@ -470,6 +482,7 @@ require(['vs/editor/editor.main'], function () {
   }
   lastGeneratedYAML = editor.getValue();
   updatePropsEmpty();
+  syncTypeColumns();
   updateDestsEmpty();
   updateCtxPropsEmpty();
   updateOverridesEmpty();
@@ -549,6 +562,22 @@ require(['vs/editor/editor.main'], function () {
       if (d) pd.description = d;
       var enumStr = row.querySelector('.prop-enum').value.trim();
       if (enumStr) pd.enum = enumStr.split(',').map(function (v) { return v.trim(); }).filter(Boolean);
+      var defStr = row.querySelector('.prop-default').value;
+      if (defStr.trim() !== '') {
+        var dv = defStr.trim();
+        if (dv === 'true') pd.default = true;
+        else if (dv === 'false') pd.default = false;
+        else if (dv !== '' && !isNaN(Number(dv))) pd.default = Number(dv);
+        else pd.default = dv;
+      }
+      var pat = row.querySelector('.prop-pattern').value.trim();
+      if (pat && pt === 'string') pd.pattern = pat;
+      var minStr = row.querySelector('.prop-min').value.trim();
+      if (minStr !== '' && !isNaN(Number(minStr)) && (pt === 'number' || pt === 'integer')) pd.minimum = Number(minStr);
+      var maxStr = row.querySelector('.prop-max').value.trim();
+      if (maxStr !== '' && !isNaN(Number(maxStr)) && (pt === 'number' || pt === 'integer')) pd.maximum = Number(maxStr);
+      var aliasesStr = row.querySelector('.prop-aliases').value.trim();
+      if (aliasesStr) pd.aliases = aliasesStr.split(',').map(function (v) { return v.trim(); }).filter(Boolean);
       props[pName] = pd;
     });
     return props;
@@ -600,13 +629,19 @@ require(['vs/editor/editor.main'], function () {
         pd.type        || 'string',
         pd.required    || false,
         pd.description || '',
-        Array.isArray(pd.enum) ? pd.enum.join(', ') : ''
+        Array.isArray(pd.enum) ? pd.enum.join(', ') : '',
+        pd.default !== undefined ? String(pd.default) : '',
+        pd.pattern  || '',
+        pd.minimum !== undefined ? String(pd.minimum) : '',
+        pd.maximum !== undefined ? String(pd.maximum) : '',
+        Array.isArray(pd.aliases) ? pd.aliases.join(', ') : ''
       );
     });
     updatePropsEmpty();
+    syncTypeColumns();
   }
 
-  function addPropRow(name, type, required, desc, enumStr) {
+  function addPropRow(name, type, required, desc, enumStr, defVal, pattern, min, max, aliasesStr) {
     var tbody = document.getElementById('props-tbody');
     var tr = document.createElement('tr');
     tr.className = 'prop-row';
@@ -620,6 +655,11 @@ require(['vs/editor/editor.main'], function () {
       '<td style="text-align:center;vertical-align:middle"><input type="checkbox" class="prop-required"' + (required ? ' checked' : '') + '></td>' +
       '<td><input type="text" class="es-input prop-desc" style="width:100%" placeholder="Description" value="' + esc(desc) + '"></td>' +
       '<td><input type="text" class="es-input prop-enum" style="width:100%" placeholder="a, b, c" value="' + esc(enumStr) + '"></td>' +
+      '<td><input type="text" class="es-input prop-default" style="width:100%" placeholder="default" value="' + esc(defVal || '') + '"></td>' +
+      '<td><input type="text" class="es-input prop-pattern" style="width:100%" placeholder="^[a-z]+$" value="' + esc(pattern || '') + '"></td>' +
+      '<td><input type="number" class="es-input prop-min" style="width:100%" placeholder="min" value="' + esc(min || '') + '"></td>' +
+      '<td><input type="number" class="es-input prop-max" style="width:100%" placeholder="max" value="' + esc(max || '') + '"></td>' +
+      '<td><input type="text" class="es-input prop-aliases" style="width:100%" placeholder="alt_name, …" value="' + esc(aliasesStr || '') + '"></td>' +
       '<td><button type="button" class="es-btn es-btn-ghost es-btn-sm prop-remove" style="padding:.15rem .45rem;line-height:1">✕</button></td>';
 
     // input/change events on the row cells bubble up to #tab-visual (delegation).
@@ -628,9 +668,41 @@ require(['vs/editor/editor.main'], function () {
     tr.querySelector('.prop-remove').addEventListener('click', function () {
       tr.remove();
       updatePropsEmpty();
+      syncTypeColumns();
+      onVisualChange();
+    });
+    tr.querySelector('.prop-type').addEventListener('change', function () {
+      syncTypeColumns();
       onVisualChange();
     });
     tbody.appendChild(tr);
+    syncTypeColumns();
+  }
+
+  function syncTypeColumns() {
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#props-tbody .prop-row'));
+    var hasString = false, hasNumeric = false;
+    rows.forEach(function (row) {
+      var t = row.querySelector('.prop-type').value;
+      if (t === 'string') hasString = true;
+      if (t === 'number' || t === 'integer') hasNumeric = true;
+    });
+    document.getElementById('th-pattern').style.display = hasString  ? '' : 'none';
+    document.getElementById('th-min').style.display     = hasNumeric ? '' : 'none';
+    document.getElementById('th-max').style.display     = hasNumeric ? '' : 'none';
+    rows.forEach(function (row) {
+      var t = row.querySelector('.prop-type').value;
+      var isStr = t === 'string', isNum = t === 'number' || t === 'integer';
+      var patTd = row.querySelector('.prop-pattern').closest('td');
+      var minTd = row.querySelector('.prop-min').closest('td');
+      var maxTd = row.querySelector('.prop-max').closest('td');
+      patTd.style.display    = hasString  ? '' : 'none';
+      patTd.style.visibility = isStr      ? '' : 'hidden';
+      minTd.style.display    = hasNumeric ? '' : 'none';
+      minTd.style.visibility = isNum      ? '' : 'hidden';
+      maxTd.style.display    = hasNumeric ? '' : 'none';
+      maxTd.style.visibility = isNum      ? '' : 'hidden';
+    });
   }
 
   function updatePropsEmpty() {

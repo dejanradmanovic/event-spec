@@ -1,0 +1,224 @@
+/**
+ * event-spec brand tokens and overrides.
+ * Docusaurus uses these CSS variables across the theme.
+ */
+
+:root {
+  --ifm-color-primary: #6366f1;
+  --ifm-color-primary-dark: #4f52e8;
+  --ifm-color-primary-darker: #4346e3;
+  --ifm-color-primary-darkest: #2d30d4;
+  --ifm-color-primary-light: #7779f4;
+  --ifm-color-primary-lighter: #8385f6;
+  --ifm-color-primary-lightest: #a5a7f9;
+  --ifm-code-font-size: 90%;
+  --docusaurus-highlighted-code-line-bg: rgba(99, 102, 241, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #818cf8;
+  --ifm-color-primary-dark: #6d78f6;
+  --ifm-color-primary-darker: #636ef5;
+  --ifm-color-primary-darkest: #4046f2;
+  --ifm-color-primary-light: #95a0fa;
+  --ifm-color-primary-lighter: #9fa9fb;
+  --ifm-color-primary-lightest: #c2c8fd;
+  --docusaurus-highlighted-code-line-bg: rgba(129, 140, 248, 0.15);
+}
+
+/* ── Landing page hero ─────────────────────────────────────── */
+
+.hero-banner {
+  padding: 5rem 2rem 4rem;
+  text-align: center;
+  background: linear-gradient(
+    135deg,
+    var(--ifm-background-color) 0%,
+    rgba(99, 102, 241, 0.06) 100%
+  );
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.hero-banner h1 {
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 1rem;
+}
+
+.hero-banner p.sub {
+  font-size: 1.15rem;
+  color: var(--ifm-color-emphasis-700);
+  max-width: 680px;
+  margin: 0 auto 2.5rem;
+  line-height: 1.6;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.hero-actions .button--lg {
+  min-width: 160px;
+}
+
+/* ── Feature grid ──────────────────────────────────────────── */
+
+.features-section {
+  padding: 4rem 0;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.feature-card {
+  padding: 1.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  background: var(--ifm-card-background-color);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.feature-card:hover {
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.12);
+  border-color: var(--ifm-color-primary-lighter);
+}
+
+.feature-icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+.feature-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.feature-card p {
+  font-size: 0.9rem;
+  color: var(--ifm-color-emphasis-700);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Provider ecosystem ────────────────────────────────────── */
+
+.providers-section {
+  padding: 3rem 0;
+  background: var(--ifm-background-surface-color);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.providers-section h2 {
+  text-align: center;
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+  font-weight: 700;
+}
+
+.provider-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.provider-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: var(--ifm-card-background-color);
+}
+
+.provider-chip.available {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+}
+
+.provider-chip.coming-soon {
+  color: var(--ifm-color-emphasis-500);
+}
+
+/* ── SDK strip ─────────────────────────────────────────────── */
+
+.sdks-section {
+  padding: 3rem 0;
+  text-align: center;
+}
+
+.sdks-section h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1.75rem;
+}
+
+.sdk-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  padding: 0 2rem;
+}
+
+.sdk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.sdk-badge.available {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--ifm-color-primary-lighter);
+  color: var(--ifm-color-primary);
+}
+
+.sdk-badge.coming-soon {
+  color: var(--ifm-color-emphasis-500);
+  font-weight: 400;
+}
+
+/* ── Code sample section ───────────────────────────────────── */
+
+.code-section {
+  padding: 4rem 0;
+  background: var(--ifm-background-surface-color);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.code-section h2 {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+}
+
+.code-section-inner {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}

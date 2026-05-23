@@ -1,10 +1,40 @@
 package server
 
-import "github.com/dejanradmanovic/event-spec/registry/server/ui"
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+	"time"
+
+	"github.com/dejanradmanovic/event-spec/provider"
+	"github.com/dejanradmanovic/event-spec/registry/server/ui"
+	"github.com/dejanradmanovic/event-spec/spec"
+)
 
 func (s *Server) routes() {
-	uiHandler := ui.New(s.st, func() bool { return s.hooksEnabled.Load() })
+	uiHandler := ui.New(
+		s.st,
+		func() bool { return s.hooksEnabled.Load() },
+		func() time.Duration { return time.Since(s.startedAt) },
+		s.uiPinger,
+	)
 	s.mux.Handle("/ui/", uiHandler)
+
+	// Redirect bare root to the admin UI. Using "/" (no method prefix) registers
+	// the ServeMux catch-all, which handles any path not matched by a more specific
+	// pattern. Method-qualified patterns like "GET /v1/..." still take precedence.
+	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, "/ui/", http.StatusFound)
+			return
+		}
+		http.NotFound(w, r)
+	})
+	s.mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/ui/status", http.StatusFound)
+	})
+
 	s.mux.HandleFunc("GET /v1/health", s.handleStatus)
 	s.mux.HandleFunc("POST /v1/events", s.withAuth(RolePublisher, s.handlePublishEvent))
 	s.mux.HandleFunc("GET /v1/events", s.withAuth(RoleViewer, s.handleListEvents))
@@ -40,4 +70,23 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/alias", s.withAuth(RoleViewer, s.handleAlias))
 	s.mux.HandleFunc("POST /v1/batch", s.withAuth(RoleViewer, s.handleBatch))
 	s.mux.HandleFunc("POST /v1/flush", s.withAuth(RoleViewer, s.handleFlush))
+}
+
+// uiPinger is the DestinationPinger wired into the UI handler.
+// It builds a provider for dest, calls Ping if the provider implements
+// provider.HealthChecker, and maps ErrUnsupportedOperation to ui.ErrHealthUnknown
+// so the status page can distinguish "unreachable" from "unknown".
+func (s *Server) uiPinger(ctx context.Context, dest spec.DestinationDef) error {
+	err := s.pingDestination(ctx, dest)
+	if errors.Is(err, provider.ErrUnsupportedOperation) {
+		return ui.ErrHealthUnknown
+	}
+	if err != nil {
+		slog.WarnContext(ctx, "destination health check failed",
+			"destination", dest.Name,
+			"provider", dest.Provider,
+			"error", err,
+		)
+	}
+	return err
 }

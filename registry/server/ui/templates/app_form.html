@@ -175,6 +175,34 @@
           </div>
         </div>
 
+        {{/* Advanced */}}
+        <details id="visual-advanced" style="margin-top:.75rem">
+          <summary class="es-details-summary" style="padding:.3rem 0;user-select:none">Advanced options</summary>
+          <div style="margin-top:.75rem">
+            <div class="es-grid es-visual-section" style="grid-template-columns:1fr 1fr 1fr;gap:.75rem">
+              <div class="es-form-group">
+                <label class="es-label" for="v-audit-path">Audit Path</label>
+                <input id="v-audit-path" type="text" class="es-input" placeholder=".">
+                <span class="es-form-hint">Directory to scan. Default: <code class="es-code">.</code></span>
+              </div>
+              <div class="es-form-group">
+                <label class="es-label" for="v-audit-coverage_min">Coverage Min %</label>
+                <input id="v-audit-coverage_min" type="number" class="es-input" min="0" max="100" placeholder="0">
+                <span class="es-form-hint">Minimum coverage % (0 = disabled)</span>
+              </div>
+              <div class="es-form-group">
+                <label class="es-label" for="v-audit-report">Report Format</label>
+                <select id="v-audit-report" class="es-select" style="width:100%">
+                  <option value="">— not set —</option>
+                  <option value="text">text</option>
+                  <option value="json">json</option>
+                  <option value="html">html</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </details>
+
       </div>
 
       {{/* ── YAML Editor Tab ──────────────────────────────────────────────── */}}
@@ -209,6 +237,9 @@
               <dt><code class="es-code">output.package</code></dt><dd>Package name for generated SDK code</dd>
               <dt><code class="es-code">version_pinning</code></dt><dd>Map of event path → version, e.g. <code class="es-code">ecommerce/product_viewed: "1-0-0"</code></dd>
               <dt><code class="es-code">client_validation</code></dt><dd><code class="es-code">true</code> to validate events client-side before sending to server</dd>
+              <dt><code class="es-code">audit.path</code></dt><dd>Directory to scan with <code class="es-code">event-spec audit</code>. Default: <code class="es-code">.</code></dd>
+              <dt><code class="es-code">audit.coverage_min</code></dt><dd>Minimum coverage percentage (0–100); <code class="es-code">0</code> disables the check</dd>
+              <dt><code class="es-code">audit.report</code></dt><dd>Default audit report format: <code class="es-code">text</code> · <code class="es-code">json</code> · <code class="es-code">html</code></dd>
             </dl>
           </div>
         </div>
@@ -391,6 +422,19 @@ require(['vs/editor/editor.main'], function () {
     var vp = buildVPFromVisual();
     if (Object.keys(vp).length) doc.version_pinning = vp;
 
+    var auditPath   = gv('v-audit-path');
+    var auditCovMin = gv('v-audit-coverage_min');
+    var auditReport = gv('v-audit-report');
+    if (auditPath || auditCovMin !== '' || auditReport) {
+      doc.audit = {};
+      if (auditPath) doc.audit.path = auditPath;
+      if (auditCovMin !== '') {
+        var covNum = parseFloat(auditCovMin);
+        if (!isNaN(covNum)) doc.audit.coverage_min = covNum;
+      }
+      if (auditReport) doc.audit.report = auditReport;
+    }
+
     return doc;
   }
 
@@ -428,6 +472,15 @@ require(['vs/editor/editor.main'], function () {
 
     var vp = (doc.version_pinning && typeof doc.version_pinning === 'object') ? doc.version_pinning : {};
     rebuildVPTable(vp);
+
+    var audit = (doc.audit && typeof doc.audit === 'object') ? doc.audit : {};
+    sv('v-audit-path',         audit.path         !== undefined ? String(audit.path)         : '');
+    sv('v-audit-coverage_min', audit.coverage_min !== undefined ? String(audit.coverage_min) : '');
+    sv('v-audit-report',       audit.report       || '');
+    if (audit.path !== undefined || audit.coverage_min !== undefined || audit.report) {
+      var adv = document.getElementById('visual-advanced');
+      if (adv && !adv.open) adv.open = true;
+    }
   }
 
   // ── Events table ─────────────────────────────────────────────────────────

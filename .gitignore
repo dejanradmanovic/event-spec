@@ -5,6 +5,11 @@
 /event-spec
 /event-spec.exe
 
+# Docs build output
+/docs/build
+/docs/.docusaurus
+/docs/node_modules
+
 # Test coverage
 coverage.out
 coverage.html

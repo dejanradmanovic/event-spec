@@ -16,8 +16,9 @@ import (
 	"github.com/dejanradmanovic/event-spec/provider/amplitude"
 )
 
-// compile-time check: *Provider satisfies provider.Provider.
+// compile-time checks.
 var _ provider.Provider = (*amplitude.Provider)(nil)
+var _ provider.HealthChecker = (*amplitude.Provider)(nil)
 
 // captureServer returns a test server and a pointer to the slice of decoded requests.
 func captureServer(t *testing.T) (*httptest.Server, *[]map[string]any) {
@@ -423,6 +424,42 @@ func TestProxyRouting(t *testing.T) {
 	// The path should be the Amplitude batch endpoint path, not empty.
 	if requestedPaths[0] == "" {
 		t.Errorf("proxy received request with empty path, want /batch")
+	}
+}
+
+// TestPing_reachable verifies that Ping succeeds whenever the endpoint responds
+// over HTTP — even with a non-200 status — because any response proves connectivity.
+func TestPing_reachable(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusMethodNotAllowed, http.StatusBadRequest} {
+		status := status
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Errorf("Ping used method %s, want GET", r.Method)
+				}
+				w.WriteHeader(status)
+			}))
+			defer srv.Close()
+
+			p := newProvider(t, srv)
+			if err := p.Ping(context.Background()); err != nil {
+				t.Fatalf("Ping() error = %v for status %d, want nil", err, status)
+			}
+		})
+	}
+}
+
+// TestPing_unreachable verifies that Ping returns an error on a network-level
+// failure (closed server — simulates connection refused / DNS failure).
+func TestPing_unreachable(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	srv.Close() // shut it down before Ping is called
+
+	p := newProvider(t, srv)
+	if err := p.Ping(context.Background()); err == nil {
+		t.Fatal("Ping() error = nil, want non-nil for closed server")
 	}
 }
 
