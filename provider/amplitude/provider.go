@@ -110,7 +110,7 @@ func (p *Provider) Ping(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("amplitude: ping: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, effectiveURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, effectiveURL, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("amplitude: ping: %w", err)
 	}
