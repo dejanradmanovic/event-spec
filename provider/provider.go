@@ -95,6 +95,13 @@ type AliasMessage struct {
 	MessageContext MessageContext
 }
 
+// HealthChecker is an optional interface providers can implement to report
+// reachability. The status page calls Ping for each destination that implements
+// this interface; providers that don't implement it are shown as "unknown".
+type HealthChecker interface {
+	Ping(ctx context.Context) error
+}
+
 // Provider is the interface every analytics destination adapter must satisfy.
 // The single interface is intentional — providers that don't support a method
 // return ErrUnsupportedOperation rather than silently no-oping.

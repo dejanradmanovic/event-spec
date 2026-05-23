@@ -10,14 +10,18 @@ import (
 type Handler struct {
 	st         Store
 	hooksState HooksEnabled
+	uptime     Uptime
+	pinger     DestinationPinger // optional; nil means destinations show as "unknown"
 	mux        *http.ServeMux
 }
 
 // New creates a Handler backed by st.
-func New(st Store, hooksEnabled HooksEnabled) *Handler {
+func New(st Store, hooksEnabled HooksEnabled, uptime Uptime, pinger DestinationPinger) *Handler {
 	h := &Handler{
 		st:         st,
 		hooksState: hooksEnabled,
+		uptime:     uptime,
+		pinger:     pinger,
 		mux:        http.NewServeMux(),
 	}
 	h.routes()
@@ -33,6 +37,7 @@ func (h *Handler) routes() {
 	staticSub, _ := fs.Sub(FS, "static")
 	h.mux.Handle("GET /ui/static/", http.StripPrefix("/ui/static/", http.FileServer(http.FS(staticSub))))
 
+	h.mux.HandleFunc("GET /ui/status", h.handleStatusPage) // public — no auth required
 	h.mux.HandleFunc("GET /ui/login", h.handleLoginForm)
 	h.mux.HandleFunc("POST /ui/login", h.handleLogin)
 	h.mux.HandleFunc("POST /ui/logout", h.handleLogout)

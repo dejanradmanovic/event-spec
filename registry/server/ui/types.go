@@ -2,12 +2,18 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/dejanradmanovic/event-spec/registry"
 	"github.com/dejanradmanovic/event-spec/registry/server/shared"
 	"github.com/dejanradmanovic/event-spec/spec"
 )
+
+// ErrHealthUnknown is returned by DestinationPinger when the provider does not
+// implement health checking. The status page displays these destinations as
+// "unknown" rather than "unreachable".
+var ErrHealthUnknown = errors.New("health check not supported")
 
 // Role constant aliases — ui cannot import registry/server (would create a cycle
 // because registry/server imports registry/server/ui). Both packages share the
@@ -79,3 +85,11 @@ type Store interface {
 
 // HooksEnabled returns the current live value of the hooks_enabled runtime toggle.
 type HooksEnabled func() bool
+
+// Uptime returns how long the server has been running.
+type Uptime func() time.Duration
+
+// DestinationPinger checks whether a destination's provider endpoint is reachable.
+// Returns nil on success, a non-nil error if unreachable.
+// If nil, the status page shows "unknown" for all destinations.
+type DestinationPinger func(ctx context.Context, dest spec.DestinationDef) error

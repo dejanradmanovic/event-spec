@@ -101,6 +101,27 @@ func (p *Provider) Alias(ctx context.Context, msg provider.AliasMessage) error {
 	return p.sendBatch(ctx, []amplitudeEvent{mapAliasMessage(msg)})
 }
 
+// Ping implements provider.HealthChecker. It sends a GET to the configured
+// endpoint to verify network connectivity. Any HTTP response (including 4xx/5xx)
+// means the endpoint is reachable; only a network-level error (timeout, DNS
+// failure, connection refused) is returned as an error.
+func (p *Provider) Ping(ctx context.Context) error {
+	effectiveURL, err := p.transport.RewriteURL(p.endpoint)
+	if err != nil {
+		return fmt.Errorf("amplitude: ping: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, effectiveURL, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("amplitude: ping: %w", err)
+	}
+	resp, err := p.transport.Do(ctx, req, nil)
+	if err != nil {
+		return fmt.Errorf("amplitude: ping: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return nil
+}
+
 // Flush synchronously drains all buffered events to Amplitude.
 func (p *Provider) Flush(ctx context.Context) error {
 	return p.queue.Flush(ctx)

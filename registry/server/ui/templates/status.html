@@ -1,0 +1,84 @@
+{{define "status"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Status — event-spec</title>
+  <link rel="icon" type="image/svg+xml" href="/ui/static/favicon.svg">
+  <link rel="stylesheet" href="/ui/static/tabler.min.css">
+  <script>
+    (function(){var t=localStorage.getItem('es-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();
+  </script>
+</head>
+<body class="es-login-body">
+  <div style="width:100%;max-width:640px;margin:3rem auto;padding:0 1rem">
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:2rem">
+      <svg width="28" height="28" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <rect width="32" height="32" rx="7" fill="#1a2332"/>
+        <path d="M20 4L11 17h6l-3 11 10-15h-6z" fill="#fff" fill-opacity=".95"/>
+      </svg>
+      <span style="font-size:1.1rem;font-weight:700">event-spec</span>
+      <span class="es-text-muted" style="font-size:.9rem;margin-left:.25rem">/ status</span>
+    </div>
+
+    <div class="es-card" style="margin-bottom:1.5rem">
+      <div class="es-card-body" style="display:flex;align-items:center;gap:1rem">
+        <span style="width:10px;height:10px;border-radius:50%;background:#22c55e;display:inline-block;flex-shrink:0"></span>
+        <div>
+          <div style="font-weight:600">Server operational</div>
+          {{if .Uptime}}<div class="es-text-muted es-text-sm">Uptime: {{.Uptime}}</div>{{end}}
+        </div>
+      </div>
+    </div>
+
+    <div class="es-card">
+      <div class="es-card-header">
+        <h3 class="es-card-title">Destinations</h3>
+      </div>
+      <div class="es-card-body" style="padding:0">
+        {{if .Destinations}}
+        <table class="es-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Provider</th>
+              <th>Reachable</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Destinations}}
+            <tr>
+              <td style="font-weight:500">{{.Name}}</td>
+              <td><span class="es-badge">{{.ProviderType}}</span></td>
+              <td>
+                {{if eq .Status "reachable"}}
+                  <span style="display:inline-flex;align-items:center;gap:.4rem">
+                    <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span>
+                    <span class="es-text-sm" style="color:#22c55e">reachable</span>
+                  </span>
+                {{else if eq .Status "unreachable"}}
+                  <span style="display:inline-flex;align-items:center;gap:.4rem" title="{{.ErrMsg}}">
+                    <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block"></span>
+                    <span class="es-text-sm" style="color:#ef4444">unreachable</span>
+                  </span>
+                {{else}}
+                  <span class="es-text-muted es-text-sm">unknown</span>
+                {{end}}
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+        {{else}}
+        <p class="es-text-muted" style="padding:1rem">No destinations configured.</p>
+        {{end}}
+      </div>
+    </div>
+
+    <p class="es-text-muted es-text-sm" style="margin-top:1.5rem;text-align:center">
+      <a href="/ui/">Admin UI</a> &middot; <a href="/v1/health">API health</a>
+    </p>
+  </div>
+</body>
+</html>
+{{end}}

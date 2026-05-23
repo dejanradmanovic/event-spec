@@ -108,6 +108,22 @@ func (s *Server) eventLookup(eventName string) (*spec.EventDef, bool) {
 	return def, def != nil
 }
 
+// pingDestination builds a provider for dest and calls Ping if it implements
+// provider.HealthChecker. Returns nil when the provider is reachable, an error
+// when it is not, and provider.ErrUnsupportedOperation when the provider has no
+// Ping implementation (so the UI can show "unknown" instead of an error).
+func (s *Server) pingDestination(ctx context.Context, dest spec.DestinationDef) error {
+	p, err := buildProvider(&dest)
+	if err != nil {
+		return err
+	}
+	hc, ok := p.(provider.HealthChecker)
+	if !ok {
+		return provider.ErrUnsupportedOperation
+	}
+	return hc.Ping(ctx)
+}
+
 // buildProvider constructs a provider.Provider from a DestinationDef.
 // Unknown provider names fall back to the noop provider so the server
 // degrades gracefully when new provider types are added to the spec.
