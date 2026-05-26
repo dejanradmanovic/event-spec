@@ -71,3 +71,9 @@ If a hook blocks you unexpectedly, investigate the root cause rather than bypass
 - **New SDK languages** — See [Adding SDKs](./adding-sdks.md)
 - **Hook implementations** — `hooks/logging` and `hooks/otel` are planned but not implemented
 - **Documentation** — improvements to this site are always welcome
+
+## License
+
+event-spec is licensed under the [GNU General Public License v3.0](./license.md).
+
+By submitting a pull request you confirm that your contribution may be distributed under the same GPL v3 terms. You retain copyright on your own work; the license grants the project the right to include it.

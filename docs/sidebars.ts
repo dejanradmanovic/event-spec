@@ -62,6 +62,7 @@ const sidebars: SidebarsConfig = {
         'contributing/index',
         'contributing/adding-providers',
         'contributing/adding-sdks',
+        'contributing/license',
       ],
     },
   ],
