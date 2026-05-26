@@ -39,19 +39,27 @@ The CLI looks for `event-spec.yaml` in the current directory and walks up to the
 
 ## CI integration
 
-A typical CI pipeline for a project with specs in the repo:
+For GitHub Actions, use the composite actions published from this repository — they install the CLI automatically and provide built-in PR comments and annotations:
 
-```yaml title=".github/workflows/validate-specs.yml"
-on:
-  push:
-    paths: ['specs/**', 'sources/**', 'destinations/**']
-
+```yaml title=".github/workflows/ci.yml"
 jobs:
   validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - run: go install github.com/dejanradmanovic/event-spec/cmd/event-spec@latest
-      - run: event-spec validate --strict
-      - run: event-spec diff --breaking --format json
+      - uses: dejanradmanovic/event-spec/validate@main
+        with:
+          strict: true
 ```
+
+For GitLab CI, CircleCI, Bitbucket Pipelines, or plain `docker run`, use the pre-built CLI image:
+
+```bash
+docker run --rm -v "$PWD:/workspace" -w /workspace \
+  ghcr.io/dejanradmanovic/event-spec-cli:latest validate --strict
+```
+
+→ See [CI Integrations](../ci-integrations/index.md) for full documentation including all action inputs, copy-paste workflow recipes, and multi-CI Docker examples.

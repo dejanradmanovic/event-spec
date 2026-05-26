@@ -1,0 +1,126 @@
+name: 'event-spec · validate'
+description: >
+  Validate event specs against JSON Schema. When run on a pull request, runs
+  event-spec diff --breaking and posts a PR comment if any breaking changes are
+  detected.
+author: dejanradmanovic
+
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  version:
+    description: >
+      event-spec CLI version to install (semver without leading v, or "latest").
+    required: false
+    default: latest
+  event-spec-yaml:
+    description: >
+      Explicit path to the workspace file. Skips root auto-discovery when
+      provided; the CLI is run from the directory that contains this file.
+    required: false
+    default: ''
+  specs-dir:
+    description: >
+      Override the specs location. Takes priority over whatever the workspace
+      file specifies.
+    required: false
+    default: ''
+  strict:
+    description: Treat warnings as errors.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Install event-spec CLI
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        REPO="dejanradmanovic/event-spec"
+        VERSION="$INPUT_VERSION"
+
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${REPO}/releases/latest" \
+            | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+        fi
+
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)        ARCH="amd64" ;;
+          aarch64|arm64) ARCH="arm64" ;;
+        esac
+
+        URL="https://github.com/${REPO}/releases/download/v${VERSION}/event-spec_v${VERSION}_${OS}_${ARCH}.tar.gz"
+        echo "Installing event-spec v${VERSION} from ${URL}"
+        curl -fsSL "$URL" | tar -xz event-spec
+        chmod +x event-spec
+        sudo mv event-spec /usr/local/bin/event-spec
+        event-spec --version
+
+    - name: Validate specs
+      shell: bash
+      env:
+        INPUT_SPECS_DIR: ${{ inputs.specs-dir }}
+        INPUT_STRICT: ${{ inputs.strict }}
+        INPUT_EVENT_SPEC_YAML: ${{ inputs.event-spec-yaml }}
+      run: |
+        set -euo pipefail
+
+        # When an explicit workspace file is given, run from its directory so
+        # relative paths inside it resolve correctly.
+        if [ -n "$INPUT_EVENT_SPEC_YAML" ]; then
+          cd "$(dirname "$INPUT_EVENT_SPEC_YAML")"
+        fi
+
+        ARGS=()
+        [ "$INPUT_STRICT" = "true" ] && ARGS+=(--strict)
+
+        if [ -n "$INPUT_SPECS_DIR" ]; then
+          event-spec validate "$INPUT_SPECS_DIR" "${ARGS[@]}"
+        else
+          event-spec validate "${ARGS[@]}"
+        fi
+
+    - name: Check for breaking changes
+      if: ${{ github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        INPUT_SPECS_DIR: ${{ inputs.specs-dir }}
+        INPUT_EVENT_SPEC_YAML: ${{ inputs.event-spec-yaml }}
+      run: |
+        set -euo pipefail
+
+        if [ -n "$INPUT_EVENT_SPEC_YAML" ]; then
+          cd "$(dirname "$INPUT_EVENT_SPEC_YAML")"
+        fi
+
+        DIFF_ARGS=(--breaking --format text)
+
+        # Run the diff; a non-zero exit from the CLI means version inconsistency,
+        # not a script error — capture output and decide below.
+        OUTPUT=$(event-spec diff "${DIFF_ARGS[@]}" 2>&1 || true)
+
+        if echo "$OUTPUT" | grep -q "^BREAKING"; then
+          BODY="## ⚠️ Breaking spec changes detected
+
+The following breaking changes were found in this pull request. Consumers of these event specs may need to update their implementations before this is merged.
+
+\`\`\`
+${OUTPUT}
+\`\`\`
+
+---
+*Posted automatically by [event-spec/validate](https://github.com/dejanradmanovic/event-spec/tree/main/validate)*"
+          gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
+        fi
