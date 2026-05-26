@@ -28,6 +28,8 @@ event-spec serve --port 8080 --db "postgres://user:pass@localhost:5432/event_spe
 
 The database schema is applied automatically on first startup. See [`event-spec serve`](../cli/serve.md) for all flags.
 
+To run the server as a container, see [Docker deployment](./docker.md) for `docker run` and Docker Compose examples.
+
 ## Bootstrap
 
 On a fresh server with no API keys, the first key can be created without authentication — either via the API or by opening the admin UI in a browser:

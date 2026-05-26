@@ -7,6 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// version is set at build time via -ldflags="-X main.version=<ver>".
+var version = "dev"
+
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
 		var ee *exitCodeError
@@ -22,6 +25,7 @@ func newRootCmd() *cobra.Command {
 		Use:          "event-spec",
 		Short:        "Provider-agnostic analytics codegen and governance CLI",
 		SilenceUsage: true,
+		Version:      version,
 	}
 	root.AddCommand(newPullCmd())
 	root.AddCommand(newGenerateCmd())

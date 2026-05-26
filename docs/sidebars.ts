@@ -73,11 +73,25 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'server/index',
+        'server/docker',
         'server/relay',
         'server/authentication',
         'server/api-reference',
         'server/configuration',
         'server/admin-ui',
+      ],
+    },
+  ],
+
+  ciIntegrationsSidebar: [
+    {
+      type: 'category',
+      label: 'CI Integrations',
+      collapsed: false,
+      items: [
+        'ci-integrations/index',
+        'ci-integrations/github-actions',
+        'ci-integrations/docker',
       ],
     },
   ],

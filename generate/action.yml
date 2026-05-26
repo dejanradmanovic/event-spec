@@ -1,0 +1,164 @@
+name: 'event-spec · generate'
+description: >
+  Generate typed SDK wrappers from event specs for all workspace sources (or a
+  specified subset). Generated files are either committed to the current branch
+  or proposed via a new pull request.
+author: dejanradmanovic
+
+branding:
+  icon: code
+  color: blue
+
+inputs:
+  version:
+    description: >
+      event-spec CLI version to install (semver without leading v, or "latest").
+    required: false
+    default: latest
+  event-spec-yaml:
+    description: >
+      Explicit path to the workspace file. Skips root auto-discovery when
+      provided; the CLI is run from the directory that contains this file.
+    required: false
+    default: ''
+  sources-dir:
+    description: >
+      Override the sources location. Takes priority over whatever the workspace
+      file specifies.
+    required: false
+    default: ''
+  sources:
+    description: >
+      Comma-separated list of source names to generate. Defaults to all sources
+      defined in the workspace.
+    required: false
+    default: ''
+  open-pr:
+    description: >
+      Open a pull request for the generated files instead of committing directly
+      to the current branch.
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Install event-spec CLI
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        REPO="dejanradmanovic/event-spec"
+        VERSION="$INPUT_VERSION"
+
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${REPO}/releases/latest" \
+            | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+        fi
+
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)        ARCH="amd64" ;;
+          aarch64|arm64) ARCH="arm64" ;;
+        esac
+
+        URL="https://github.com/${REPO}/releases/download/v${VERSION}/event-spec_v${VERSION}_${OS}_${ARCH}.tar.gz"
+        echo "Installing event-spec v${VERSION} from ${URL}"
+        curl -fsSL "$URL" | tar -xz event-spec
+        chmod +x event-spec
+        sudo mv event-spec /usr/local/bin/event-spec
+        event-spec --version
+
+    - name: Generate typed wrappers
+      shell: bash
+      env:
+        INPUT_SOURCES_DIR: ${{ inputs.sources-dir }}
+        INPUT_SOURCES: ${{ inputs.sources }}
+        INPUT_EVENT_SPEC_YAML: ${{ inputs.event-spec-yaml }}
+        INPUT_OPEN_PR: ${{ inputs.open-pr }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+
+        # Resolve effective working directory.
+        WORKDIR="$GITHUB_WORKSPACE"
+        if [ -n "$INPUT_EVENT_SPEC_YAML" ]; then
+          WORKDIR="$(dirname "$(realpath "$INPUT_EVENT_SPEC_YAML")")"
+        fi
+
+        # Resolve sources directory.
+        SOURCES_DIR="${INPUT_SOURCES_DIR:-}"
+        if [ -z "$SOURCES_DIR" ]; then
+          WORKSPACE_YAML="$WORKDIR/event-spec.yaml"
+          if [ -f "$WORKSPACE_YAML" ]; then
+            SOURCES_DIR=$(python3 -c "
+        import yaml, sys
+        with open('$WORKSPACE_YAML') as f:
+            cfg = yaml.safe_load(f) or {}
+        print(cfg.get('sources_dir', './sources'))
+        ")
+          else
+            SOURCES_DIR="./sources"
+          fi
+        fi
+
+        # Resolve source list: explicit CSV input or enumerate from sources dir.
+        if [ -n "$INPUT_SOURCES" ]; then
+          IFS=',' read -ra SOURCE_NAMES <<< "$INPUT_SOURCES"
+        else
+          # Enumerate all .yaml files in the sources directory.
+          mapfile -t SOURCE_NAMES < <(
+            find "$WORKDIR/$SOURCES_DIR" -maxdepth 1 -name '*.yaml' \
+              -exec basename {} .yaml \; 2>/dev/null | sort
+          )
+        fi
+
+        if [ "${#SOURCE_NAMES[@]}" -eq 0 ]; then
+          echo "No sources found in ${SOURCES_DIR}; nothing to generate."
+          exit 0
+        fi
+
+        # Run generate for each source.
+        cd "$WORKDIR"
+        for src in "${SOURCE_NAMES[@]}"; do
+          src="${src//[[:space:]]/}"
+          [ -z "$src" ] && continue
+          echo "Generating for source: $src"
+          event-spec generate "$src"
+        done
+
+        # Commit or open PR.
+        git config user.name  "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+        if [ -z "$(git status --short)" ]; then
+          echo "No changes to generated files."
+          exit 0
+        fi
+
+        git add -A
+
+        if [ "$INPUT_OPEN_PR" = "true" ]; then
+          BRANCH="event-spec/generate-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git commit -m "chore: regenerate typed wrappers via event-spec"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "chore: regenerate typed wrappers" \
+            --body "Automated SDK regeneration triggered by the \`event-spec/generate\` action.
+
+**Sources:** ${SOURCE_NAMES[*]}
+
+---
+*Opened automatically by [event-spec/generate](https://github.com/dejanradmanovic/event-spec/tree/main/generate)*" \
+            --base "${{ github.ref_name }}"
+        else
+          git commit -m "chore: regenerate typed wrappers via event-spec"
+          git push
+        fi

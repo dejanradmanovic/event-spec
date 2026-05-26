@@ -1,0 +1,171 @@
+name: 'event-spec · audit'
+description: >
+  Scan codebase event usage against the spec registry for all workspace sources
+  (or a specified subset). Annotates pull requests with uncovered events and
+  fails when coverage falls below the configured minimum.
+author: dejanradmanovic
+
+branding:
+  icon: shield
+  color: orange
+
+inputs:
+  version:
+    description: >
+      event-spec CLI version to install (semver without leading v, or "latest").
+    required: false
+    default: latest
+  event-spec-yaml:
+    description: >
+      Explicit path to the workspace file. Skips root auto-discovery when
+      provided; the CLI is run from the directory that contains this file.
+    required: false
+    default: ''
+  sources-dir:
+    description: >
+      Override the sources location. Takes priority over whatever the workspace
+      file specifies.
+    required: false
+    default: ''
+  sources:
+    description: >
+      Comma-separated list of source names to audit. Defaults to all sources
+      defined in the workspace.
+    required: false
+    default: ''
+  coverage-min:
+    description: Minimum coverage percentage required.
+    required: false
+    default: '80'
+  strict:
+    description: Fail if any required event is unused.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Install event-spec CLI
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        REPO="dejanradmanovic/event-spec"
+        VERSION="$INPUT_VERSION"
+
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${REPO}/releases/latest" \
+            | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+        fi
+
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)        ARCH="amd64" ;;
+          aarch64|arm64) ARCH="arm64" ;;
+        esac
+
+        URL="https://github.com/${REPO}/releases/download/v${VERSION}/event-spec_v${VERSION}_${OS}_${ARCH}.tar.gz"
+        echo "Installing event-spec v${VERSION} from ${URL}"
+        curl -fsSL "$URL" | tar -xz event-spec
+        chmod +x event-spec
+        sudo mv event-spec /usr/local/bin/event-spec
+        event-spec --version
+
+    - name: Audit event coverage
+      shell: bash
+      env:
+        INPUT_SOURCES_DIR: ${{ inputs.sources-dir }}
+        INPUT_SOURCES: ${{ inputs.sources }}
+        INPUT_EVENT_SPEC_YAML: ${{ inputs.event-spec-yaml }}
+        INPUT_COVERAGE_MIN: ${{ inputs.coverage-min }}
+        INPUT_STRICT: ${{ inputs.strict }}
+      run: |
+        set -euo pipefail
+
+        # Resolve effective working directory.
+        WORKDIR="$GITHUB_WORKSPACE"
+        if [ -n "$INPUT_EVENT_SPEC_YAML" ]; then
+          WORKDIR="$(dirname "$(realpath "$INPUT_EVENT_SPEC_YAML")")"
+        fi
+
+        # Resolve sources directory.
+        SOURCES_DIR="${INPUT_SOURCES_DIR:-}"
+        if [ -z "$SOURCES_DIR" ]; then
+          WORKSPACE_YAML="$WORKDIR/event-spec.yaml"
+          if [ -f "$WORKSPACE_YAML" ]; then
+            SOURCES_DIR=$(python3 -c "
+        import yaml
+        with open('$WORKSPACE_YAML') as f:
+            cfg = yaml.safe_load(f) or {}
+        print(cfg.get('sources_dir', './sources'))
+        ")
+          else
+            SOURCES_DIR="./sources"
+          fi
+        fi
+
+        # Resolve source list.
+        if [ -n "$INPUT_SOURCES" ]; then
+          IFS=',' read -ra SOURCE_NAMES <<< "$INPUT_SOURCES"
+        else
+          mapfile -t SOURCE_NAMES < <(
+            find "$WORKDIR/$SOURCES_DIR" -maxdepth 1 -name '*.yaml' \
+              -exec basename {} .yaml \; 2>/dev/null | sort
+          )
+        fi
+
+        if [ "${#SOURCE_NAMES[@]}" -eq 0 ]; then
+          echo "No sources found in ${SOURCES_DIR}; nothing to audit."
+          exit 0
+        fi
+
+        cd "$WORKDIR"
+
+        AUDIT_EXIT=0
+        for src in "${SOURCE_NAMES[@]}"; do
+          src="${src//[[:space:]]/}"
+          [ -z "$src" ] && continue
+          echo "Auditing source: $src"
+
+          AUDIT_ARGS=("$src" --report json --coverage-min "$INPUT_COVERAGE_MIN")
+          [ "$INPUT_STRICT" = "true" ] && AUDIT_ARGS+=(--strict)
+
+          REPORT=$(event-spec audit "${AUDIT_ARGS[@]}" 2>&1) || AUDIT_EXIT=$?
+
+          # Emit GitHub Actions annotations for unused events.
+          echo "$REPORT" | python3 -c "
+        import sys, json
+
+        try:
+            data = json.loads(sys.stdin.read())
+        except Exception:
+            sys.exit(0)
+
+        for item in data.get('unused', []):
+            spec_file = item.get('spec_file', '')
+            event_key = item.get('event_key', item.get('event', ''))
+            if spec_file:
+                print(f'::warning file={spec_file},title=Unused event::{event_key} is defined in the spec but not found in the codebase')
+            else:
+                print(f'::warning title=Unused event::{event_key} is defined in the spec but not found in the codebase')
+
+        for item in data.get('rogue', []):
+            event_name = item.get('event_name', '')
+            locs = item.get('locations', [])
+            for loc in locs:
+                f = loc.get('file', '')
+                ln = loc.get('line', 0)
+                print(f'::warning file={f},line={ln},title=Rogue event::{event_name} is sent but not defined in the spec')
+        " || true
+
+          # Print the text summary as well.
+          echo "$REPORT"
+        done
+
+        exit $AUDIT_EXIT
