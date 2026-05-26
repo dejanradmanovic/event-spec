@@ -57,6 +57,15 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'CI Integrations',
+      items: [
+        'ci-integrations/index',
+        'ci-integrations/github-actions',
+        'ci-integrations/docker',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Contributing',
       items: [
         'contributing/index',
@@ -80,19 +89,6 @@ const sidebars: SidebarsConfig = {
         'server/api-reference',
         'server/configuration',
         'server/admin-ui',
-      ],
-    },
-  ],
-
-  ciIntegrationsSidebar: [
-    {
-      type: 'category',
-      label: 'CI Integrations',
-      collapsed: false,
-      items: [
-        'ci-integrations/index',
-        'ci-integrations/github-actions',
-        'ci-integrations/docker',
       ],
     },
   ],

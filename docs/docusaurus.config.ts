@@ -93,12 +93,6 @@ const config: Config = {
           label: 'Providers',
         },
         {
-          type: 'docSidebar',
-          sidebarId: 'ciIntegrationsSidebar',
-          position: 'left',
-          label: 'CI',
-        },
-        {
           href: 'https://github.com/dejanradmanovic/event-spec',
           label: 'GitHub',
           position: 'right',
