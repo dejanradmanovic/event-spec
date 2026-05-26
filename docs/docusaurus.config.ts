@@ -132,7 +132,6 @@ const config: Config = {
             { label: 'CI Integrations', to: '/docs/ci-integrations' },
             { label: 'GitHub Actions', to: '/docs/ci-integrations/github-actions' },
             { label: 'Docker', to: '/docs/ci-integrations/docker' },
-            { label: 'Server — Docker', to: '/docs/server/docker' },
           ],
         },
         {
