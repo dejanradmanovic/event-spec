@@ -93,6 +93,12 @@ const config: Config = {
           label: 'Providers',
         },
         {
+          type: 'docSidebar',
+          sidebarId: 'ciIntegrationsSidebar',
+          position: 'left',
+          label: 'CI',
+        },
+        {
           href: 'https://github.com/dejanradmanovic/event-spec',
           label: 'GitHub',
           position: 'right',
@@ -121,10 +127,20 @@ const config: Config = {
           ],
         },
         {
+          title: 'CI & Deploy',
+          items: [
+            { label: 'CI Integrations', to: '/docs/ci-integrations' },
+            { label: 'GitHub Actions', to: '/docs/ci-integrations/github-actions' },
+            { label: 'Docker', to: '/docs/ci-integrations/docker' },
+            { label: 'Server — Docker', to: '/docs/server/docker' },
+          ],
+        },
+        {
           title: 'More',
           items: [
             { label: 'GitHub', href: 'https://github.com/dejanradmanovic/event-spec' },
             { label: 'Contributing', to: '/docs/contributing' },
+            { label: 'License', to: '/docs/contributing/license' },
           ],
         },
       ],
