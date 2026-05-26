@@ -81,3 +81,14 @@ Examples:
 ## Issue triage
 
 Issues are tagged by phase (`phase-1` through `phase-4`) and layer (`spec-layer`, `sdk-runtime`, `codegen`, `governance`, `provider`, `hooks`, `registry`, `cli`). Pick something from `phase-1` if you want to start contributing.
+
+## License
+
+By contributing to event-spec you agree that your contributions will be licensed under the [GNU General Public License v3.0](LICENSE).
+
+This means:
+- You may use, copy, modify, and distribute the software under the same GPL v3 terms.
+- Any derivative work or project that incorporates event-spec source code must also be distributed under GPL v3.
+- You retain copyright on your own contributions; the CLA simply grants the project the right to include them.
+
+See the full [LICENSE](LICENSE) file for the exact terms.
