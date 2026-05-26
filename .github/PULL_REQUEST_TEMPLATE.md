@@ -16,3 +16,4 @@
 - [ ] `go test ./...` passes
 - [ ] `golangci-lint run` passes
 - [ ] No new `TODO`/`FIXME` left without a tracking issue
+- [ ] Documentation added or updated (if needed). If it's not created and is needed TechDebt issue is created
