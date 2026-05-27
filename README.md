@@ -4,7 +4,8 @@
 
 **Define events once. Generate type-safe wrappers for every language. Swap analytics vendors without touching your code.**
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/Platform-AGPL--3.0-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/SDKs-Apache--2.0-green.svg)](LICENSE-APACHE)
 [![Go](https://img.shields.io/badge/go-1.26+-00ADD8?logo=go&logoColor=white)](go.mod)
 [![CI](https://github.com/dejanradmanovic/event-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/dejanradmanovic/event-spec/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-dejanradmanovic.github.io%2Fevent--spec-orange)](https://dejanradmanovic.github.io/event-spec/)
@@ -91,3 +92,7 @@ That's it. Swap `amplitude.New(...)` for `posthog.New(...)` and nothing else cha
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, conventions, and PR workflow.
+
+This project uses a split license: the platform (CLI, registry server, codegen) is **[AGPL-3.0](LICENSE)**;
+the client libraries (`analytics/`, `provider/`, `hooks/`, `sdk/`) are **[Apache-2.0](LICENSE-APACHE)**.
+See [docs/contributing/license](https://dejanradmanovic.github.io/event-spec/docs/contributing/license) for the full breakdown.
