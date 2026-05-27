@@ -35,7 +35,15 @@ func setSessionCookie(w http.ResponseWriter, key string) {
 }
 
 func clearSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Path: "/", Secure: true, MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
 }
 
 func (h *Handler) withSession(minRole string, next http.HandlerFunc) http.HandlerFunc {
