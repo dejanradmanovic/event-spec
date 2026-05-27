@@ -2,6 +2,7 @@
   "name": "@dejanradmanovic/event-spec-api",
   "version": "0.1.0",
   "description": "TypeScript core runtime for event-spec analytics — Provider interface, Hook chain, Client dispatch, validation and sampling hooks",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

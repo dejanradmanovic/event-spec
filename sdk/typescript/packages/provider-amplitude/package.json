@@ -2,6 +2,7 @@
   "name": "@dejanradmanovic/event-spec-provider-amplitude",
   "version": "0.1.0",
   "description": "Amplitude analytics provider for event-spec — batched track via EventQueue, synchronous identify/group/alias",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

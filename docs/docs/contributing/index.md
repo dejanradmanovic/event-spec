@@ -74,6 +74,9 @@ If a hook blocks you unexpectedly, investigate the root cause rather than bypass
 
 ## License
 
-event-spec is licensed under the [GNU General Public License v3.0](./license.md).
+event-spec uses a split license model: **AGPL-3.0** for the platform (CLI, registry server,
+codegen engine) and **Apache-2.0** for the client libraries (`analytics/`, `provider/`,
+`hooks/`, `sdk/`). See the [License page](./license.md) for the full breakdown and rationale.
 
-By submitting a pull request you confirm that your contribution may be distributed under the same GPL v3 terms. You retain copyright on your own work; the license grants the project the right to include it.
+By submitting a pull request you agree that your contribution will be licensed under whichever
+license applies to the directory you are contributing to. You retain copyright on your own work.
