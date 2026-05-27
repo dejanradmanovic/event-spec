@@ -1,4 +1,4 @@
-name: Release — Go (module + CLI binaries)
+name: Release
 
 on:
   workflow_dispatch:
@@ -13,8 +13,9 @@ permissions:
   packages: write
 
 jobs:
-  release:
-    name: Test, tag, build and release
+  # ── Go: test, tag, CLI binaries, Docker images ───────────────────────────
+  release-go:
+    name: Go — test, tag, build, publish
     runs-on: ubuntu-latest
 
     steps:
@@ -79,7 +80,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "v${{ inputs.version }}" \
-            --title "event-spec v${{ inputs.version }}" \
+            --title "v${{ inputs.version }}" \
             --generate-notes \
             dist/*.tar.gz dist/*.zip
 
@@ -125,3 +126,106 @@ jobs:
           tags: |
             ghcr.io/dejanradmanovic/event-spec-server:latest
             ghcr.io/dejanradmanovic/event-spec-server:v${{ inputs.version }}
+
+  # ── TypeScript: api ───────────────────────────────────────────────────────
+  release-ts-api:
+    name: TypeScript — publish event-spec-api
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+          package_json_file: sdk/typescript/package.json
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@dejanradmanovic'
+          cache: 'pnpm'
+          cache-dependency-path: sdk/typescript/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: sdk/typescript
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-api typecheck
+
+      - name: Lint
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-api lint
+
+      - name: Test
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-api test
+
+      - name: Build
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-api build
+
+      - name: Set version
+        working-directory: sdk/typescript/packages/api
+        run: npm version ${{ inputs.version }} --no-git-tag-version
+
+      - name: Publish
+        working-directory: sdk/typescript/packages/api
+        run: pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── TypeScript: provider-amplitude ───────────────────────────────────────
+  release-ts-provider-amplitude:
+    name: TypeScript — publish event-spec-provider-amplitude
+    runs-on: ubuntu-latest
+    needs: release-ts-api
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+          package_json_file: sdk/typescript/package.json
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@dejanradmanovic'
+          cache: 'pnpm'
+          cache-dependency-path: sdk/typescript/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: sdk/typescript
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-provider-amplitude typecheck
+
+      - name: Lint
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-provider-amplitude lint
+
+      - name: Test
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-provider-amplitude test
+
+      - name: Build
+        working-directory: sdk/typescript
+        run: pnpm --filter @dejanradmanovic/event-spec-provider-amplitude build
+
+      - name: Set version
+        working-directory: sdk/typescript/packages/provider-amplitude
+        run: npm version ${{ inputs.version }} --no-git-tag-version
+
+      - name: Publish
+        working-directory: sdk/typescript/packages/provider-amplitude
+        run: pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
