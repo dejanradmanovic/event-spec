@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
+    "rootDir": "..",
     "paths": {
       "@dejanradmanovic/event-spec-api": ["../api/src/index.ts"]
     }
