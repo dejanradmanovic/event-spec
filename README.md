@@ -91,5 +91,3 @@ That's it. Swap `amplitude.New(...)` for `posthog.New(...)` and nothing else cha
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, conventions, and PR workflow.
-
-This project is licensed under the **[GNU General Public License v3.0](LICENSE)**.
