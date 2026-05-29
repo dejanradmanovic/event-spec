@@ -1,0 +1,39 @@
+name: CI - Kotlin SDK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sdk/kotlin/**'
+      - '.github/workflows/ci-kotlin.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'sdk/kotlin/**'
+      - '.github/workflows/ci-kotlin.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  kotlin:
+    name: Kotlin SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/kotlin
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Build
+        run: ./gradlew build -x test
+
+      - name: Test
+        run: ./gradlew test
