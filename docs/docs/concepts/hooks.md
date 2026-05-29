@@ -90,6 +90,37 @@ class MyHook extends UnimplementedHook {
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+interface Hook {
+  // Return a non-null EventEnvelope to replace the event; throw to cancel.
+  suspend fun before(hc: HookContext, hints: HookHints = emptyMap()): EventEnvelope? = null
+  suspend fun after(hc: HookContext, result: HookResult, hints: HookHints = emptyMap()) {}
+  fun error(hc: HookContext, err: Throwable, hints: HookHints = emptyMap()) {}
+  fun finally(hc: HookContext, result: HookResult, hints: HookHints = emptyMap()) {}
+}
+```
+
+Extend `UnimplementedHook` and override only the stages you need:
+
+```kotlin
+class MyHook : UnimplementedHook() {
+    override suspend fun before(hc: HookContext, hints: HookHints): EventEnvelope? {
+        // Inspect or mutate the event before dispatch
+        if (hc.eventName == "Product Viewed") {
+            return EventEnvelope(
+                eventName = hc.eventName,
+                properties = hc.message.let { (it as? EventEnvelope)?.properties ?: emptyMap() } + mapOf("hook_applied" to true),
+                context = hc.context,
+            )
+        }
+        return null // pass through unchanged
+    }
+}
+```
+
+</TabItem>
 </Tabs>
 
 ## HookContext
@@ -136,6 +167,20 @@ interface EventEnvelope {
 Throwing from `before()` cancels dispatch entirely and marks the event as `Dropped`. Return `null` to pass through unchanged, or return a new `EventEnvelope` to replace the event for all subsequent hooks and providers.
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+data class EventEnvelope(
+    val eventName: String,
+    val properties: Map<String, Any?>,
+    val context: AnalyticsContext,
+    val metadata: Map<String, Any?> = emptyMap(),
+)
+```
+
+Throwing from `before()` cancels dispatch entirely and marks the event as `Dropped`. Return `null` to pass through unchanged, or return a new `EventEnvelope` to replace the event.
+
+</TabItem>
 </Tabs>
 
 ## Registering hooks
@@ -168,6 +213,21 @@ addGlobalHooks(myHook);
 const client = new Client({
   hooks: [new ValidationHook(lookup), new SamplingHook(samplingHook)],
 });
+
+// Provider-level (from provider.hooks())
+```
+
+</TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// API-level (applies to all clients)
+addGlobalHooks(myHook)
+
+// Client-level
+val client = Client(ClientOptions(
+    hooks = listOf(ValidationHook(validator), SamplingHook(lookup)),
+))
 
 // Provider-level (from provider.hooks())
 ```

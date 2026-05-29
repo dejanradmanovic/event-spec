@@ -1,7 +1,7 @@
 plugins {
-    kotlin("jvm") version "2.1.20"
+    alias(libs.plugins.kotlin.jvm)
     `maven-publish`
-    id("com.ncorti.ktfmt.gradle") version "0.20.1"
+    alias(libs.plugins.ktfmt)
 }
 
 group = "io.event-spec"
@@ -12,9 +12,9 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation(libs.kotlinx.coroutines.core)
     testImplementation(kotlin("test"))
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 
 tasks.test {

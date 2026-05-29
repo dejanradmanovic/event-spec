@@ -63,6 +63,15 @@ class MyHook extends UnimplementedHook {
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+class MyHook : UnimplementedHook() {
+    // override only the stages you need
+}
+```
+
+</TabItem>
 </Tabs>
 
 ## Registering hooks
@@ -94,6 +103,19 @@ const client = new Client({
 
 // API-level (applies to all clients)
 addGlobalHooks(myCustomHook);
+```
+
+</TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Client-level hooks
+val client = Client(ClientOptions(
+    hooks = listOf(ValidationHook(validator), SamplingHook(lookup)),
+))
+
+// API-level (applies to all clients)
+addGlobalHooks(myCustomHook)
 ```
 
 </TabItem>

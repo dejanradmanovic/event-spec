@@ -11,7 +11,7 @@ This guide walks through the complete flow: write an event spec → validate →
 ## Prerequisites
 
 - [event-spec CLI installed](./installation.md)
-- Go 1.21+ **or** Node.js 18+ (depending on your target language)
+- Go 1.21+, Node.js 18+, or JDK 17+ (depending on your target language)
 
 ## Step 1 — Workspace setup
 
@@ -116,6 +116,20 @@ src/analytics/generated/
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```bash
+event-spec generate --lang kotlin --out ./generated
+```
+
+This creates:
+```
+generated/
+├── EventSpec.kt              # EventSpec class
+└── ProductViewed.kt          # enum, data class, suspend extension fun
+```
+
+</TabItem>
 </Tabs>
 
 ## Step 5 — Instrument your app
@@ -172,6 +186,32 @@ await client.productViewed({
     category: ProductViewedCategory.Electronics,
     productId: 'SKU-123',
 });
+```
+
+</TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin title="Main.kt"
+import io.eventspec.analytics.Client
+import io.eventspec.analytics.ClientOptions
+import io.eventspec.analytics.amplitude.AmplitudeConfig
+import io.eventspec.analytics.amplitude.AmplitudeProvider
+import analytics.EventSpec
+import analytics.ProductViewedProperties
+import analytics.ProductViewedCategory
+import kotlinx.coroutines.runBlocking
+
+fun main() = runBlocking {
+    val amp = AmplitudeProvider(AmplitudeConfig(apiKey = System.getenv("AMPLITUDE_API_KEY")!!))
+    val client = Client(ClientOptions(providers = listOf(amp)))
+    val es = EventSpec(client)
+
+    es.productViewed(ProductViewedProperties(
+        category = ProductViewedCategory.ELECTRONICS,
+        productId = "SKU-123",
+        // currency omitted — uses default null
+    ))
+}
 ```
 
 </TabItem>

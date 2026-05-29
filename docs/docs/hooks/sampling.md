@@ -40,6 +40,19 @@ const hook = new SamplingHook({
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import io.eventspec.analytics.SamplingHook
+import io.eventspec.analytics.SamplingPolicy
+import io.eventspec.analytics.SamplingStrategy
+
+val hook = SamplingHook { eventName ->
+    SamplingPolicy(strategy = SamplingStrategy.USER_ID_HASH, rate = 0.1)
+}
+```
+
+</TabItem>
 </Tabs>
 
 ### `random`
@@ -64,6 +77,15 @@ const hook = new SamplingHook({
     strategy: SamplingStrategy.Random,
     rate: 0.05,  // 5% of events
 });
+```
+
+</TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val hook = SamplingHook { eventName ->
+    SamplingPolicy(strategy = SamplingStrategy.RANDOM, rate = 0.05)
+}
 ```
 
 </TabItem>

@@ -56,6 +56,47 @@ func (p *MyProvider) Flush(ctx context.Context) error    { return nil }
 func (p *MyProvider) Shutdown(ctx context.Context) error { return nil }
 ```
 
+## Implementing the interface (Kotlin)
+
+```kotlin
+import io.eventspec.analytics.*
+
+class MyProvider : Provider {
+    override fun metadata() = ProviderMetadata(
+        name = "my-provider",
+        version = "1.0.0",
+        capabilities = ProviderCapabilities(
+            track = true, identify = false, group = false, page = false, alias = false,
+        ),
+    )
+
+    override fun hooks(): List<Hook> = emptyList()
+
+    override suspend fun track(msg: TrackMessage) {
+        // Send msg to your backend
+    }
+
+    override suspend fun identify(msg: IdentifyMessage) {
+        throw UnsupportedOperationException("identify")
+    }
+
+    override suspend fun group(msg: GroupMessage) {
+        throw UnsupportedOperationException("group")
+    }
+
+    override suspend fun page(msg: PageMessage) {
+        throw UnsupportedOperationException("page")
+    }
+
+    override suspend fun alias(msg: AliasMessage) {
+        throw UnsupportedOperationException("alias")
+    }
+
+    override suspend fun flush() {}
+    override suspend fun shutdown() {}
+}
+```
+
 ## Implementing the interface (TypeScript)
 
 ```typescript

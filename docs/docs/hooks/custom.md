@@ -105,6 +105,36 @@ const client = new Client({
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import io.eventspec.analytics.*
+
+class ConsentHook(private val consentStore: ConsentStore) : UnimplementedHook() {
+
+    // before runs once before any provider receives the event.
+    // Throw to cancel dispatch (event is Dropped).
+    override suspend fun before(hc: HookContext, hints: HookHints): EventEnvelope? {
+        if (hc.context.userId.isEmpty()) return null // anonymous users always pass
+        if (!consentStore.hasConsent(hc.context.userId, "analytics")) {
+            throw Exception("no analytics consent") // throw = drop
+        }
+        return null // pass through unchanged
+    }
+
+    // finally runs after every provider result (success or failure).
+    override fun finally(hc: HookContext, result: HookResult, hints: HookHints) {
+        println("event=${hc.eventName} delivered=${result.delivered}")
+    }
+}
+
+val client = Client(ClientOptions(
+    providers = listOf(amp),
+    hooks = listOf(ConsentHook(store)),
+))
+```
+
+</TabItem>
 </Tabs>
 
 ## Mutating the envelope
@@ -139,6 +169,20 @@ async before(hc: HookContext, hints?: HookHints): Promise<EventEnvelope | null> 
             region: this.region,
         },
     };
+}
+```
+
+</TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+override suspend fun before(hc: HookContext, hints: HookHints): EventEnvelope? {
+    val env = hc.message as? EventEnvelope ?: return null
+    val stripped = env.properties.filterKeys { it != "email" } // strip PII
+    return env.copy(properties = stripped + mapOf(
+        "server_timestamp" to System.currentTimeMillis(),
+        "region" to region,
+    ))
 }
 ```
 

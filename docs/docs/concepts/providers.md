@@ -50,6 +50,25 @@ interface Provider {
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+interface Provider {
+  fun metadata(): ProviderMetadata
+  fun hooks(): List<Hook>
+
+  suspend fun track(msg: TrackMessage)
+  suspend fun identify(msg: IdentifyMessage)
+  suspend fun group(msg: GroupMessage)
+  suspend fun page(msg: PageMessage)
+  suspend fun alias(msg: AliasMessage)
+
+  suspend fun flush()
+  suspend fun shutdown()
+}
+```
+
+</TabItem>
 </Tabs>
 
 Providers that don't support a given operation return `ErrUnsupportedOperation` rather than silently no-op — preventing silent data loss.
@@ -97,6 +116,19 @@ interface ProviderCapabilities {
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+data class ProviderCapabilities(
+    val track: Boolean = true,
+    val identify: Boolean = true,
+    val group: Boolean = true,
+    val page: Boolean = true,
+    val alias: Boolean = true,
+)
+```
+
+</TabItem>
 </Tabs>
 
 The runtime checks capabilities before dispatch and records `Dropped` outcomes for unsupported operations.
@@ -136,6 +168,21 @@ const result = await client.trackDetailed(event);
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val client = Client(ClientOptions(
+    providers = listOf(amplitudeProvider, posthogProvider),
+))
+
+// Both providers receive the event concurrently via coroutines.
+// Per-provider outcomes accessible via trackDetailed:
+val result = client.trackDetailed(event)
+// result.success  — providers that succeeded
+// result.failed   — providers that failed (permanent)
+```
+
+</TabItem>
 </Tabs>
 
 ## Delivery states
@@ -150,7 +197,7 @@ const result = await client.trackDetailed(event);
 
 | Provider | Language | Status |
 |----------|----------|--------|
-| [Amplitude](../providers/amplitude.md) | Go, TypeScript | ✅ Available |
+| [Amplitude](../providers/amplitude.md) | Go, TypeScript, Kotlin | ✅ Available |
 | [Noop](../providers/noop.md) | Go | ✅ Available |
 | PostHog | Go | ❌ Planned |
 | Mixpanel | Go | ❌ Planned |
