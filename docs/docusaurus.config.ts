@@ -8,7 +8,7 @@ const config: Config = {
   favicon: 'img/favicon.svg',
 
   url: 'https://dejanradmanovic.github.io',
-  baseUrl: '/event-spec/',
+  baseUrl: '/',
 
   organizationName: 'dejanradmanovic',
   projectName: 'event-spec',
