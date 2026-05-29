@@ -16,7 +16,7 @@
 
 Analytics instrumentation is tightly coupled to a single vendor by default. Swapping providers, running A/B tests across platforms, or enforcing event schema consistency across a polyglot codebase requires large refactors. **event-spec** breaks that coupling.
 
-Write an event spec in YAML once. The CLI generates a type-safe wrapper in Go, TypeScript, or any other target language. The runtime dispatches to one or many analytics providers behind a stable interface — swap Amplitude for PostHog, or run both in parallel, with no changes to your instrumentation code.
+Write an event spec in YAML once. The CLI generates a type-safe wrapper in Go, TypeScript, Kotlin, or any other target language. The runtime dispatches to one or many analytics providers behind a stable interface — swap Amplitude for PostHog, or run both in parallel, with no changes to your instrumentation code.
 
 ```yaml
 # specs/ecommerce/product_viewed/1-0-0.yaml
@@ -49,7 +49,7 @@ That's it. Swap `amplitude.New(...)` for `posthog.New(...)` and nothing else cha
 ## Features
 
 - **Schema-first** — YAML event specs with JSON Schema validation, SchemaVer versioning, and breaking-change detection
-- **Codegen** — type-safe event wrappers generated for Go and TypeScript today; Swift, Kotlin, Python, Rust, Dart, and .NET on the roadmap
+- **Codegen** — type-safe event wrappers generated for Go, TypeScript, and Kotlin today; Swift, Python, Rust, Dart, and .NET on the roadmap
 - **Provider abstraction** — stable `Provider` interface with batching, retry, rate-limiting, and reverse-proxy support built in
 - **Hook pipeline** — middleware chain for validation, sampling, PII stripping, and consent filtering before any provider receives an event
 - **Audit** — AST-based scanner reports which events are used, unused, or sent without a spec
@@ -78,13 +78,14 @@ That's it. Swap `amplitude.New(...)` for `posthog.New(...)` and nothing else cha
 | YAML spec loader, JSON Schema validation, diff | ✅ |
 | Go runtime — client, hooks, dispatch, queue, retry | ✅ |
 | TypeScript runtime — `@event-spec/analytics` | ✅ |
-| Go codegen + TypeScript codegen | ✅ |
-| Amplitude provider (Go + TypeScript) | ✅ |
+| Kotlin runtime — `io.event-spec:api-kotlin` | ✅ |
+| Go codegen + TypeScript codegen + Kotlin codegen | ✅ |
+| Amplitude provider (Go + TypeScript + Kotlin) | ✅ |
 | Registry server — REST API, SQLite/Postgres, RBAC, relay | ✅ |
 | Audit — AST-based event coverage scanning | ✅ |
 | CI/CD — composite GitHub Actions + Docker images | ✅ |
 | PostHog, Mixpanel, Segment, GA4, RudderStack providers | 🔜 |
-| Swift, Kotlin, Python, Rust, Dart, .NET SDKs | 🔜 |
+| Swift, Python, Rust, Dart, .NET SDKs | 🔜 |
 | Logging and OpenTelemetry hooks | 🔜 |
 
 ---
