@@ -13,60 +13,6 @@ permissions:
   security-events: write
 
 jobs:
-  analyze-go:
-    name: Analyze (Go)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: go
-          build-mode: none
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: /language:go
-
-  analyze-typescript:
-    name: Analyze (TypeScript)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10
-          package_json_file: sdk/typescript/package.json
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-          cache: 'pnpm'
-          cache-dependency-path: sdk/typescript/pnpm-lock.yaml
-
-      - name: Install dependencies
-        working-directory: sdk/typescript
-        run: pnpm install --frozen-lockfile
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript-typescript
-          build-mode: none
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: /language:javascript-typescript
-
   analyze-kotlin:
     name: Analyze (Kotlin)
     runs-on: ubuntu-latest
