@@ -135,6 +135,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'providers/index',
         'providers/amplitude',
+        'providers/event-spec',
         'providers/noop',
         'providers/custom',
       ],
