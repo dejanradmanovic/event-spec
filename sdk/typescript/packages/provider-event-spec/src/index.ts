@@ -9,9 +9,9 @@ import type {
   PageMessage,
   AliasMessage,
 } from '@dejanradmanovic/event-spec-api';
-import type { ServerProviderConfig } from './config';
+import type { EventSpecConfig } from './config';
 
-export type { ServerProviderConfig } from './config';
+export type { EventSpecConfig } from './config';
 
 const VERSION = '1.0.0';
 
@@ -30,7 +30,7 @@ export class EventSpecProvider implements Provider {
   private nextSendTime = 0;
   private closed = false;
 
-  constructor(config: ServerProviderConfig) {
+  constructor(config: EventSpecConfig) {
     const retry = config.retryConfig ?? {};
     const rateLimit = config.rateLimitConfig ?? {};
 
@@ -167,7 +167,7 @@ export class EventSpecProvider implements Provider {
 }
 
 // resolveBaseURL applies proxy rewriting from config to the baseURL.
-function resolveBaseURL(config: ServerProviderConfig): string {
+function resolveBaseURL(config: EventSpecConfig): string {
   const base = config.baseURL;
   if (!config.proxyUrl) return base;
   switch (config.proxyMode) {
