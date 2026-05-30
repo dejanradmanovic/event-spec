@@ -9,7 +9,7 @@ plugins {
 
 group = "io.event-spec"
 
-version = project.findProperty("releaseVersion") as? String ?: "1.0.0"
+version = project.findProperty("releaseVersion") as? String ?: "0.1.0"
 
 repositories { mavenCentral() }
 
