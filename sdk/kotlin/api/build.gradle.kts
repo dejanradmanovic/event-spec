@@ -54,7 +54,7 @@ mavenPublishing {
         scm {
             connection = "scm:git:git://github.com/dejanradmanovic/event-spec.git"
             developerConnection = "scm:git:ssh://github.com/dejanradmanovic/event-spec.git"
-            url = "https://event-spec.io"
+            url = "https://github.com/dejanradmanovic/event-spec"
         }
     }
 }
