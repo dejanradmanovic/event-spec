@@ -41,7 +41,7 @@ mavenPublishing {
         name = "event-spec Kotlin Amplitude Provider"
         description =
             "Amplitude analytics provider for event-spec — batched track via EventQueue, synchronous identify/group/alias"
-        url = "https://github.com/dejanradmanovic/event-spec"
+        url = "https://event-spec.io"
         licenses {
             license {
                 name = "Apache-2.0"
@@ -58,7 +58,7 @@ mavenPublishing {
         scm {
             connection = "scm:git:git://github.com/dejanradmanovic/event-spec.git"
             developerConnection = "scm:git:ssh://github.com/dejanradmanovic/event-spec.git"
-            url = "https://github.com/dejanradmanovic/event-spec"
+            url = "https://event-spec.io"
         }
     }
 }
