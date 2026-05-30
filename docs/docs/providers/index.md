@@ -9,17 +9,20 @@ application code never depends on a vendor SDK directly.
 
 ## Capability matrix
 
-| Provider                    | Language   | Track | Identify | Group | Page | Alias | Status    |
-|-----------------------------|------------|:-----:|:--------:|:-----:|:----:|:-----:|-----------|
-| [Amplitude](./amplitude.md) | Go         |   ✅   |    ✅     |   ✅   |  ❌   |   ✅   | Available |
-| [Amplitude](./amplitude.md) | TypeScript |   ✅   |    ✅     |   ✅   |  ❌   |   ✅   | Available |
-| [Amplitude](./amplitude.md) | Kotlin     |   ✅   |    ✅     |   ✅    |  ❌  |   ✅   | Available |
-| [Noop](./noop.md)           | Go         |   ✅   |    ✅     |   ✅   |  ✅   |   ✅   | Available |
-| PostHog                     | Go         |   ❌   |    ❌     |   ❌   |  ❌   |   ❌   | Planned   |
-| Mixpanel                    | Go         |   ❌   |    ❌     |   ❌   |  ❌   |   ❌   | Planned   |
-| Segment                     | Go         |   ❌   |    ❌     |   ❌   |  ❌   |   ❌   | Planned   |
-| GA4                         | Go         |   ❌   |    ❌     |   ❌   |  ❌   |   ❌   | Planned   |
-| RudderStack                 | Go         |   ❌   |    ❌     |   ❌   |  ❌   |   ❌   | Planned   |
+| Provider                             | Language   | Track | Identify | Group | Page | Alias | Status    |
+|--------------------------------------|------------|:-----:|:--------:|:-----:|:----:|:-----:|-----------|
+| [Amplitude](./amplitude.md)          | Go         |   ✅   |    ✅     |   ✅   |  ❌   |   ✅   | Available |
+| [Amplitude](./amplitude.md)          | TypeScript |   ✅   |    ✅     |   ✅   |  ❌   |   ✅   | Available |
+| [Amplitude](./amplitude.md)          | Kotlin     |   ✅   |    ✅     |   ✅   |  ❌   |   ✅   | Available |
+| [event-spec server](./event-spec.md) | Go         |   ✅   |    ✅     |   ✅   |  ✅   |   ✅   | Available |
+| [event-spec server](./event-spec.md) | TypeScript |   ✅   |    ✅     |   ✅   |  ✅   |   ✅   | Available |
+| [event-spec server](./event-spec.md) | Kotlin     |   ✅   |    ✅     |   ✅   |  ✅   |   ✅   | Available |
+| [Noop](./noop.md)                    | Go         |   ✅   |    ✅     |   ✅   |  ✅   |   ✅   | Available |
+| PostHog                              | Go         |   ❌   |    ❌     |   ❌   |  ❌   |   ❌   | Planned   |
+| Mixpanel                             | Go         |   ❌   |    ❌     |   ❌   |  ❌   |   ❌   | Planned   |
+| Segment                              | Go         |   ❌   |    ❌     |   ❌   |  ❌   |   ❌   | Planned   |
+| GA4                                  | Go         |   ❌   |    ❌     |   ❌   |  ❌   |   ❌   | Planned   |
+| RudderStack                          | Go         |   ❌   |    ❌     |   ❌   |  ❌   |   ❌   | Planned   |
 
 ## Provider error semantics
 

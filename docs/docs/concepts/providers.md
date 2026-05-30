@@ -198,6 +198,7 @@ val result = client.trackDetailed(event)
 | Provider | Language | Status |
 |----------|----------|--------|
 | [Amplitude](../providers/amplitude.md) | Go, TypeScript, Kotlin | ✅ Available |
+| [event-spec server](../providers/event-spec.md) | Go, TypeScript, Kotlin | ✅ Available |
 | [Noop](../providers/noop.md) | Go | ✅ Available |
 | PostHog | Go | ❌ Planned |
 | Mixpanel | Go | ❌ Planned |
