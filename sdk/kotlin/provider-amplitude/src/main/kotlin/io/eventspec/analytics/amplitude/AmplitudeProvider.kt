@@ -4,9 +4,12 @@ import io.eventspec.analytics.*
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -19,6 +22,11 @@ class AmplitudeProvider(
 ) : Provider {
 
   private val json = Json { encodeDefaults = false }
+  private val effectiveEndpoint = resolveEndpoint(config)
+  private val rateLimitIntervalMs: Long =
+      if (config.requestsPerSecond > 0) 1000L / config.requestsPerSecond else 0L
+  private val rateMutex = Mutex()
+  private var nextSendTime = 0L
 
   private val queue =
       EventQueue<TrackMessage>(
@@ -27,6 +35,8 @@ class AmplitudeProvider(
               QueueOptions(
                   batchSize = config.batchSize,
                   flushIntervalMs = config.flushIntervalMs,
+                  maxSize = config.maxQueueSize,
+                  overflowPolicy = config.overflowPolicy,
               ),
           scope = scope,
       )
@@ -85,13 +95,30 @@ class AmplitudeProvider(
     if (events.isEmpty()) return
     val body = json.encodeToString(AmplitudeBatchRequest(apiKey = config.apiKey, events = events))
 
+    // Rate limiting: reserve a send slot and delay until it opens.
+    if (rateLimitIntervalMs > 0) {
+      val waitUntil =
+          rateMutex.withLock {
+            val now = System.currentTimeMillis()
+            val next = maxOf(now, nextSendTime)
+            nextSendTime = next + rateLimitIntervalMs
+            next
+          }
+      val now = System.currentTimeMillis()
+      if (waitUntil > now) delay(waitUntil - now)
+    }
+
     var lastError: Exception? = null
+    var backoff = config.initialBackoffMs
     for (attempt in 0..config.maxRetries) {
       if (attempt > 0) {
-        delay((1L shl (attempt - 1)) * 1000L) // 1s, 2s, 4s …
+        val delayMs =
+            if (config.jitter) (backoff * (0.5 + Math.random() * 0.5)).toLong() else backoff
+        delay(delayMs)
+        backoff = min((backoff.toDouble() * config.retryMultiplier).toLong(), config.maxBackoffMs)
       }
       try {
-        postJson(config.endpoint, body)
+        postJson(effectiveEndpoint, body)
         return
       } catch (e: Exception) {
         lastError = e
@@ -121,4 +148,26 @@ class AmplitudeProvider(
           conn.disconnect()
         }
       }
+}
+
+// resolveEndpoint computes the effective HTTP endpoint from config, applying proxy rewriting.
+private fun resolveEndpoint(config: AmplitudeConfig): String {
+  val proxyUrl = config.proxyUrl ?: return config.endpoint
+  return when (config.proxyMode) {
+    ProxyMode.REVERSE_PROXY -> {
+      try {
+        val proxy = URL(proxyUrl)
+        val target = URL(config.endpoint)
+        val basePath = proxy.path.trimEnd('/')
+        val provPath = target.path.trimStart('/')
+        val newPath = if (basePath.isEmpty()) "/$provPath" else "$basePath/$provPath"
+        val port = if (proxy.port != -1) ":${proxy.port}" else ""
+        "${proxy.protocol}://${proxy.host}${port}${newPath}"
+      } catch (e: Exception) {
+        config.endpoint
+      }
+    }
+    ProxyMode.CUSTOM -> proxyUrl
+    ProxyMode.DIRECT -> config.endpoint
+  }
 }

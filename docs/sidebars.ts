@@ -122,6 +122,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'sdks/go',
         'sdks/typescript',
+        'sdks/kotlin',
       ],
     },
   ],

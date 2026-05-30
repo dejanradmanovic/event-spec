@@ -109,6 +109,7 @@ const config: Config = {
             { label: 'CLI Reference', to: '/docs/cli' },
             { label: 'SDK — Go', to: '/docs/sdks/go' },
             { label: 'SDK — TypeScript', to: '/docs/sdks/typescript' },
+            { label: 'SDK — Kotlin', to: '/docs/sdks/kotlin' },
           ],
         },
         {
@@ -142,7 +143,7 @@ const config: Config = {
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
-      additionalLanguages: ['go', 'bash', 'yaml', 'typescript', 'json'],
+      additionalLanguages: ['go', 'bash', 'yaml', 'typescript', 'kotlin', 'json'],
     },
     zoom: {
       selector: '.markdown img',

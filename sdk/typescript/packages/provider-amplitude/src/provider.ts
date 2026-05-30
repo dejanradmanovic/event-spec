@@ -20,15 +20,31 @@ export class AmplitudeProvider implements Provider {
   private readonly apiKey: string;
   private readonly endpoint: string;
   private readonly maxRetries: number;
+  private readonly initialBackoffMs: number;
+  private readonly maxBackoffMs: number;
+  private readonly retryMultiplier: number;
+  private readonly jitter: boolean;
+  private readonly rateLimitIntervalMs: number;
+  private nextSendTime = 0;
   private readonly queue: EventQueue<TrackMessage>;
 
   constructor(config: AmplitudeConfig) {
     this.apiKey = config.apiKey;
-    this.endpoint = config.endpoint ?? DEFAULT_ENDPOINT;
+    this.endpoint = resolveEndpoint(config);
     this.maxRetries = config.maxRetries ?? 3;
+    this.initialBackoffMs = config.initialBackoffMs ?? 100;
+    this.maxBackoffMs = config.maxBackoffMs ?? 30_000;
+    this.retryMultiplier = config.retryMultiplier ?? 2.0;
+    this.jitter = config.jitter ?? true;
+    this.rateLimitIntervalMs =
+      config.requestsPerSecond && config.requestsPerSecond > 0
+        ? Math.ceil(1000 / config.requestsPerSecond)
+        : 0;
     this.queue = new EventQueue<TrackMessage>((items) => this.flushBatch(items), {
       batchSize: config.batchSize ?? 100,
       flushIntervalMs: config.flushIntervalMs ?? 10000,
+      maxSize: config.maxQueueSize ?? 10000,
+      overflowPolicy: config.overflowPolicy ?? 'drop_oldest',
     });
   }
 
@@ -86,10 +102,23 @@ export class AmplitudeProvider implements Provider {
   private async sendBatch(events: AmplitudeEvent[]): Promise<void> {
     const body = JSON.stringify({ api_key: this.apiKey, events });
 
+    // Rate limiting: reserve a send slot and delay until it opens.
+    if (this.rateLimitIntervalMs > 0) {
+      const now = Date.now();
+      const waitUntil = Math.max(now, this.nextSendTime);
+      this.nextSendTime = waitUntil + this.rateLimitIntervalMs;
+      if (waitUntil > now) {
+        await sleep(waitUntil - now);
+      }
+    }
+
     let lastError: Error | undefined;
+    let backoff = this.initialBackoffMs;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       if (attempt > 0) {
-        await sleep(Math.pow(2, attempt - 1) * 1000);
+        const delay = this.jitter ? backoff * (0.5 + Math.random() * 0.5) : backoff;
+        await sleep(delay);
+        backoff = Math.min(backoff * this.retryMultiplier, this.maxBackoffMs);
       }
       try {
         const resp = await fetch(this.endpoint, {
@@ -107,6 +136,34 @@ export class AmplitudeProvider implements Provider {
       }
     }
     throw lastError ?? new Error('amplitude: send failed');
+  }
+}
+
+// resolveEndpoint computes the effective HTTP endpoint from config, applying proxy rewriting.
+function resolveEndpoint(config: AmplitudeConfig): string {
+  const base = config.endpoint ?? DEFAULT_ENDPOINT;
+  if (!config.proxyUrl) return base;
+  switch (config.proxyMode) {
+    case 'reverse_proxy': {
+      try {
+        const proxy = new URL(config.proxyUrl);
+        const target = new URL(base);
+        target.protocol = proxy.protocol;
+        target.host = proxy.host; // includes port when non-default
+        if (proxy.pathname && proxy.pathname !== '/') {
+          const basePath = proxy.pathname.replace(/\/$/, '');
+          const provPath = target.pathname.replace(/^\//, '');
+          target.pathname = `${basePath}/${provPath}`;
+        }
+        return target.toString();
+      } catch {
+        return base;
+      }
+    }
+    case 'custom':
+      return config.proxyUrl;
+    default:
+      return base;
   }
 }
 
