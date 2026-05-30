@@ -106,7 +106,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Build and push CLI image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: docker/cli
           file: docker/cli/Dockerfile
@@ -117,7 +117,7 @@ jobs:
             ghcr.io/dejanradmanovic/event-spec-cli:v${{ inputs.version }}
 
       - name: Build and push server image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: docker/server
           file: docker/server/Dockerfile
