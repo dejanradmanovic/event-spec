@@ -8,7 +8,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/SDKs-Apache--2.0-green.svg)](LICENSE-APACHE)
 [![Go](https://img.shields.io/badge/go-1.26+-00ADD8?logo=go&logoColor=white)](go.mod)
 [![CI](https://github.com/dejanradmanovic/event-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/dejanradmanovic/event-spec/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-dejanradmanovic.github.io%2Fevent--spec-orange)](https://event-spec.io/)
+[![Docs](https://img.shields.io/badge/event-spec.io%2Fevent--spec-orange)](https://event-spec.io/)
 
 </div>
 
