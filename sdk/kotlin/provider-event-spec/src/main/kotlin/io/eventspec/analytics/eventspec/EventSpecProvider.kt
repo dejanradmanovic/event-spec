@@ -75,8 +75,12 @@ class EventSpecProvider(private val config: EventSpecConfig) : Provider {
             IdentifyRequest(
                 source = config.source,
                 userId = msg.userId.ifEmpty { null },
-                anonymousId = msg.anonymousId.ifEmpty { null },
                 traits = msg.traits.mapValues { (_, v) -> v?.toString() ?: "" },
+                context =
+                    ContextPayload(
+                        anonymousId = msg.anonymousId.ifEmpty { null },
+                        attributes = buildAttributes(msg.context),
+                    ),
                 timestamp = msg.timestamp.toString(),
             )
         ),
@@ -90,10 +94,14 @@ class EventSpecProvider(private val config: EventSpecConfig) : Provider {
         json.encodeToString(
             GroupRequest(
                 source = config.source,
-                userId = msg.userId.ifEmpty { null },
-                anonymousId = msg.anonymousId.ifEmpty { null },
                 groupId = msg.groupId,
                 traits = msg.traits.mapValues { (_, v) -> v?.toString() ?: "" },
+                context =
+                    ContextPayload(
+                        userId = msg.userId.ifEmpty { null },
+                        anonymousId = msg.anonymousId.ifEmpty { null },
+                        attributes = buildAttributes(msg.context),
+                    ),
                 timestamp = msg.timestamp.toString(),
             )
         ),
@@ -107,10 +115,14 @@ class EventSpecProvider(private val config: EventSpecConfig) : Provider {
         json.encodeToString(
             PageRequest(
                 source = config.source,
-                userId = msg.userId.ifEmpty { null },
-                anonymousId = msg.anonymousId.ifEmpty { null },
                 name = msg.name,
                 properties = msg.properties.mapValues { (_, v) -> v?.toString() ?: "" },
+                context =
+                    ContextPayload(
+                        userId = msg.userId.ifEmpty { null },
+                        anonymousId = msg.anonymousId.ifEmpty { null },
+                        attributes = buildAttributes(msg.context),
+                    ),
                 timestamp = msg.timestamp.toString(),
             )
         ),

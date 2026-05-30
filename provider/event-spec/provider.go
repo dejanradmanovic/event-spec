@@ -94,11 +94,14 @@ func (p *ServerProvider) Identify(ctx context.Context, msg provider.IdentifyMess
 		return ErrShutdown
 	}
 	return p.post(ctx, "/v1/identify", identifyPayload{
-		Source:      p.source,
-		UserID:      msg.UserID,
-		AnonymousID: msg.AnonymousID,
-		Traits:      msg.Traits,
-		Timestamp:   msg.Timestamp,
+		Source: p.source,
+		UserID: msg.UserID,
+		Traits: msg.Traits,
+		Context: contextPayload{
+			AnonymousID: msg.AnonymousID,
+			Attributes:  buildAttributes(msg.MessageContext),
+		},
+		Timestamp: msg.Timestamp,
 	})
 }
 
@@ -108,12 +111,15 @@ func (p *ServerProvider) Group(ctx context.Context, msg provider.GroupMessage) e
 		return ErrShutdown
 	}
 	return p.post(ctx, "/v1/group", groupPayload{
-		Source:      p.source,
-		UserID:      msg.UserID,
-		AnonymousID: msg.AnonymousID,
-		GroupID:     msg.GroupID,
-		Traits:      msg.Traits,
-		Timestamp:   msg.Timestamp,
+		Source:  p.source,
+		GroupID: msg.GroupID,
+		Traits:  msg.Traits,
+		Context: contextPayload{
+			UserID:      msg.UserID,
+			AnonymousID: msg.AnonymousID,
+			Attributes:  buildAttributes(msg.MessageContext),
+		},
+		Timestamp: msg.Timestamp,
 	})
 }
 
@@ -123,12 +129,15 @@ func (p *ServerProvider) Page(ctx context.Context, msg provider.PageMessage) err
 		return ErrShutdown
 	}
 	return p.post(ctx, "/v1/page", pagePayload{
-		Source:      p.source,
-		UserID:      msg.UserID,
-		AnonymousID: msg.AnonymousID,
-		Name:        msg.Name,
-		Properties:  msg.Properties,
-		Timestamp:   msg.Timestamp,
+		Source:     p.source,
+		Name:       msg.Name,
+		Properties: msg.Properties,
+		Context: contextPayload{
+			UserID:      msg.UserID,
+			AnonymousID: msg.AnonymousID,
+			Attributes:  buildAttributes(msg.MessageContext),
+		},
+		Timestamp: msg.Timestamp,
 	})
 }
 
@@ -235,29 +244,27 @@ type trackPayload struct {
 }
 
 type identifyPayload struct {
-	Source      string         `json:"source"`
-	UserID      string         `json:"user_id,omitempty"`
-	AnonymousID string         `json:"anonymous_id,omitempty"`
-	Traits      map[string]any `json:"traits,omitempty"`
-	Timestamp   time.Time      `json:"timestamp"`
+	Source    string         `json:"source"`
+	UserID    string         `json:"user_id,omitempty"`
+	Traits    map[string]any `json:"traits,omitempty"`
+	Context   contextPayload `json:"context,omitempty"`
+	Timestamp time.Time      `json:"timestamp"`
 }
 
 type groupPayload struct {
-	Source      string         `json:"source"`
-	UserID      string         `json:"user_id,omitempty"`
-	AnonymousID string         `json:"anonymous_id,omitempty"`
-	GroupID     string         `json:"group_id"`
-	Traits      map[string]any `json:"traits,omitempty"`
-	Timestamp   time.Time      `json:"timestamp"`
+	Source    string         `json:"source"`
+	GroupID   string         `json:"group_id"`
+	Traits    map[string]any `json:"traits,omitempty"`
+	Context   contextPayload `json:"context,omitempty"`
+	Timestamp time.Time      `json:"timestamp"`
 }
 
 type pagePayload struct {
-	Source      string         `json:"source"`
-	UserID      string         `json:"user_id,omitempty"`
-	AnonymousID string         `json:"anonymous_id,omitempty"`
-	Name        string         `json:"name"`
-	Properties  map[string]any `json:"properties,omitempty"`
-	Timestamp   time.Time      `json:"timestamp"`
+	Source     string         `json:"source"`
+	Name       string         `json:"name"`
+	Properties map[string]any `json:"properties,omitempty"`
+	Context    contextPayload `json:"context,omitempty"`
+	Timestamp  time.Time      `json:"timestamp"`
 }
 
 type aliasPayload struct {

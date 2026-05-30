@@ -124,7 +124,7 @@ describe('EventSpecProvider', () => {
 
   // ── identify ──────────────────────────────────────────────────────────────
 
-  it('identify POSTs to /v1/identify', async () => {
+  it('identify POSTs to /v1/identify with user_id top-level and anonymous_id in context', async () => {
     const p = makeProvider();
     await p.identify(baseIdentify);
 
@@ -136,11 +136,14 @@ describe('EventSpecProvider', () => {
     expect(body.source).toBe(SOURCE);
     expect(body.user_id).toBe('u1');
     expect(body.traits).toEqual({ email: 'a@b.com' });
+    // anonymous_id must be in context, not at the top level.
+    expect(body.anonymous_id).toBeUndefined();
+    expect(body.context.anonymous_id).toBe('a1');
   });
 
   // ── group ─────────────────────────────────────────────────────────────────
 
-  it('group POSTs to /v1/group with group_id', async () => {
+  it('group POSTs to /v1/group with group_id and identity in context', async () => {
     const p = makeProvider();
     await p.group(baseGroup);
 
@@ -150,11 +153,16 @@ describe('EventSpecProvider', () => {
     );
     const body = JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string);
     expect(body.group_id).toBe('org-1');
+    // user_id and anonymous_id must be in context, not at the top level.
+    expect(body.user_id).toBeUndefined();
+    expect(body.anonymous_id).toBeUndefined();
+    expect(body.context.user_id).toBe('u1');
+    expect(body.context.anonymous_id).toBe('a1');
   });
 
   // ── page ──────────────────────────────────────────────────────────────────
 
-  it('page POSTs to /v1/page with name', async () => {
+  it('page POSTs to /v1/page with name and identity in context', async () => {
     const p = makeProvider();
     await p.page(basePage);
 
@@ -164,6 +172,11 @@ describe('EventSpecProvider', () => {
     );
     const body = JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string);
     expect(body.name).toBe('/home');
+    // user_id and anonymous_id must be in context, not at the top level.
+    expect(body.user_id).toBeUndefined();
+    expect(body.anonymous_id).toBeUndefined();
+    expect(body.context.user_id).toBe('u1');
+    expect(body.context.anonymous_id).toBe('a1');
   });
 
   // ── alias ─────────────────────────────────────────────────────────────────

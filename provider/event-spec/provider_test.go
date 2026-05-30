@@ -174,10 +174,11 @@ func TestIdentify(t *testing.T) {
 	p := newProvider(t, ts.srv)
 
 	msg := provider.IdentifyMessage{
-		MessageID: "id-001",
-		Timestamp: time.Now(),
-		UserID:    "user-1",
-		Traits:    map[string]any{"email": "user@example.com"},
+		MessageID:   "id-001",
+		Timestamp:   time.Now(),
+		UserID:      "user-1",
+		AnonymousID: "anon-1",
+		Traits:      map[string]any{"email": "user@example.com"},
 	}
 	if err := p.Identify(context.Background(), msg); err != nil {
 		t.Fatalf("Identify: %v", err)
@@ -197,6 +198,14 @@ func TestIdentify(t *testing.T) {
 	if req.body["user_id"] != "user-1" {
 		t.Errorf("user_id = %v, want user-1", req.body["user_id"])
 	}
+	// anonymous_id must be inside context, not at the top level.
+	ctx, ok := req.body["context"].(map[string]any)
+	if !ok {
+		t.Fatalf("context missing or wrong type: %v", req.body["context"])
+	}
+	if ctx["anonymous_id"] != "anon-1" {
+		t.Errorf("context.anonymous_id = %v, want anon-1", ctx["anonymous_id"])
+	}
 	traits, ok := req.body["traits"].(map[string]any)
 	if !ok {
 		t.Fatalf("traits missing or wrong type: %v", req.body["traits"])
@@ -212,11 +221,12 @@ func TestGroup(t *testing.T) {
 	p := newProvider(t, ts.srv)
 
 	msg := provider.GroupMessage{
-		MessageID: "grp-001",
-		Timestamp: time.Now(),
-		UserID:    "user-1",
-		GroupID:   "acme-corp",
-		Traits:    map[string]any{"plan": "enterprise"},
+		MessageID:   "grp-001",
+		Timestamp:   time.Now(),
+		UserID:      "user-1",
+		AnonymousID: "anon-1",
+		GroupID:     "acme-corp",
+		Traits:      map[string]any{"plan": "enterprise"},
 	}
 	if err := p.Group(context.Background(), msg); err != nil {
 		t.Fatalf("Group: %v", err)
@@ -230,6 +240,17 @@ func TestGroup(t *testing.T) {
 	if req.body["group_id"] != "acme-corp" {
 		t.Errorf("group_id = %v, want acme-corp", req.body["group_id"])
 	}
+	// user_id and anonymous_id must be inside context, not at the top level.
+	ctx, ok := req.body["context"].(map[string]any)
+	if !ok {
+		t.Fatalf("context missing or wrong type: %v", req.body["context"])
+	}
+	if ctx["user_id"] != "user-1" {
+		t.Errorf("context.user_id = %v, want user-1", ctx["user_id"])
+	}
+	if ctx["anonymous_id"] != "anon-1" {
+		t.Errorf("context.anonymous_id = %v, want anon-1", ctx["anonymous_id"])
+	}
 }
 
 // TestPage verifies the page endpoint and body.
@@ -238,11 +259,12 @@ func TestPage(t *testing.T) {
 	p := newProvider(t, ts.srv)
 
 	msg := provider.PageMessage{
-		MessageID:  "pg-001",
-		Timestamp:  time.Now(),
-		UserID:     "user-1",
-		Name:       "/home",
-		Properties: map[string]any{"title": "Home"},
+		MessageID:   "pg-001",
+		Timestamp:   time.Now(),
+		UserID:      "user-1",
+		AnonymousID: "anon-1",
+		Name:        "/home",
+		Properties:  map[string]any{"title": "Home"},
 	}
 	if err := p.Page(context.Background(), msg); err != nil {
 		t.Fatalf("Page: %v", err)
@@ -255,6 +277,17 @@ func TestPage(t *testing.T) {
 	}
 	if req.body["name"] != "/home" {
 		t.Errorf("name = %v, want /home", req.body["name"])
+	}
+	// user_id and anonymous_id must be inside context, not at the top level.
+	ctx, ok := req.body["context"].(map[string]any)
+	if !ok {
+		t.Fatalf("context missing or wrong type: %v", req.body["context"])
+	}
+	if ctx["user_id"] != "user-1" {
+		t.Errorf("context.user_id = %v, want user-1", ctx["user_id"])
+	}
+	if ctx["anonymous_id"] != "anon-1" {
+		t.Errorf("context.anonymous_id = %v, want anon-1", ctx["anonymous_id"])
 	}
 }
 

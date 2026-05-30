@@ -23,28 +23,26 @@ data class TrackRequest(
 data class IdentifyRequest(
     @SerialName("source") val source: String,
     @SerialName("user_id") val userId: String? = null,
-    @SerialName("anonymous_id") val anonymousId: String? = null,
     @SerialName("traits") val traits: Map<String, String>? = null,
+    @SerialName("context") val context: ContextPayload? = null,
     @SerialName("timestamp") val timestamp: String,
 )
 
 @Serializable
 data class GroupRequest(
     @SerialName("source") val source: String,
-    @SerialName("user_id") val userId: String? = null,
-    @SerialName("anonymous_id") val anonymousId: String? = null,
     @SerialName("group_id") val groupId: String,
     @SerialName("traits") val traits: Map<String, String>? = null,
+    @SerialName("context") val context: ContextPayload? = null,
     @SerialName("timestamp") val timestamp: String,
 )
 
 @Serializable
 data class PageRequest(
     @SerialName("source") val source: String,
-    @SerialName("user_id") val userId: String? = null,
-    @SerialName("anonymous_id") val anonymousId: String? = null,
     @SerialName("name") val name: String,
     @SerialName("properties") val properties: Map<String, String>? = null,
+    @SerialName("context") val context: ContextPayload? = null,
     @SerialName("timestamp") val timestamp: String,
 )
 

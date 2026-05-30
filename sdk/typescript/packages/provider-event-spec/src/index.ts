@@ -74,8 +74,8 @@ export class EventSpecProvider implements Provider {
     await this.post('/v1/identify', {
       source: this.source,
       user_id: msg.userId,
-      anonymous_id: msg.anonymousId,
       traits: msg.traits,
+      context: buildContext(msg),
       timestamp: msg.timestamp.toISOString(),
     });
   }
@@ -83,10 +83,9 @@ export class EventSpecProvider implements Provider {
   async group(msg: GroupMessage): Promise<void> {
     await this.post('/v1/group', {
       source: this.source,
-      user_id: msg.userId,
-      anonymous_id: msg.anonymousId,
       group_id: msg.groupId,
       traits: msg.traits,
+      context: buildContext(msg),
       timestamp: msg.timestamp.toISOString(),
     });
   }
@@ -94,10 +93,9 @@ export class EventSpecProvider implements Provider {
   async page(msg: PageMessage): Promise<void> {
     await this.post('/v1/page', {
       source: this.source,
-      user_id: msg.userId,
-      anonymous_id: msg.anonymousId,
       name: msg.name,
       properties: msg.properties,
+      context: buildContext(msg),
       timestamp: msg.timestamp.toISOString(),
     });
   }
