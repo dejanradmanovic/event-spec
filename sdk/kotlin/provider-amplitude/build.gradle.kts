@@ -1,12 +1,14 @@
+import com.vanniktech.maven.publish.SonatypeHost
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
-    `maven-publish`
+    alias(libs.plugins.vanniktech.publish)
     alias(libs.plugins.ktfmt)
 }
 
 group = "io.event-spec"
-version = "0.1.0"
+version = project.findProperty("releaseVersion") as? String ?: "0.1.0"
 
 repositories {
     mavenCentral()
@@ -29,12 +31,34 @@ kotlin {
     jvmToolchain(17)
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
-            groupId = "io.event-spec"
-            artifactId = "kotlin-provider-amplitude"
+mavenPublishing {
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    signAllPublications()
+
+    coordinates("io.event-spec", "kotlin-provider-amplitude", version.toString())
+
+    pom {
+        name = "event-spec Kotlin Amplitude Provider"
+        description =
+            "Amplitude analytics provider for event-spec — batched track via EventQueue, synchronous identify/group/alias"
+        url = "https://github.com/dejanradmanovic/event-spec"
+        licenses {
+            license {
+                name = "Apache-2.0"
+                url = "https://www.apache.org/licenses/LICENSE-2.0"
+            }
+        }
+        developers {
+            developer {
+                id = "dejanradmanovic"
+                name = "Dejan Radmanovic"
+                email = "dejan.radmanovic@vicert.com"
+            }
+        }
+        scm {
+            connection = "scm:git:git://github.com/dejanradmanovic/event-spec.git"
+            developerConnection = "scm:git:ssh://github.com/dejanradmanovic/event-spec.git"
+            url = "https://github.com/dejanradmanovic/event-spec"
         }
     }
 }
