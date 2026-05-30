@@ -22,9 +22,12 @@ class AmplitudeProvider(
 ) : Provider {
 
   private val json = Json { encodeDefaults = false }
-  private val effectiveEndpoint = resolveEndpoint(config)
+  private val pc = config.providerConfig
+  private val rc = pc.retryConfig
+  private val rl = pc.rateLimitConfig
+  private val effectiveEndpoint = resolveEndpoint(config.endpoint, pc)
   private val rateLimitIntervalMs: Long =
-      if (config.requestsPerSecond > 0) 1000L / config.requestsPerSecond else 0L
+      if (rl.requestsPerSecond > 0) 1000L / rl.requestsPerSecond else 0L
   private val rateMutex = Mutex()
   private var nextSendTime = 0L
 
@@ -33,10 +36,10 @@ class AmplitudeProvider(
           onFlush = { batch -> sendBatch(batch.map { it.toAmplitudeEvent() }) },
           opts =
               QueueOptions(
-                  batchSize = config.batchSize,
-                  flushIntervalMs = config.flushIntervalMs,
-                  maxSize = config.maxQueueSize,
-                  overflowPolicy = config.overflowPolicy,
+                  batchSize = pc.batchSize,
+                  flushIntervalMs = pc.flushIntervalMs,
+                  maxSize = pc.maxQueueSize,
+                  overflowPolicy = pc.overflowPolicy,
               ),
           scope = scope,
       )
@@ -109,13 +112,12 @@ class AmplitudeProvider(
     }
 
     var lastError: Exception? = null
-    var backoff = config.initialBackoffMs
-    for (attempt in 0..config.maxRetries) {
+    var backoff = rc.initialBackoffMs
+    for (attempt in 0..rc.maxRetries) {
       if (attempt > 0) {
-        val delayMs =
-            if (config.jitter) (backoff * (0.5 + Math.random() * 0.5)).toLong() else backoff
+        val delayMs = if (rc.jitter) (backoff * (0.5 + Math.random() * 0.5)).toLong() else backoff
         delay(delayMs)
-        backoff = min((backoff.toDouble() * config.retryMultiplier).toLong(), config.maxBackoffMs)
+        backoff = min((backoff.toDouble() * rc.multiplier).toLong(), rc.maxBackoffMs)
       }
       try {
         postJson(effectiveEndpoint, body)
@@ -150,24 +152,24 @@ class AmplitudeProvider(
       }
 }
 
-// resolveEndpoint computes the effective HTTP endpoint from config, applying proxy rewriting.
-private fun resolveEndpoint(config: AmplitudeConfig): String {
-  val proxyUrl = config.proxyUrl ?: return config.endpoint
-  return when (config.proxyMode) {
+// resolveEndpoint computes the effective HTTP endpoint, applying proxy rewriting from pc.
+private fun resolveEndpoint(endpoint: String, pc: ProviderConfig): String {
+  val proxyUrl = pc.proxyUrl ?: return endpoint
+  return when (pc.proxyMode) {
     ProxyMode.REVERSE_PROXY -> {
       try {
         val proxy = URL(proxyUrl)
-        val target = URL(config.endpoint)
+        val target = URL(endpoint)
         val basePath = proxy.path.trimEnd('/')
         val provPath = target.path.trimStart('/')
         val newPath = if (basePath.isEmpty()) "/$provPath" else "$basePath/$provPath"
         val port = if (proxy.port != -1) ":${proxy.port}" else ""
         "${proxy.protocol}://${proxy.host}${port}${newPath}"
       } catch (e: Exception) {
-        config.endpoint
+        endpoint
       }
     }
     ProxyMode.CUSTOM -> proxyUrl
-    ProxyMode.DIRECT -> config.endpoint
+    ProxyMode.DIRECT -> endpoint
   }
 }

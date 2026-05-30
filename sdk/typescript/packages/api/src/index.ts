@@ -20,6 +20,8 @@ export { ErrUnsupportedOperation } from './provider';
 export type { OverflowPolicy, QueueOptions, FlushCallback } from './queue';
 export { EventQueue } from './queue';
 
+export type { ProxyMode, RetryConfig, RateLimitConfig, ProviderConfig } from './provider-config';
+
 export type {
   DeliveryState,
   ProviderResult,

@@ -158,7 +158,7 @@ describe('AmplitudeProvider', () => {
     const provider = new AmplitudeProvider({
       apiKey: 'test-key',
       flushIntervalMs: 0,
-      maxRetries: 0,
+      retryConfig: { maxRetries: 0 },
     });
     await provider.track(baseTrack);
     await provider.flush();
@@ -178,7 +178,11 @@ describe('AmplitudeProvider', () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true } as Response);
     vi.stubGlobal('fetch', mockFetch);
 
-    const provider = new AmplitudeProvider({ apiKey: 'k', flushIntervalMs: 0, maxRetries: 0 });
+    const provider = new AmplitudeProvider({
+      apiKey: 'k',
+      flushIntervalMs: 0,
+      retryConfig: { maxRetries: 0 },
+    });
     await provider.identify(baseIdentify);
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
@@ -192,7 +196,11 @@ describe('AmplitudeProvider', () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true } as Response);
     vi.stubGlobal('fetch', mockFetch);
 
-    const provider = new AmplitudeProvider({ apiKey: 'k', flushIntervalMs: 0, maxRetries: 0 });
+    const provider = new AmplitudeProvider({
+      apiKey: 'k',
+      flushIntervalMs: 0,
+      retryConfig: { maxRetries: 0 },
+    });
     await provider.alias(baseAlias);
     expect(mockFetch).toHaveBeenCalledTimes(1);
 

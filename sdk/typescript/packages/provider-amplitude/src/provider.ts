@@ -22,23 +22,26 @@ export class AmplitudeProvider implements Provider {
   private readonly maxRetries: number;
   private readonly initialBackoffMs: number;
   private readonly maxBackoffMs: number;
-  private readonly retryMultiplier: number;
+  private readonly multiplier: number;
   private readonly jitter: boolean;
   private readonly rateLimitIntervalMs: number;
   private nextSendTime = 0;
   private readonly queue: EventQueue<TrackMessage>;
 
   constructor(config: AmplitudeConfig) {
+    const retry = config.retryConfig ?? {};
+    const rateLimit = config.rateLimitConfig ?? {};
+
     this.apiKey = config.apiKey;
     this.endpoint = resolveEndpoint(config);
-    this.maxRetries = config.maxRetries ?? 3;
-    this.initialBackoffMs = config.initialBackoffMs ?? 100;
-    this.maxBackoffMs = config.maxBackoffMs ?? 30_000;
-    this.retryMultiplier = config.retryMultiplier ?? 2.0;
-    this.jitter = config.jitter ?? true;
+    this.maxRetries = retry.maxRetries ?? 3;
+    this.initialBackoffMs = retry.initialBackoffMs ?? 100;
+    this.maxBackoffMs = retry.maxBackoffMs ?? 30_000;
+    this.multiplier = retry.multiplier ?? 2.0;
+    this.jitter = retry.jitter ?? true;
     this.rateLimitIntervalMs =
-      config.requestsPerSecond && config.requestsPerSecond > 0
-        ? Math.ceil(1000 / config.requestsPerSecond)
+      rateLimit.requestsPerSecond && rateLimit.requestsPerSecond > 0
+        ? Math.ceil(1000 / rateLimit.requestsPerSecond)
         : 0;
     this.queue = new EventQueue<TrackMessage>((items) => this.flushBatch(items), {
       batchSize: config.batchSize ?? 100,
@@ -118,7 +121,7 @@ export class AmplitudeProvider implements Provider {
       if (attempt > 0) {
         const delay = this.jitter ? backoff * (0.5 + Math.random() * 0.5) : backoff;
         await sleep(delay);
-        backoff = Math.min(backoff * this.retryMultiplier, this.maxBackoffMs);
+        backoff = Math.min(backoff * this.multiplier, this.maxBackoffMs);
       }
       try {
         const resp = await fetch(this.endpoint, {
