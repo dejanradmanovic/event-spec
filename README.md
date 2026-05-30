@@ -8,7 +8,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/SDKs-Apache--2.0-green.svg)](LICENSE-APACHE)
 [![Go](https://img.shields.io/badge/go-1.26+-00ADD8?logo=go&logoColor=white)](go.mod)
 [![CI](https://github.com/dejanradmanovic/event-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/dejanradmanovic/event-spec/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-dejanradmanovic.github.io%2Fevent--spec-orange)](https://dejanradmanovic.github.io/event-spec/)
+[![Docs](https://img.shields.io/badge/docs-dejanradmanovic.github.io%2Fevent--spec-orange)](https://event-spec.io/)
 
 </div>
 
@@ -59,15 +59,15 @@ That's it. Swap `amplitude.New(...)` for `posthog.New(...)` and nothing else cha
 
 ## Getting started
 
-→ **[Full documentation](https://dejanradmanovic.github.io/event-spec/)**
+→ **[Full documentation](https://event-spec.io/)**
 
 | | |
 |---|---|
-| [Installation](https://dejanradmanovic.github.io/event-spec/docs/getting-started/installation) | Install the CLI and runtime packages |
-| [Quickstart](https://dejanradmanovic.github.io/event-spec/docs/getting-started/quickstart) | Write a spec, generate wrappers, track an event |
-| [CLI reference](https://dejanradmanovic.github.io/event-spec/docs/cli/) | Every subcommand and flag |
-| [CI integrations](https://dejanradmanovic.github.io/event-spec/docs/ci-integrations/) | GitHub Actions, GitLab CI, Docker |
-| [Server](https://dejanradmanovic.github.io/event-spec/docs/server/) | Self-host the registry + analytics relay |
+| [Installation](https://event-spec.io/docs/getting-started/installation) | Install the CLI and runtime packages |
+| [Quickstart](https://event-spec.io/docs/getting-started/quickstart) | Write a spec, generate wrappers, track an event |
+| [CLI reference](https://event-spec.io/docs/cli/) | Every subcommand and flag |
+| [CI integrations](https://event-spec.io/docs/ci-integrations/) | GitHub Actions, GitLab CI, Docker |
+| [Server](https://event-spec.io/docs/server/) | Self-host the registry + analytics relay |
 
 ---
 
@@ -96,4 +96,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, conventions, a
 
 This project uses a split license: the platform (CLI, registry server, codegen) is **[AGPL-3.0](LICENSE)**;
 the client libraries (`analytics/`, `provider/`, `hooks/`, `sdk/`) are **[Apache-2.0](LICENSE-APACHE)**.
-See [docs/contributing/license](https://dejanradmanovic.github.io/event-spec/docs/contributing/license) for the full breakdown.
+See [docs/contributing/license](https://event-spec.io/docs/contributing/license) for the full breakdown.
