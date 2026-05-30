@@ -3,7 +3,7 @@ package io.eventspec.analytics
 enum class SamplingStrategy {
   USER_ID_HASH,
   RANDOM,
-  NONE
+  NONE,
 }
 
 data class SamplingPolicy(

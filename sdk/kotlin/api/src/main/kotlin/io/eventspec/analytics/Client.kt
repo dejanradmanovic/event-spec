@@ -123,10 +123,17 @@ class Client(private var options: ClientOptions = ClientOptions()) {
                         onSuccess = {
                           val r =
                               ProviderResult(
-                                  p.metadata().name, latencyMs = System.currentTimeMillis() - start)
+                                  p.metadata().name,
+                                  latencyMs = System.currentTimeMillis() - start,
+                              )
                           val pr =
                               HookContext(
-                                  hc.operation, hc.eventName, hc.context, msg, p.metadata().name)
+                                  hc.operation,
+                                  hc.eventName,
+                                  hc.context,
+                                  msg,
+                                  p.metadata().name,
+                              )
                           chain.after(pr, HookResult(delivered = true, dropped = false))
                           chain.finally(pr, HookResult(delivered = true, dropped = false))
                           r
@@ -136,13 +143,21 @@ class Client(private var options: ClientOptions = ClientOptions()) {
                               ProviderResult(
                                   p.metadata().name,
                                   error = err,
-                                  latencyMs = System.currentTimeMillis() - start)
+                                  latencyMs = System.currentTimeMillis() - start,
+                              )
                           val pr =
                               HookContext(
-                                  hc.operation, hc.eventName, hc.context, msg, p.metadata().name)
+                                  hc.operation,
+                                  hc.eventName,
+                                  hc.context,
+                                  msg,
+                                  p.metadata().name,
+                              )
                           chain.error(pr, err)
                           chain.finally(
-                              pr, HookResult(delivered = false, dropped = false, error = err))
+                              pr,
+                              HookResult(delivered = false, dropped = false, error = err),
+                          )
                           r
                         },
                     )
@@ -158,7 +173,7 @@ class Client(private var options: ClientOptions = ClientOptions()) {
   suspend fun identify(
       userId: String,
       traits: Map<String, Any?> = emptyMap(),
-      opts: TrackOptions? = null
+      opts: TrackOptions? = null,
   ) {
     val mergedCtx = mergedContext(opts?.contextOverride)
     val msg =
@@ -175,7 +190,7 @@ class Client(private var options: ClientOptions = ClientOptions()) {
   suspend fun group(
       groupId: String,
       traits: Map<String, Any?> = emptyMap(),
-      opts: TrackOptions? = null
+      opts: TrackOptions? = null,
   ) {
     val mergedCtx = mergedContext(opts?.contextOverride)
     val msg =
@@ -193,7 +208,7 @@ class Client(private var options: ClientOptions = ClientOptions()) {
   suspend fun page(
       name: String,
       properties: Map<String, Any?> = emptyMap(),
-      opts: TrackOptions? = null
+      opts: TrackOptions? = null,
   ) {
     val mergedCtx = mergedContext(opts?.contextOverride)
     val msg =

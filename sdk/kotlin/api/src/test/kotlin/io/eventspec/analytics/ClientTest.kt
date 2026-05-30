@@ -132,8 +132,8 @@ class ClientTest {
     val p = CaptureProvider()
     val client =
         Client(
-            ClientOptions(
-                providers = listOf(p), context = AnalyticsContext(userId = "client-user")))
+            ClientOptions(providers = listOf(p), context = AnalyticsContext(userId = "client-user"))
+        )
     client.track(Event("Ev"))
     assertEquals("client-user", p.tracked[0].userId)
   }
@@ -155,8 +155,8 @@ class ClientTest {
     val p = CaptureProvider()
     val base =
         Client(
-            ClientOptions(
-                providers = listOf(p), context = AnalyticsContext(userId = "client-user")))
+            ClientOptions(providers = listOf(p), context = AnalyticsContext(userId = "client-user"))
+        )
     val scoped = base.withTransaction(AnalyticsContext(userId = "tx-user"))
     scoped.track(Event("Ev"))
     assertEquals("client-user", p.tracked[0].userId)
@@ -168,10 +168,12 @@ class ClientTest {
     val p = CaptureProvider()
     val client =
         Client(
-            ClientOptions(
-                providers = listOf(p), context = AnalyticsContext(userId = "client-user")))
+            ClientOptions(providers = listOf(p), context = AnalyticsContext(userId = "client-user"))
+        )
     client.track(
-        Event("Ev"), TrackOptions(contextOverride = AnalyticsContext(userId = "invocation-user")))
+        Event("Ev"),
+        TrackOptions(contextOverride = AnalyticsContext(userId = "invocation-user")),
+    )
     assertEquals("invocation-user", p.tracked[0].userId)
   }
 

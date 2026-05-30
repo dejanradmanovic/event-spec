@@ -6,7 +6,7 @@ import kotlinx.coroutines.sync.withLock
 
 enum class OverflowPolicy {
   DROP_OLDEST,
-  DROP_NEWEST
+  DROP_NEWEST,
 }
 
 data class QueueOptions(
@@ -28,13 +28,12 @@ class EventQueue<T>(
 
   init {
     if (opts.flushIntervalMs > 0) {
-      timer =
-          scope.launch {
-            while (isActive) {
-              delay(opts.flushIntervalMs)
-              flushAll()
-            }
-          }
+      timer = scope.launch {
+        while (isActive) {
+          delay(opts.flushIntervalMs)
+          flushAll()
+        }
+      }
     }
   }
 
@@ -52,13 +51,12 @@ class EventQueue<T>(
   }
 
   suspend fun flush() {
-    val batch =
-        mutex.withLock {
-          if (items.isEmpty()) return
-          val b = items.take(opts.batchSize).toList()
-          repeat(b.size) { items.removeFirst() }
-          b
-        }
+    val batch = mutex.withLock {
+      if (items.isEmpty()) return
+      val b = items.take(opts.batchSize).toList()
+      repeat(b.size) { items.removeFirst() }
+      b
+    }
     onFlush(batch)
   }
 
