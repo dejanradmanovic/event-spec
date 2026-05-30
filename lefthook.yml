@@ -11,6 +11,9 @@ pre-commit:
       glob: "sdk/typescript/**"
       root: "sdk/typescript/"
       run: pnpm format:check && pnpm typecheck && pnpm lint
+    kotlin-fmt:
+      glob: "sdk/kotlin/**"
+      run: ./sdk/kotlin/gradlew -p sdk/kotlin ktfmtCheck
 
 pre-push:
   commands:
@@ -22,3 +25,6 @@ pre-push:
       glob: "sdk/typescript/**"
       root: "sdk/typescript/"
       run: pnpm test
+    kotlin-tests:
+      glob: "sdk/kotlin/**"
+      run: ./sdk/kotlin/gradlew -p sdk/kotlin test

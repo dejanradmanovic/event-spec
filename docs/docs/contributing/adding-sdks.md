@@ -16,9 +16,20 @@ An event-spec SDK for a language has three parts:
 
 ## Step 1 — Core runtime
 
-The TypeScript SDK (`sdk/typescript/packages/api`) is the reference implementation to follow alongside the Go `analytics/` package.
+The TypeScript SDK (`sdk/typescript/packages/api`) and the Kotlin SDK (`sdk/kotlin/api/`) are the reference implementations to follow alongside the Go `analytics/` package.
 
-Create a new directory:
+For JVM/Gradle-based languages, use a multi-module Gradle build with a `gradle/libs.versions.toml` version catalog. See `sdk/kotlin/` for the reference structure:
+
+```
+sdk/<language>/
+├── settings.gradle.kts           # include(":api", ":provider-<name>")
+├── gradle/
+│   └── libs.versions.toml        # centralised dependency versions
+└── api/
+    └── src/main/kotlin/...
+```
+
+For other languages, create a new directory:
 
 ```
 sdk/<language>/
@@ -114,6 +125,7 @@ Each provider for the new language follows the same pattern as the Go Amplitude 
 2. Update the provider capability matrix in `docs/docs/providers/index.md`
 3. Update the codegen table in `docs/docs/concepts/codegen.md`
 4. Update the landing page SDK strip in `docs/src/pages/index.tsx`
+5. Add a language tab to every page that shows Go/TypeScript examples — see the Kotlin PR for the full list of pages to update
 
 ## Checklist
 

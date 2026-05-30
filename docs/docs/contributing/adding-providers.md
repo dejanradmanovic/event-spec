@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Adding Providers
 
-This guide walks through adding a new Go analytics provider to event-spec.
+This guide walks through adding a new analytics provider to event-spec. The Go implementation is the reference; TypeScript and Kotlin follow the same structure.
 
 ## File structure
 
@@ -159,5 +159,7 @@ Add a page at `docs/docs/providers/<name>.md` following the [Amplitude provider 
 - [ ] HTTP test with a real test server (no HTTP mocking)
 - [ ] TypeScript provider implemented at `sdk/typescript/packages/provider-<name>/` following the `provider-amplitude` package structure
 - [ ] TypeScript provider exports the same capability set as the Go implementation
-- [ ] Provider added to every SDK in the repo (currently: Go at `provider/<name>/`, TypeScript at `sdk/typescript/packages/provider-<name>/`)
+- [ ] Kotlin provider implemented as a separate Gradle submodule at `sdk/kotlin/provider-<name>/` following `sdk/kotlin/provider-amplitude/`
+- [ ] Kotlin provider added to `sdk/kotlin/settings.gradle.kts` (`include(":provider-<name>")`)
+- [ ] Provider added to every SDK in the repo (currently: Go at `provider/<name>/`, TypeScript at `sdk/typescript/packages/provider-<name>/`, Kotlin at `sdk/kotlin/provider-<name>/`)
 - [ ] `make test && make lint` passes

@@ -8,6 +8,7 @@ import (
 
 	"github.com/dejanradmanovic/event-spec/codegen"
 	_ "github.com/dejanradmanovic/event-spec/codegen/golang"
+	_ "github.com/dejanradmanovic/event-spec/codegen/kotlin"
 	_ "github.com/dejanradmanovic/event-spec/codegen/typescript"
 	"github.com/dejanradmanovic/event-spec/spec"
 )
@@ -51,6 +52,35 @@ func TestGenerate_NoPropsEventTSHasFile(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(outDir, "session_started.ts")); err != nil {
 		t.Errorf("expected session_started.ts to be generated: %v", err)
+	}
+}
+
+func TestGenerate_Kotlin(t *testing.T) {
+	events := testEvents()
+	outDir := t.TempDir()
+	if err := codegen.Run(events, "kotlin", outDir, "test-workspace", "test-source", ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	compareOrUpdate(t, outDir, filepath.Join("testdata", "golden", "kotlin"))
+}
+
+func TestGenerate_Kotlin_StatusAware(t *testing.T) {
+	events := testStatusEvents()
+	outDir := t.TempDir()
+	if err := codegen.Run(events, "kotlin", outDir, "test-workspace", "test-source", ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	compareOrUpdate(t, outDir, filepath.Join("testdata", "golden", "kotlin_status"))
+}
+
+func TestGenerate_DeletedEventAbsent_Kotlin(t *testing.T) {
+	events := []*spec.EventDef{testDeletedEvent()}
+	outDir := t.TempDir()
+	if err := codegen.Run(events, "kotlin", outDir, "", "", ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "LegacyPageview.kt")); !os.IsNotExist(err) {
+		t.Error("deleted event should produce no Kotlin file")
 	}
 }
 

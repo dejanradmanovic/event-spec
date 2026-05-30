@@ -57,6 +57,24 @@ const client = new Client({
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import io.eventspec.analytics.ValidationHook
+
+val hook = ValidationHook { eventName, properties ->
+    // Return an error message string, or null if valid.
+    val schema = schemaRegistry[eventName] ?: return@ValidationHook null
+    schema.validate(properties)
+}
+
+val client = Client(ClientOptions(
+    providers = listOf(amp),
+    hooks = listOf(hook),
+))
+```
+
+</TabItem>
 </Tabs>
 
 ## Behavior

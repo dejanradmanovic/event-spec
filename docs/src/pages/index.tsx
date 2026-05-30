@@ -64,6 +64,23 @@ await client.productViewed({
     productId: 'SKU-123',
 });`;
 
+const KOTLIN_USAGE = `import io.eventspec.analytics.Client
+import io.eventspec.analytics.ClientOptions
+import io.eventspec.analytics.amplitude.AmplitudeConfig
+import io.eventspec.analytics.amplitude.AmplitudeProvider
+import analytics.EventSpec
+import analytics.ProductViewedProperties
+import analytics.ProductViewedCategory
+
+val amp = AmplitudeProvider(AmplitudeConfig(apiKey = System.getenv("AMPLITUDE_API_KEY")!!))
+val client = Client(ClientOptions(providers = listOf(amp)))
+val es = EventSpec(client)
+
+es.productViewed(ProductViewedProperties(
+    category = ProductViewedCategory.ELECTRONICS,
+    productId = "SKU-123",
+))`;
+
 const FEATURES = [
   {
     icon: '📋',
@@ -81,7 +98,7 @@ const FEATURES = [
     icon: '⚡',
     title: 'Codegen Layer',
     description:
-      'Generate language-native typed wrappers from your event registry for Go and TypeScript (Swift, Kotlin, Python planned).',
+      'Generate language-native typed wrappers from your event registry for Go, TypeScript, and Kotlin (Swift, Python planned).',
   },
   {
     icon: '🏛️',
@@ -103,8 +120,8 @@ const PROVIDERS = [
 const SDKS = [
   { name: 'Go', available: true },
   { name: 'TypeScript', available: true },
+  { name: 'Kotlin', available: true },
   { name: 'Swift', available: false },
-  { name: 'Kotlin', available: false },
   { name: 'Python', available: false },
   { name: 'Rust', available: false },
 ];
@@ -186,7 +203,7 @@ export default function Home(): React.ReactElement {
             </TabItem>
             <TabItem value="generate" label="2. Generate">
               <CodeBlock language="bash" title="Terminal">
-                {`# Generate Go wrappers\nevent-spec generate --lang go --out ./generated\n\n# Generate TypeScript wrappers\nevent-spec generate --lang typescript --out ./src/analytics/generated`}
+                {`# Generate Go wrappers\nevent-spec generate --lang go --out ./generated\n\n# Generate TypeScript wrappers\nevent-spec generate --lang typescript --out ./src/analytics/generated\n\n# Generate Kotlin wrappers\nevent-spec generate --lang kotlin --out ./generated`}
               </CodeBlock>
             </TabItem>
             <TabItem value="go" label="3. Use (Go)">
@@ -197,6 +214,11 @@ export default function Home(): React.ReactElement {
             <TabItem value="ts" label="3. Use (TypeScript)">
               <CodeBlock language="typescript" title="index.ts">
                 {TS_USAGE}
+              </CodeBlock>
+            </TabItem>
+            <TabItem value="kotlin" label="3. Use (Kotlin)">
+              <CodeBlock language="kotlin" title="main.kt">
+                {KOTLIN_USAGE}
               </CodeBlock>
             </TabItem>
           </Tabs>

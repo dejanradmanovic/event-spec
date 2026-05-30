@@ -7,6 +7,7 @@ import (
 
 	"github.com/dejanradmanovic/event-spec/codegen"
 	_ "github.com/dejanradmanovic/event-spec/codegen/golang"
+	_ "github.com/dejanradmanovic/event-spec/codegen/kotlin"
 	_ "github.com/dejanradmanovic/event-spec/codegen/typescript"
 	"github.com/dejanradmanovic/event-spec/registry/local"
 	"github.com/dejanradmanovic/event-spec/spec"

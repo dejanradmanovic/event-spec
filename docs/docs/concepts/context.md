@@ -69,6 +69,21 @@ setGlobalContext({
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import io.eventspec.analytics.setGlobalContext
+import io.eventspec.analytics.AnalyticsContext
+
+setGlobalContext(AnalyticsContext(
+    attributes = mapOf(
+        "locale" to "en-US",
+        "app" to mapOf("name" to "my-app", "version" to "2.1.0"),
+    ),
+))
+```
+
+</TabItem>
 </Tabs>
 
 ## HTTP middleware (transaction context)
@@ -113,6 +128,21 @@ app.use((req, res, next) => {
 
 // In a route handler:
 await req.analyticsClient.track('checkout_started', { cart_value: 149.99 });
+```
+
+</TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Ktor or plain coroutine handler
+val reqClient = client.withTransaction(AnalyticsContext(
+    userId = extractUserId(call),
+    anonymousId = call.sessionId,
+    attributes = mapOf("request_id" to call.request.header("X-Request-ID")),
+))
+
+// In a route handler:
+reqClient.track(Event(name = "Checkout Started", properties = mapOf("cart_value" to 149.99)))
 ```
 
 </TabItem>
@@ -172,6 +202,18 @@ await client.identify('user-123', {
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+client.identify("user-123", mapOf(
+    "email" to "alice@example.com",
+    "name" to "Alice",
+    "plan" to "pro",
+    "created_at" to "2026-01-15T10:00:00Z",
+))
+```
+
+</TabItem>
 </Tabs>
 
 The resulting message sent to every provider separates the two buckets cleanly:
@@ -211,6 +253,15 @@ client.Identify(ctx, "", map[string]any{"plan": "enterprise"})
 // withTransaction has already bound userId — pass '' to let context win
 const reqClient = client.withTransaction({ userId: req.user.id });
 await reqClient.identify('', { plan: 'enterprise' });
+```
+
+</TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// withTransaction has already bound userId — pass "" to let context win
+val reqClient = client.withTransaction(AnalyticsContext(userId = userId))
+reqClient.identify("", mapOf("plan" to "enterprise"))
 ```
 
 </TabItem>

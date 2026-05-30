@@ -28,6 +28,21 @@ npm install @dejanradmanovic/event-spec-provider-amplitude
 ```
 
 </TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+Add to `gradle/libs.versions.toml`:
+```toml
+[libraries]
+event-spec-provider-amplitude = { module = "io.event-spec:kotlin-provider-amplitude", version = "0.1.0" }
+```
+
+```kotlin title="build.gradle.kts"
+dependencies {
+    implementation(libs.event.spec.provider.amplitude)
+}
+```
+
+</TabItem>
 </Tabs>
 
 ## Basic setup
@@ -58,6 +73,18 @@ import { AmplitudeProvider } from '@dejanradmanovic/event-spec-provider-amplitud
 const amp = new AmplitudeProvider({
     apiKey: process.env.AMPLITUDE_API_KEY!,
 });
+```
+
+</TabItem>
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import io.eventspec.analytics.amplitude.AmplitudeConfig
+import io.eventspec.analytics.amplitude.AmplitudeProvider
+
+val amp = AmplitudeProvider(AmplitudeConfig(
+    apiKey = System.getenv("AMPLITUDE_API_KEY")!!,
+))
 ```
 
 </TabItem>

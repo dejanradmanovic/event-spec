@@ -1,4 +1,4 @@
-.PHONY: build run test lint fmt vet tidy install-tools hooks help
+.PHONY: build run test lint fmt vet tidy install-tools hooks help test-kotlin lint-kotlin fmt-kotlin
 
 BIN := event-spec
 PORT ?= 8080
@@ -12,22 +12,36 @@ build:
 run: build
 	./$(BIN) serve --port $(PORT) --db $(DB_DSN)
 
-## test: run all tests
+## test: run all tests (Go + Kotlin)
 test:
 	go test ./...
+	$(MAKE) test-kotlin
 
 ## test-cover: run tests and open coverage report
 test-cover:
 	go test -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out
 
-## lint: run golangci-lint
+## test-kotlin: run Kotlin SDK tests
+test-kotlin:
+	./sdk/kotlin/gradlew -p sdk/kotlin test
+
+## lint: run all linters (Go + Kotlin)
 lint:
 	golangci-lint run --timeout=5m
+	$(MAKE) lint-kotlin
+
+## lint-kotlin: check Kotlin source formatting
+lint-kotlin:
+	./sdk/kotlin/gradlew -p sdk/kotlin ktfmtCheck
 
 ## fmt: format all Go source files
 fmt:
 	gofmt -w .
+
+## fmt-kotlin: format Kotlin source files
+fmt-kotlin:
+	./sdk/kotlin/gradlew -p sdk/kotlin ktfmtFormat
 
 ## vet: run go vet
 vet:
