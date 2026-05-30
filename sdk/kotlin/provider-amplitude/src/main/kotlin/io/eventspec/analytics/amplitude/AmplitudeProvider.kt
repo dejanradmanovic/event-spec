@@ -100,13 +100,12 @@ class AmplitudeProvider(
 
     // Rate limiting: reserve a send slot and delay until it opens.
     if (rateLimitIntervalMs > 0) {
-      val waitUntil =
-          rateMutex.withLock {
-            val now = System.currentTimeMillis()
-            val next = maxOf(now, nextSendTime)
-            nextSendTime = next + rateLimitIntervalMs
-            next
-          }
+      val waitUntil = rateMutex.withLock {
+        val now = System.currentTimeMillis()
+        val next = maxOf(now, nextSendTime)
+        nextSendTime = next + rateLimitIntervalMs
+        next
+      }
       val now = System.currentTimeMillis()
       if (waitUntil > now) delay(waitUntil - now)
     }

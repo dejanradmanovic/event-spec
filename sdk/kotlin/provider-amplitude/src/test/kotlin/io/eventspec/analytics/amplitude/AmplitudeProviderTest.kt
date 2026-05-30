@@ -245,6 +245,7 @@ class AmplitudeProviderTest {
             properties = mapOf("label" to "signup"),
             userId = "user-1",
             anonymousId = "anon-1",
-        ))
+        )
+    )
   }
 }
