@@ -3,7 +3,7 @@ kotlin = "2.3.21"
 coroutines = "1.11.0"
 ktfmt = "0.26.0"
 serialization = "1.11.0"
-vanniktech-publish = "0.29.0"
+vanniktech-publish = "0.36.0"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
