@@ -78,19 +78,25 @@ version heading in a separate pull request just before the release is dispatched
   `registry.branch` and ignored `registry.ref` entirely, so a pin to a commit or tag was
   silently not honoured.
 
-  `registry.ref` is now resolved against the remote — `origin/<ref>`, then
-  `refs/tags/<ref>`, then `<ref>` as a commit — and checked out detached, so a
-  branch-named ref follows the remote branch while a commit or tag still pins. The cache
-  is never left on a local branch. Nothing to change in your config: a `ref` naming a
-  branch now does what it looked like it did. `registry.branch` remains the plainer way
-  to say "follow a branch".
+  `registry.ref` is now resolved against the remote — `refs/tags/<ref>`, then
+  `refs/remotes/origin/<ref>`, then `<ref>` as a commit SHA — and checked out detached,
+  so a branch-named ref follows the remote branch while a commit or tag still pins. The
+  tag is tried first, which is git's own precedence for a bare name, so a branch cannot
+  take over a tag pin. The cache is never left on a local branch. Nothing to change in
+  your config: a `ref` naming a branch now does what it looked like it did.
+  `registry.branch` remains the plainer way to say "follow a branch".
 
-  Two consequences worth knowing. Setting `registry.ref` makes the first clone a full
-  one, because a `--depth 1` clone cannot contain an older commit or a tag outside the
-  tracked branch's tip — a slower first pull on a large tracking-plan repo. And a cache
-  cloned before you added a pin may be shallow and unable to resolve it; the pull now
-  fails naming `registry.ref` instead of succeeding against the wrong commit, and
-  `event-spec pull --force` re-clones it.
+  Three consequences worth knowing. Setting `registry.ref` makes the first clone a full
+  one, because a `--depth 1` clone holds neither an older commit nor any tag — a slower
+  first pull on a large tracking-plan repo, and that repo's whole history on disk in the
+  cache. A cache cloned before you added a pin is still shallow and cannot resolve it;
+  the pull now fails naming `registry.ref` instead of succeeding against the wrong
+  commit, and `event-spec pull --force` re-clones it — which the error says only when
+  the cache really is shallow, since re-cloning cannot fix a mistyped ref. And a
+  `registry.ref` that names both a tag and a remote branch pointing at different commits
+  is now refused, with both SHAs named, rather than resolved to one of them: pin to the
+  commit SHA to say which you meant. A `registry.ref` that is neither a tag, a remote
+  branch nor a SHA — `HEAD`, `main~2`, `refs/heads/main` — is refused as well.
 
   Details: [git registry docs](https://event-spec.io/docs/registry/git),
   [issue #211](https://github.com/dejanradmanovic/event-spec/issues/211).
