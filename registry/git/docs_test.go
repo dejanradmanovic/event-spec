@@ -213,7 +213,7 @@ func TestRefErrorsFitEightyColumns(t *testing.T) {
 		data []string
 	}{
 		{
-			name: "unresolved ref, full cache",
+			name: "unresolved ref, name the remote does not have",
 			err: unresolvedRefError{
 				key:    "registry.ref",
 				value:  ref,
@@ -223,11 +223,12 @@ func TestRefErrorsFitEightyColumns(t *testing.T) {
 					{kind: "branch", rev: branchRev},
 					{kind: "commit", rev: ref, skip: "not 7-40 hex digits, so not a commit SHA"},
 				},
+				remedy: remedyAbsentOnRemote,
 			},
 			data: []string{remote, ref, tagRev, branchRev},
 		},
 		{
-			name: "unresolved ref, shallow cache",
+			name: "unresolved ref, SHA pin on a shallow cache",
 			err: unresolvedRefError{
 				key:    "registry.ref",
 				value:  strings.Repeat("a", 40),
@@ -237,7 +238,7 @@ func TestRefErrorsFitEightyColumns(t *testing.T) {
 					{kind: "branch", rev: "refs/remotes/origin/" + strings.Repeat("a", 40)},
 					{kind: "commit", rev: strings.Repeat("a", 40)},
 				},
-				shallow: true,
+				remedy: remedyShallowCommit,
 			},
 			data: []string{
 				remote,
@@ -247,25 +248,73 @@ func TestRefErrorsFitEightyColumns(t *testing.T) {
 			},
 		},
 		{
-			name: "unresolved branch",
+			name: "unresolved branch the remote does have",
 			err: unresolvedRefError{
 				key:        "registry.branch",
 				value:      "release/2026-q1",
 				remote:     remote,
 				candidates: []refCandidate{{kind: "branch", rev: "refs/remotes/origin/release/2026-q1"}},
-				shallow:    true,
+				remedy:     remedyStaleCache,
+				remoteRefs: []string{"refs/heads/release/2026-q1"},
 			},
-			data: []string{remote, "release/2026-q1", "refs/remotes/origin/release/2026-q1"},
+			data: []string{
+				remote,
+				"release/2026-q1",
+				"refs/remotes/origin/release/2026-q1",
+				"refs/heads/release/2026-q1",
+			},
 		},
 		{
-			name: "ambiguous ref",
+			name: "unresolved ref, remote could not be asked",
+			err: unresolvedRefError{
+				key:        "registry.ref",
+				value:      ref,
+				remote:     remote,
+				candidates: []refCandidate{{kind: "tag", rev: tagRev}},
+				remedy:     remedyUnknown,
+			},
+			data: []string{remote, ref, tagRev},
+		},
+		{
+			name: "ambiguous ref, tag against branch",
 			err: ambiguousRefError{
 				ref:    ref,
 				remote: remote,
-				tag:    refCandidate{kind: "tag", rev: tagRev, sha: tagSHA},
-				branch: refCandidate{kind: "branch", rev: branchRev, sha: branchSHA},
+				resolved: []refCandidate{
+					{kind: "tag", rev: tagRev, sha: tagSHA},
+					{kind: "branch", rev: branchRev, sha: branchSHA},
+				},
 			},
 			data: []string{remote, ref, tagRev, branchRev, tagSHA, branchSHA},
+		},
+		{
+			name: "ambiguous ref, branch named after the pinned commit",
+			err: ambiguousRefError{
+				ref:    tagSHA,
+				remote: remote,
+				resolved: []refCandidate{
+					{kind: "branch", rev: "refs/remotes/origin/" + tagSHA, sha: branchSHA},
+					{kind: "commit", rev: tagSHA, sha: tagSHA},
+				},
+			},
+			data: []string{remote, tagSHA, branchSHA, "refs/remotes/origin/" + tagSHA},
+		},
+		{
+			name: "ambiguous ref, all three disagreeing",
+			err: ambiguousRefError{
+				ref:    tagSHA,
+				remote: remote,
+				resolved: []refCandidate{
+					{kind: "tag", rev: "refs/tags/" + tagSHA, sha: tagSHA},
+					{kind: "branch", rev: "refs/remotes/origin/" + tagSHA, sha: branchSHA},
+					{kind: "commit", rev: tagSHA, sha: tagSHA},
+				},
+			},
+			data: []string{
+				remote, tagSHA, branchSHA,
+				"refs/tags/" + tagSHA,
+				"refs/remotes/origin/" + tagSHA,
+			},
 		},
 		{
 			name: "a remote URL on its own longer than the line budget",
@@ -274,9 +323,28 @@ func TestRefErrorsFitEightyColumns(t *testing.T) {
 				value:      ref,
 				remote:     "https://" + strings.Repeat("sub.", 30) + "example.com/org/specs.git",
 				candidates: []refCandidate{{kind: "tag", rev: tagRev}},
+				remedy:     remedyAbsentOnRemote,
 			},
 			data: []string{"https://" + strings.Repeat("sub.", 30) + "example.com/org/specs.git", ref, tagRev},
 		},
+	}
+
+	// Every invalidRefError checkRef can produce, so no rejection shape can
+	// grow a line nobody measured.
+	for _, value := range []string{"main~1", "HEAD", "refs/heads/main", "-rf", strings.Repeat("x~", 60)} {
+		err := Config{Ref: value}.checkRef()
+		if err == nil {
+			t.Fatalf("checkRef(%q) = nil, want an invalidRefError to measure", value)
+		}
+		tests = append(tests, struct {
+			name string
+			err  error
+			data []string
+		}{
+			name: "invalid ref " + value,
+			err:  err,
+			data: []string{value},
+		})
 	}
 
 	for _, tt := range tests {
