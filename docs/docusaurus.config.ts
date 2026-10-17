@@ -7,7 +7,7 @@ const config: Config = {
   tagline: 'Define events once. Ship to any analytics provider.',
   favicon: 'img/favicon.svg',
 
-  url: 'https://dejanradmanovic.github.io',
+  url: 'https://event-spec.io',
   baseUrl: '/',
 
   organizationName: 'dejanradmanovic',

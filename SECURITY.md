@@ -23,6 +23,7 @@ Security concerns most relevant to this project:
 - **Secret leakage** — API keys or credentials appearing in generated code, logs, or error messages
 - **Code injection** — malicious event spec YAML leading to code injection in generated wrappers
 - **Dependency vulnerabilities** — vulnerabilities in Go module dependencies
+- **Domain control** — registration and DNS for `event-spec.io` are a security control, not housekeeping: `registry/git` ships that hostname as a hardcoded docs URL printed by failing `event-spec pull` runs, and a released binary cannot be patched, so a lapsed registration would send users to whoever picks the domain up next with event-spec vouching for it
 
 ## Out of scope
 
