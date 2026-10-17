@@ -162,9 +162,12 @@ type RegistryConfig struct {
 	Mode string `yaml:"mode"` // local | git | server
 
 	// git mode: remote repository settings.
-	Remote   string `yaml:"remote,omitempty"`    // git clone URL of the shared tracking-plan repo
-	Branch   string `yaml:"branch,omitempty"`    // branch to track (default: main)
-	Ref      string `yaml:"ref,omitempty"`       // optional commit SHA or tag pin; empty = HEAD of Branch
+	Remote string `yaml:"remote,omitempty"` // git clone URL of the shared tracking-plan repo
+	Branch string `yaml:"branch,omitempty"` // branch to follow; each pull moves to its remote tip (default: main)
+	// Ref pins the cache to an exact commit SHA or tag, overriding Branch.
+	// It is resolved against the remote, so a branch name is accepted too and
+	// follows that branch. Empty = follow Branch.
+	Ref      string `yaml:"ref,omitempty"`
 	CacheDir string `yaml:"cache_dir,omitempty"` // local clone path (default: ~/.event-spec/cache/<hash>)
 	// SpecsDir (git mode only) is the path to the specs directory within the remote repo.
 	// Resolved relative to the repo root. Defaults to "specs".

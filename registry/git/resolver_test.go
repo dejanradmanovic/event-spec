@@ -176,6 +176,234 @@ func TestPull_fetchUpdatesIndex(t *testing.T) {
 	}
 }
 
+// refRemote is a fixture remote for the ref-resolution tests: a bare repo
+// holding one commit on main, tagged, plus the working tree it was pushed
+// from so a test can move the remote on afterwards.
+type refRemote struct {
+	bare string
+	work string
+	tag  string
+	// first is the SHA of the commit the tag points at, which is also the
+	// only commit on the remote until push is called.
+	first string
+}
+
+// newRefRemote builds the fixture in the style of TestPull_fetchUpdatesIndex:
+// init -b main with a local identity, one commit, a tag, then a bare clone.
+func newRefRemote(t *testing.T) *refRemote {
+	t.Helper()
+	root := t.TempDir()
+	r := &refRemote{
+		bare: filepath.Join(root, "remote.git"),
+		work: filepath.Join(root, "work"),
+		tag:  "v1",
+	}
+	if err := os.MkdirAll(r.work, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, r.work, "init", "-b", "main")
+	testutil.RunGit(t, r.work, "config", "--local", "user.email", "test@test.com")
+	testutil.RunGit(t, r.work, "config", "--local", "user.name", "Test")
+
+	r.first = r.commit(t, "ecommerce", "product_viewed")
+	testutil.RunGit(t, r.work, "tag", r.tag)
+	testutil.RunGit(t, root, "clone", "--bare", r.work, r.bare)
+	return r
+}
+
+// commit writes one event spec into the working tree, commits it, and returns
+// the new SHA.
+func (r *refRemote) commit(t *testing.T, namespace, name string) string {
+	t.Helper()
+	full := filepath.Join(r.work, "specs", namespace, name, "1-0-0.yaml")
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := eventYAML(namespace, name, "1-0-0", "active")
+	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, r.work, "add", ".")
+	testutil.RunGit(t, r.work, "commit", "-m", namespace+"/"+name)
+	return headSHA(t, r.work)
+}
+
+// push advances main on the bare remote to the working tree's HEAD.
+func (r *refRemote) push(t *testing.T) {
+	t.Helper()
+	testutil.RunGit(t, r.work, "push", r.bare, "main")
+}
+
+// url is the Remote the resolver is configured with. It is a file:// URL, not
+// the bare path: git ignores --depth for a plain local path ("warning: --depth
+// is ignored in local clones"), which would make a shallow clone a full one
+// and quietly rob the pin-older-than-the-clone case of its point.
+func (r *refRemote) url() string {
+	path := filepath.ToSlash(r.bare)
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path // a Windows path starts at the drive letter
+	}
+	return "file://" + path
+}
+
+// TestPull_refResolution is the regression matrix for #211: a ref naming a
+// branch used to check out the stale local branch the first clone created, so
+// every later pull was a no-op, while a ref naming a commit was ignored by
+// the clone path altogether.
+func TestPull_refResolution(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	tests := []struct {
+		name string
+		// ref is read after the fixture exists, so a case can pin to a SHA.
+		ref func(r *refRemote) string
+		// wantHead reports the SHA the cache must sit on after both pulls;
+		// nil means the second commit's, i.e. the ref followed the remote.
+		wantHead   func(r *refRemote, second string) string
+		wantEvents int
+	}{
+		{
+			name:       "branch-named ref follows the remote",
+			ref:        func(*refRemote) string { return "main" },
+			wantEvents: 2,
+		},
+		{
+			name:       "empty ref follows the branch",
+			ref:        func(*refRemote) string { return "" },
+			wantEvents: 2,
+		},
+		{
+			name:       "commit SHA pins",
+			ref:        func(r *refRemote) string { return r.first },
+			wantHead:   func(r *refRemote, _ string) string { return r.first },
+			wantEvents: 1,
+		},
+		{
+			name:       "tag pins",
+			ref:        func(r *refRemote) string { return r.tag },
+			wantHead:   func(r *refRemote, _ string) string { return r.first },
+			wantEvents: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			remote := newRefRemote(t)
+			cacheDir := filepath.Join(t.TempDir(), "cache")
+			resolver, err := git.NewWithPull(context.Background(), git.Config{
+				Remote:   remote.url(),
+				Branch:   "main",
+				CacheDir: cacheDir,
+				Ref:      tt.ref(remote),
+			})
+			if err != nil {
+				t.Fatalf("first pull: %v", err)
+			}
+
+			second := remote.commit(t, "auth", "user_signed_up")
+			remote.push(t)
+
+			if err := resolver.Pull(context.Background()); err != nil {
+				t.Fatalf("second pull: %v", err)
+			}
+
+			want := second
+			if tt.wantHead != nil {
+				want = tt.wantHead(remote, second)
+			}
+			if got := headSHA(t, cacheDir); got != want {
+				t.Errorf("cache HEAD = %s, want %s", got, want)
+			}
+
+			events, err := resolver.ListEvents(context.Background(), registry.ListFilter{})
+			if err != nil {
+				t.Fatalf("ListEvents: %v", err)
+			}
+			if len(events) != tt.wantEvents {
+				t.Errorf("want %d event(s), got %d", tt.wantEvents, len(events))
+			}
+
+			// The cache must never sit on a local branch: that is the shape
+			// the stale-ref bug needed to exist at all.
+			if branch, ok := headBranch(t, cacheDir); ok {
+				t.Errorf("cache HEAD is on local branch %q, want detached", branch)
+			}
+		})
+	}
+
+	// A pin older than the tip proves the clone path honours Ref: under
+	// --depth 1 the commit would not be in the cache at all.
+	t.Run("pin older than the clone resolves on a fresh cache", func(t *testing.T) {
+		remote := newRefRemote(t)
+		remote.commit(t, "auth", "user_signed_up")
+		remote.push(t)
+
+		cacheDir := filepath.Join(t.TempDir(), "cache")
+		resolver, err := git.NewWithPull(context.Background(), git.Config{
+			Remote:   remote.url(),
+			Branch:   "main",
+			CacheDir: cacheDir,
+			Ref:      remote.first,
+		})
+		if err != nil {
+			t.Fatalf("first pull: %v", err)
+		}
+		if got := headSHA(t, cacheDir); got != remote.first {
+			t.Errorf("cache HEAD = %s, want the pinned %s", got, remote.first)
+		}
+		events, err := resolver.ListEvents(context.Background(), registry.ListFilter{})
+		if err != nil {
+			t.Fatalf("ListEvents: %v", err)
+		}
+		if len(events) != 1 {
+			t.Errorf("want 1 event at the pinned commit, got %d", len(events))
+		}
+	})
+
+	t.Run("unknown ref fails loudly", func(t *testing.T) {
+		remote := newRefRemote(t)
+		_, err := git.NewWithPull(context.Background(), git.Config{
+			Remote:   remote.url(),
+			Branch:   "main",
+			CacheDir: filepath.Join(t.TempDir(), "cache"),
+			Ref:      "no-such-thing",
+		})
+		if err == nil {
+			t.Fatal("expected a pull pinned to a missing ref to fail")
+		}
+		for _, want := range []string{"registry.ref", "no-such-thing"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("error does not mention %q: %v", want, err)
+			}
+		}
+	})
+}
+
+// headSHA returns the commit dir's HEAD points at. Local to this file rather
+// than in testutil: only the ref-resolution tests need it.
+func headSHA(t *testing.T, dir string) string {
+	t.Helper()
+	out, err := testutil.GitCommand(context.Background(), dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("rev-parse HEAD in %s: %v", dir, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// headBranch returns the branch dir's HEAD is attached to, if any.
+// symbolic-ref exits non-zero on a detached HEAD, which is the state every
+// successful pull must leave the cache in.
+func headBranch(t *testing.T, dir string) (string, bool) {
+	t.Helper()
+	out, err := testutil.GitCommand(context.Background(), dir, "symbolic-ref", "-q", "HEAD").Output()
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimSpace(string(out)), true
+}
+
 func TestPublishEvent_returnsErrReadOnly(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")

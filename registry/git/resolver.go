@@ -22,10 +22,15 @@ import (
 type Config struct {
 	// Remote is the git clone URL of the shared tracking-plan repository.
 	Remote string
-	// Branch to track. Defaults to "main".
+	// Branch to track. Defaults to "main". Each pull moves the cache to the
+	// remote tip of this branch, never to a local branch of the same name.
 	Branch string
-	// Ref is an optional commit SHA or tag to pin to. When empty the HEAD of
-	// Branch is used. On each pull the cache is reset to this exact ref.
+	// Ref optionally overrides Branch with an exact commit SHA or tag to pin
+	// to. It is resolved against the remote — in order, origin/<Ref>,
+	// refs/tags/<Ref>, then <Ref> as a commit — so a Ref naming a branch
+	// follows that branch instead of freezing on the local copy a clone left
+	// behind (#211). Setting it also makes the first clone a full one, since
+	// a shallow clone cannot hold an older commit or an unreachable tag.
 	Ref string
 	// CacheDir is the local directory where the repo is cloned.
 	// Defaults to ~/.event-spec/cache/<sha12-of-Remote>.
@@ -95,8 +100,9 @@ func NewWithPull(ctx context.Context, cfg Config) (*Resolver, error) {
 	return r, nil
 }
 
-// Pull clones the remote repository on first call, or fetches and resets to
-// the configured branch/ref on subsequent calls. After a successful pull the
+// Pull clones the remote repository on first call, or fetches on subsequent
+// calls, then checks the cache out at the configured branch or ref, resolved
+// against the remote and always left detached. After a successful pull the
 // in-memory index is rebuilt from the updated cache.
 func (r *Resolver) Pull(ctx context.Context) error {
 	cacheDir := r.cfg.cacheDir()
@@ -112,23 +118,89 @@ func (r *Resolver) Pull(ctx context.Context) error {
 	}
 
 	if _, err := os.Stat(filepath.Join(cacheDir, ".git")); os.IsNotExist(err) {
-		if err := r.runGit(ctx, "clone", "--depth", "1", "--branch", r.cfg.branch(), r.cfg.Remote, cacheDir); err != nil {
+		if err := r.runGit(ctx, r.cloneArgs(cacheDir)...); err != nil {
 			return fmt.Errorf("git clone: %w", err)
 		}
 	} else {
 		if err := r.runGit(ctx, "-C", cacheDir, "fetch", "origin"); err != nil {
 			return fmt.Errorf("git fetch: %w", err)
 		}
-		ref := r.cfg.Ref
-		if ref == "" {
-			ref = "origin/" + r.cfg.branch()
-		}
-		if err := r.runGit(ctx, "-C", cacheDir, "checkout", ref); err != nil {
-			return fmt.Errorf("git checkout %s: %w", ref, err)
-		}
+	}
+
+	// Both paths end the same way, so the cache is a detached snapshot of a
+	// remote-resolved revision whether it was just cloned or just fetched.
+	rev, err := r.resolveCheckoutRef(ctx, cacheDir)
+	if err != nil {
+		return err
+	}
+	// advice.detachedHead is suppressed because detaching is the design here,
+	// not an accident: the advice would print on every pull and tell the user
+	// to make a branch in a directory they do not edit.
+	if err := r.runGit(ctx, "-C", cacheDir, "-c", "advice.detachedHead=false", "checkout", "--detach", rev); err != nil {
+		return fmt.Errorf("git checkout %s: %w", rev, err)
 	}
 
 	return r.loadFromCache()
+}
+
+// cloneArgs builds the argv for the first clone. --depth 1 is used only when
+// no Ref is configured: a shallow clone contains just the tip of the tracked
+// branch, which is exactly what a pin to an older commit or to a tag outside
+// that branch is not, so a pinned config pays for a full clone instead of
+// failing to resolve its own pin on a fresh cache.
+func (r *Resolver) cloneArgs(cacheDir string) []string {
+	args := []string{"clone"}
+	if r.cfg.Ref == "" {
+		args = append(args, "--depth", "1")
+	}
+	return append(args, "--branch", r.cfg.branch(), r.cfg.Remote, cacheDir)
+}
+
+// resolveCheckoutRef returns the revision Pull checks out, always a
+// remote-resolved one. A bare local name must never be used: the local branch
+// a clone creates is not advanced by a fetch, so checking out "main" pinned
+// the cache to the first clone forever (#211).
+//
+// With no Ref the tracked branch's remote-tracking ref is used. With a Ref the
+// search order is origin/<Ref>, refs/tags/<Ref>, then <Ref> as a commit:
+// remote branch first so that the widely configured branch-named ref follows
+// the remote, tag before commit because a tag name is never a commit SHA.
+func (r *Resolver) resolveCheckoutRef(ctx context.Context, cacheDir string) (string, error) {
+	if r.cfg.Ref == "" {
+		rev := "refs/remotes/origin/" + r.cfg.branch()
+		if !gitRefExists(ctx, cacheDir, rev) {
+			return "", fmt.Errorf("registry.branch %q not found on %s: looked for %s",
+				r.cfg.branch(), r.cfg.Remote, rev)
+		}
+		return rev, nil
+	}
+
+	for _, rev := range []string{
+		"refs/remotes/origin/" + r.cfg.Ref,
+		"refs/tags/" + r.cfg.Ref,
+		r.cfg.Ref,
+	} {
+		if gitRefExists(ctx, cacheDir, rev) {
+			return rev, nil
+		}
+	}
+	return "", fmt.Errorf("registry.ref %q not found on %s: looked for "+
+		"refs/remotes/origin/%s, refs/tags/%s, and %s as a commit; a cache "+
+		"cloned without a ref is shallow and holds only the tip of %s, so "+
+		"re-run 'event-spec pull --force' to clone the full history",
+		r.cfg.Ref, r.cfg.Remote, r.cfg.Ref, r.cfg.Ref, r.cfg.Ref, r.cfg.branch())
+}
+
+// gitRefExists reports whether rev names a commit in the cache. It is a probe
+// rather than a command, so it does not go through runGit: a non-match is an
+// expected step of resolveCheckoutRef's search, and runGit would print git's
+// complaint to the user's terminal and attach the GIT_* migration hint to
+// something that did not fail. Output goes nowhere for the same reason, and
+// --quiet keeps git itself silent on a non-match.
+func gitRefExists(ctx context.Context, cacheDir, rev string) bool {
+	cmd := exec.CommandContext(ctx, "git", "-C", cacheDir, "rev-parse", "--verify", "--quiet", rev+"^{commit}")
+	cmd.Env = gitEnv()
+	return cmd.Run() == nil
 }
 
 // loadFromCache builds the inner local.Resolver from the cache directory.

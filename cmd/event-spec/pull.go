@@ -55,12 +55,18 @@ func newPullCmd() *cobra.Command {
 				h := sha256.Sum256([]byte(gitCfg.Remote))
 				cacheDir = filepath.Join(home, ".event-spec", "cache", fmt.Sprintf("%x", h[:6]))
 			}
-			branch := gitCfg.Branch
-			if branch == "" {
-				branch = "main"
+			// Name what the pull will actually check out: registry.ref wins
+			// over registry.branch, so printing the branch under a pin would
+			// name a ref the cache never lands on.
+			effectiveRef := gitCfg.Ref
+			if effectiveRef == "" {
+				effectiveRef = gitCfg.Branch
+			}
+			if effectiveRef == "" {
+				effectiveRef = "main"
 			}
 
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Pulling %s@%s into %s…\n", gitCfg.Remote, branch, cacheDir)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Pulling %s@%s into %s…\n", gitCfg.Remote, effectiveRef, cacheDir)
 
 			r, err := gitregistry.NewWithPull(context.Background(), gitCfg)
 			if err != nil {
