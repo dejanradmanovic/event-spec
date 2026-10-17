@@ -13,7 +13,7 @@ version: 1
 workspace: "my-company"
 registry:
   mode: git
-  url: https://github.com/my-org/analytics-specs.git
+  remote: https://github.com/my-org/analytics-specs.git
   ref: main
 ```
 
@@ -69,13 +69,26 @@ The CLI reads your git **config** — `url.*.insteadOf`, `core.sshCommand`, `cre
 `event-spec pull` runs git with a scrubbed environment: every `GIT_*` variable is removed before git starts. Configure SSH and credentials in your git config, not via environment variables.
 :::
 
-This is deliberate. `event-spec` runs inside git hooks, `make` targets and CI steps, where an inherited `GIT_DIR` would retarget your own checkout, and where `GIT_SSH_COMMAND`, `GIT_ASKPASS`, `GIT_PROXY_COMMAND`, `GIT_EXTERNAL_DIFF`, `GIT_EXEC_PATH` or `GIT_CONFIG_KEY_n` would let the environment decide which program git executes. If you authenticate through one of those variables today, move the setting into your git config — it is a one-line change:
+This is deliberate. `event-spec` runs inside git hooks, `make` targets and CI steps, where an inherited `GIT_DIR` would retarget your own checkout. The variables that name a program for git to execute are dropped for the same reason — in those contexts the environment is often set by someone other than you:
+
+- `GIT_SSH` / `GIT_SSH_COMMAND` — the transport program for `ssh://` and `git@` remotes.
+- `GIT_ASKPASS` — the helper git asks for a password.
+- `GIT_PROXY_COMMAND` — the proxy command git runs for `git://` remotes.
+- `GIT_EXTERNAL_DIFF` — the external diff driver.
+- `GIT_EXEC_PATH` — the directory git loads its own subcommands from.
+- `GIT_CONFIG_COUNT` with `GIT_CONFIG_KEY_n` / `GIT_CONFIG_VALUE_n` — ad-hoc config entries, which can set `core.hooksPath`.
+
+If you authenticate through one of those variables today, move the setting into your git config — it is a one-line change:
 
 | Instead of | Use |
-|---|---|
-| `GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key"` | `git config --global core.sshCommand "ssh -i ~/.ssh/deploy_key"` |
+|------------|-----|
+| `GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key"`, or the older `GIT_SSH` | `git config --global core.sshCommand "ssh -i ~/.ssh/deploy_key"` |
 | `GIT_ASKPASS=/path/to/askpass` | `git config --global core.askPass /path/to/askpass` |
-| `GIT_CONFIG_KEY_0=<key>` / `GIT_CONFIG_VALUE_0=<value>` | `git config --global <key> <value>` |
+| `GIT_PROXY_COMMAND=/path/to/proxy` | `git config --global core.gitProxy /path/to/proxy` — applies to `git://` remotes only; an HTTPS remote needs `git config --global http.proxy http://host:port` instead |
+| `GIT_EXTERNAL_DIFF=/path/to/diff` | `git config --global diff.external /path/to/diff` — never affects a pull, which only runs `clone`, `fetch` and `checkout` |
+| `GIT_CONFIG_COUNT=1` with `GIT_CONFIG_KEY_0=<key>` / `GIT_CONFIG_VALUE_0=<value>` | `git config --global <key> <value>` |
+
+`GIT_EXEC_PATH` has no git config equivalent: git accepts it only as the `--exec-path` option, which `event-spec` never passes. To run a non-default git, put it first on `PATH`.
 
 When a pull fails and any of those variables was set, `event-spec` names it in the error, so a dropped `GIT_SSH_COMMAND` does not look like a broken key. Two values are set for you: `GIT_TERMINAL_PROMPT=0`, so a pull fails fast instead of blocking on a credential prompt, and `GIT_ALLOW_PROTOCOL=file:git:http:https:ssh`, so a registry `remote:` cannot select a command-executing transport such as `ext::`.
 
@@ -86,7 +99,7 @@ The local cache defaults to `~/.event-spec/cache/<repo-hash>/`. Override it with
 ```yaml title="event-spec.yaml"
 registry:
   mode: git
-  url: https://github.com/my-org/analytics-specs.git
+  remote: https://github.com/my-org/analytics-specs.git
   ref: main
   cache_dir: ./.event-spec-cache   # repo-local cache, useful for CI
 ```
