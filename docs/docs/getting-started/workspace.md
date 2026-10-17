@@ -15,8 +15,9 @@ workspace: "my-company"         # logical workspace name, used in generated pack
 registry:
   mode: local                   # local | git | server
   # git mode only:
-  # url: https://github.com/my-org/analytics-specs.git
-  # ref: main
+  # remote: https://github.com/my-org/analytics-specs.git
+  # branch: main
+  # ref: v1.4.0    # pin to a commit SHA or tag instead of following a branch
   # server mode only:
   # url: https://registry.example.com
   # api_key: ${REGISTRY_API_KEY}
@@ -38,8 +39,10 @@ destinations_dir: ./destinations # directory of destination definition YAML file
 | `version` | integer | — | Config schema version. Must be `1`. |
 | `workspace` | string | — | Logical workspace name, used in generated package/module names. |
 | `registry.mode` | string | `local` | Registry backend: `local`, `git`, or `server`. |
-| `registry.url` | string | — | Git repo URL (git mode) or server base URL (server mode). |
-| `registry.ref` | string | `main` | Git branch, tag, or commit (git mode only). |
+| `registry.remote` | string | — | Git clone URL of the shared tracking-plan repo (git mode). |
+| `registry.branch` | string | `main` | Branch to follow (git mode). Each pull moves the cache to its remote tip. |
+| `registry.ref` | string | — | Exact commit SHA or tag to pin the cache to (git mode). Overrides `registry.branch`. |
+| `registry.url` | string | — | Server base URL (server mode). |
 | `registry.cache_dir` | string | `~/.event-spec/cache/<hash>` | Local clone path for git mode. |
 | `registry.api_key` | string | — | API key for server mode. Supports `${ENV_VAR}` expansion. |
 | `specs_dir` | string | `./specs` | Path to the event spec YAML directory tree. |

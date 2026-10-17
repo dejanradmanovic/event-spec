@@ -14,7 +14,7 @@ workspace: "my-company"
 registry:
   mode: git
   remote: https://github.com/my-org/analytics-specs.git
-  ref: main
+  branch: main
 ```
 
 ## Pulling specs
@@ -32,6 +32,23 @@ After pulling, all CLI commands work against the cached specs — no network req
 ```bash
 event-spec pull && event-spec generate web-app
 ```
+
+## `branch` vs `ref`
+
+| Key | Default | Use it to |
+|-----|---------|-----------|
+| `branch` | `main` | Follow a branch. Every `event-spec pull` moves the cache to that branch's current tip on the remote. |
+| `ref` | — | Pin the cache to an exact commit SHA or tag, so every machine and every CI run indexes the same specs. Overrides `branch`. |
+
+`ref` is resolved against the remote, in this order: `origin/<ref>`, then `refs/tags/<ref>`, then `<ref>` as a commit. A `ref` that names a branch therefore follows that branch's remote tip rather than freezing on the local copy the first clone left behind ([#211](https://github.com/dejanradmanovic/event-spec/issues/211)) — but `branch:` says that more plainly, so use `branch:` to follow and `ref:` to pin.
+
+The cache is always left on a detached HEAD, never on a local branch, so nothing a pull checks out can go stale.
+
+:::note A pin means a full clone
+Without `ref`, the first pull clones with `--depth 1`. A shallow clone holds only the tip of the tracked branch, which is exactly what a pinned commit or an older tag is not, so setting `ref` clones the full history instead — a slower first pull on a large tracking-plan repo, and the only way the pin can resolve at all.
+
+A cache that was cloned before you added the pin is still shallow and may not contain the commit. `event-spec pull` then fails naming `registry.ref`; re-clone with `event-spec pull --force`.
+:::
 
 ## Version pinning
 
@@ -106,7 +123,7 @@ The local cache defaults to `~/.event-spec/cache/<repo-hash>/`. Override it with
 registry:
   mode: git
   remote: https://github.com/my-org/analytics-specs.git
-  ref: main
+  branch: main
   cache_dir: ./.event-spec-cache   # repo-local cache, useful for CI
 ```
 

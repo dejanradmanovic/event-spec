@@ -13,8 +13,10 @@ sidebar_position: 4
 | `version` | integer | Yes | — | Config schema version. Always `1`. |
 | `workspace` | string | Yes | — | Logical workspace name. Used in generated package/module names and registry grouping. |
 | `registry.mode` | string | No | `local` | Registry backend: `local` \| `git` \| `server`. |
-| `registry.url` | string | Conditional | — | Git repo URL (git mode) or server base URL (server mode). |
-| `registry.ref` | string | No | `main` | Git branch/tag/commit (git mode only). |
+| `registry.remote` | string | Conditional | — | Git clone URL of the shared tracking-plan repo (git mode). |
+| `registry.branch` | string | No | `main` | Branch to follow (git mode). Each pull moves the cache to its remote tip. |
+| `registry.ref` | string | No | — | Exact commit SHA or tag to pin the cache to (git mode). Overrides `registry.branch`; resolved against the remote, so a branch name is accepted too. |
+| `registry.url` | string | Conditional | — | Server base URL (server mode). |
 | `registry.cache_dir` | string | No | `~/.event-spec/cache/<hash>` | Local clone path for git mode. Override for CI or monorepo layouts. |
 | `registry.api_key` | string | Conditional | — | API key for server mode. Supports `${ENV_VAR}` expansion. |
 | `specs_dir` | string | No | `./specs` | Path to event spec YAML directory tree. |
@@ -45,8 +47,8 @@ version: 1
 workspace: "my-company"
 registry:
   mode: git
-  url: https://github.com/my-org/analytics-specs.git
-  ref: main
+  remote: https://github.com/my-org/analytics-specs.git
+  branch: main
 ```
 
 ### Server mode
