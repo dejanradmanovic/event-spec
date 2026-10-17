@@ -85,7 +85,7 @@ func (s *Server) uiPinger(ctx context.Context, dest spec.DestinationDef) error {
 		slog.WarnContext(ctx, "destination health check failed",
 			"destination", dest.Name,
 			"provider", dest.Provider,
-			"error", err,
+			"error", "redacted",
 		)
 	}
 	return err
