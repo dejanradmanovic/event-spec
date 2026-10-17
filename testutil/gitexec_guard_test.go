@@ -22,10 +22,13 @@ var guardSkipDirs = map[string]bool{
 	"sdk":          true,
 }
 
-// guardAllowedFiles are the module-relative test files permitted to exec git
-// directly, because they are the ones testing the helper itself.
+// guardAllowedFiles are the module-relative files permitted to exec git
+// directly: the helper itself, its test, and the registry resolver, which is
+// production code and applies its own equivalent scrub in gitEnv().
 var guardAllowedFiles = map[string]bool{
-	"testutil/gitenv_test.go": true,
+	"testutil/gitenv.go":       true,
+	"testutil/gitenv_test.go":  true,
+	"registry/git/resolver.go": true,
 }
 
 // gitExecCall is one `exec.Command("git", …)` call site found by the guard.
@@ -36,10 +39,9 @@ type gitExecCall struct {
 
 func (c gitExecCall) String() string { return c.File + ":" + strconv.Itoa(c.Line) }
 
-// TestNoUnguardedGitExec fails if a test file execs git without going through
-// testutil.GitCommand. An unguarded git inherits GIT_DIR from the environment,
-// which overrides cmd.Dir and retargets the contributor's own repository when
-// the tests run from a git hook (#184).
+// TestNoUnguardedGitExec fails if any Go file in the module execs git without
+// going through testutil.GitCommand. It scans production code as well as
+// tests: the bug in #184 shipped in registry/git/resolver.go, not in a test.
 func TestNoUnguardedGitExec(t *testing.T) {
 	root := moduleRoot(t)
 
@@ -54,7 +56,7 @@ func TestNoUnguardedGitExec(t *testing.T) {
 			}
 			return nil
 		}
-		if !strings.HasSuffix(d.Name(), "_test.go") {
+		if !strings.HasSuffix(d.Name(), ".go") {
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)
@@ -81,7 +83,9 @@ func TestNoUnguardedGitExec(t *testing.T) {
 	}
 
 	for _, call := range offenders {
-		t.Errorf("%s: execs git directly; use testutil.GitCommand or testutil.RunGit", call)
+		t.Errorf("%s: execs git directly, so it inherits GIT_DIR from any ancestor "+
+			"git hook and can retarget the contributor's real repository (issue #184); "+
+			"use testutil.GitCommand or testutil.RunGit", call)
 	}
 }
 
@@ -113,6 +117,30 @@ func f() { _ = exec.CommandContext(context.Background(), "git", "init") }
 			want: []int{6},
 		},
 		{
+			name: "aliased os/exec import",
+			src: `package p
+import xc "os/exec"
+func f() { _ = xc.Command("git", "status") }
+`,
+			want: []int{3},
+		},
+		{
+			name: "dot-imported os/exec",
+			src: `package p
+import . "os/exec"
+func f() { _ = Command("git", "status") }
+`,
+			want: []int{3},
+		},
+		{
+			name: "an unrelated package named exec is not os/exec",
+			src: `package p
+import "example.com/exec"
+func f() { _ = exec.Command("git", "status") }
+`,
+			want: nil,
+		},
+		{
 			name: "exec.LookPath is not a call site",
 			src: `package p
 import "os/exec"
@@ -139,7 +167,7 @@ func f() string { return "git" }
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			calls, err := findGitExecCalls("fixture_test.go", []byte(tt.src))
+			calls, err := findGitExecCalls("fixture.go", []byte(tt.src))
 			if err != nil {
 				t.Fatalf("findGitExecCalls: %v", err)
 			}
@@ -159,13 +187,18 @@ func f() string { return "git" }
 	}
 }
 
-// findGitExecCalls parses src and reports every exec.Command or
-// exec.CommandContext whose command literal is "git".
+// findGitExecCalls parses src and reports every os/exec Command or
+// CommandContext call whose command literal is "git". The local name of the
+// os/exec import is resolved per file, so an alias does not dodge the check.
 func findGitExecCalls(name string, src []byte) ([]gitExecCall, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, name, src, 0)
 	if err != nil {
 		return nil, err
+	}
+	pkgName, ok := execPackageName(file)
+	if !ok {
+		return nil, nil
 	}
 
 	var calls []gitExecCall
@@ -174,17 +207,13 @@ func findGitExecCalls(name string, src []byte) ([]gitExecCall, error) {
 		if !ok {
 			return true
 		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
+		fn, ok := execFuncName(call.Fun, pkgName)
 		if !ok {
-			return true
-		}
-		pkg, ok := sel.X.(*ast.Ident)
-		if !ok || pkg.Name != "exec" {
 			return true
 		}
 
 		var nameArg int
-		switch sel.Sel.Name {
+		switch fn {
 		case "Command":
 			nameArg = 0
 		case "CommandContext":
@@ -192,15 +221,49 @@ func findGitExecCalls(name string, src []byte) ([]gitExecCall, error) {
 		default:
 			return true
 		}
-		if len(call.Args) <= nameArg {
-			return true
-		}
-		if isStringLit(call.Args[nameArg], "git") {
+		if len(call.Args) > nameArg && isStringLit(call.Args[nameArg], "git") {
 			calls = append(calls, gitExecCall{File: name, Line: fset.Position(call.Pos()).Line})
 		}
 		return true
 	})
 	return calls, nil
+}
+
+// execPackageName returns the identifier os/exec is bound to in file ("." for
+// a dot import), and whether the file imports it at all.
+func execPackageName(file *ast.File) (string, bool) {
+	for _, imp := range file.Imports {
+		path, err := strconv.Unquote(imp.Path.Value)
+		if err != nil || path != "os/exec" {
+			continue
+		}
+		if imp.Name != nil {
+			return imp.Name.Name, true
+		}
+		return "exec", true
+	}
+	return "", false
+}
+
+// execFuncName returns the os/exec function fun refers to, given the local
+// name of the os/exec import.
+func execFuncName(fun ast.Expr, pkgName string) (string, bool) {
+	if pkgName == "." {
+		ident, ok := fun.(*ast.Ident)
+		if !ok {
+			return "", false
+		}
+		return ident.Name, true
+	}
+	sel, ok := fun.(*ast.SelectorExpr)
+	if !ok {
+		return "", false
+	}
+	pkg, ok := sel.X.(*ast.Ident)
+	if !ok || pkg.Name != pkgName {
+		return "", false
+	}
+	return sel.Sel.Name, true
 }
 
 // isStringLit reports whether expr is the string literal want.
