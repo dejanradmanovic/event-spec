@@ -1,8 +1,18 @@
-.PHONY: build run test lint fmt vet tidy install-tools hooks help test-kotlin lint-kotlin fmt-kotlin test-swift lint-swift fmt-swift
+.PHONY: build run test lint fmt vet tidy install-tools hooks help factory test-kotlin lint-kotlin fmt-kotlin test-swift lint-swift fmt-swift
 
 BIN := event-spec
 PORT ?= 8080
 DB_DSN ?= file:./registry.db
+
+# Python interpreter for `make factory`. Resolved from make's own environment
+# rather than a shell conditional: launched from PowerShell or cmd, make uses
+# cmd.exe as its shell, where `command -v` is a syntax error. Override with
+# `make factory PY=...` if your interpreter is named something else.
+ifeq ($(OS),Windows_NT)
+PY ?= py
+else
+PY ?= python3
+endif
 
 ## build: compile the CLI binary
 build:
@@ -74,6 +84,10 @@ fmt-swift:
 	else \
 		swift-format format --in-place --recursive sdk/swift; \
 	fi
+
+## factory: serve the software factory dashboard (board, backlog and merged PRs)
+factory:
+	$(PY) factory/serve.py
 
 ## vet: run go vet
 vet:

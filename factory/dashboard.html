@@ -59,11 +59,14 @@
   .col .drop { min-height: 56px; border: 1px dashed var(--line); border-radius: 10px; }
 
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    padding: 11px 12px; margin-bottom: 10px; cursor: pointer; text-align: left;
+    padding: 11px 12px; margin-bottom: 10px; text-align: left;
     width: 100%; color: inherit; font: inherit; display: block;
     transition: border-color .12s, transform .12s; }
   .card:hover { border-color: var(--accent); transform: translateY(-1px); }
-  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cardmain { display: block; width: 100%; padding: 0; border: none; background: none;
+    text-align: left; color: inherit; font: inherit; cursor: pointer; }
+  .cardmain:focus-visible, a.card:focus-visible { outline: 2px solid var(--accent);
+    outline-offset: 2px; }
   .card .id { font: 11px var(--mono); color: var(--mute); }
   .card .title { font-weight: 600; margin: 2px 0 4px; }
   .card .branch { font: 11px var(--mono); color: var(--mute);
@@ -83,6 +86,75 @@
   .blocked { margin-top: 7px; font: 11px var(--mono); color: var(--chg);
     background: var(--chg-bg); border-radius: 5px; padding: 4px 6px; }
   .empty { color: var(--mute); font-size: 13px; padding: 10px 2px; }
+
+  /* backlog and shipped rails */
+  .rail { margin-bottom: 22px; }
+  .rail > h2 { margin: 0 0 9px; font-size: 11px; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--mute);
+    display: flex; align-items: center; gap: 8px; }
+  .rail > h2 b { color: var(--ink); font-weight: 600; }
+  .rail > h2 .hint { text-transform: none; letter-spacing: 0; font: 11px var(--mono); }
+  .toggle { margin-left: auto; display: flex; gap: 4px; }
+  .toggle button { font: 10px var(--mono); padding: 3px 8px; border-radius: 5px;
+    border: 1px solid var(--line); background: none; color: var(--mute); cursor: pointer; }
+  .toggle button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); }
+
+  .rows { background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; overflow: hidden; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 7px 12px;
+    border-top: 1px solid var(--line); }
+  .row:first-child { border-top: none; }
+  .row:hover { background: var(--bg); }
+  .row .num { font: 11px var(--mono); color: var(--accent); width: 46px; flex: none;
+    text-decoration: none; }
+  .row .rt { flex: 1; min-width: 0; color: inherit; text-decoration: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .rt:hover { text-decoration: underline; }
+  .row .tags { display: flex; gap: 5px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+  .tag { font: 10px/1.5 var(--mono); color: var(--mute); border: 1px solid var(--line);
+    border-radius: 999px; padding: 2px 8px; background: none; }
+  .tag.ms { border-style: dashed; }
+  .tag.on { color: var(--pass); border-color: var(--pass); background: var(--pass-bg);
+    cursor: pointer; font-family: var(--mono); }
+  .tag.soft { border-style: dashed; opacity: .75; }
+  .tag.t-blocked, .tag.t-epic { color: var(--chg); border-color: var(--chg);
+    background: var(--chg-bg); }
+  .tag.t-groom { color: var(--mute); background: var(--pend-bg); }
+
+  .grouphead { display: flex; align-items: baseline; gap: 8px; padding: 9px 12px 5px;
+    border-top: 1px solid var(--line); background: var(--bg); }
+  .row + .grouphead { margin-top: 2px; }
+  .rows > .grouphead:first-child { border-top: none; }
+  .grouphead b { font: 11px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+  .grouphead span { font: 10px var(--mono); color: var(--mute); }
+  .grouphead em { font: normal 11px/1.4 var(--mono); color: var(--mute);
+    margin-left: auto; text-align: right; }
+  .t-ready { color: var(--pass); }
+  .t-blocked, .t-epic { color: var(--chg); }
+  .t-unlabelled { color: var(--accent); }
+  .t-groom { color: var(--mute); }
+
+  .shipcards { display: flex; gap: 12px; flex-wrap: wrap; }
+  .shipcards .card { flex: 1 1 300px; max-width: 430px; margin: 0; text-decoration: none; }
+  .card .pr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line);
+    font: 11px var(--mono); color: var(--mute); }
+  .card .pr.follow { color: var(--mute); }
+  .card .pr.follow a { color: var(--accent); text-decoration: none; }
+  .card .pr.follow a:hover { text-decoration: underline; }
+  .card .pr .n { color: var(--pass); text-decoration: none; }
+  .card .pr a.n:hover { text-decoration: underline; }
+  .card .pr .when { margin-left: auto; }
+  .card .pr .add { color: var(--pass); }
+  .card .pr .del { color: var(--flag); }
+  .checks { font: 10px/1.5 var(--mono); border-radius: 5px; padding: 2px 6px; }
+  .checks.passing { color: var(--pass); background: var(--pass-bg); }
+  .checks.failing { color: var(--flag); background: var(--flag-bg); }
+  .checks.running { color: var(--chg); background: var(--chg-bg); }
+  .checks.none, .checks.UNKNOWN, .checks.CONFLICTING { color: var(--mute); background: var(--pend-bg); }
+  .checks.CONFLICTING { color: var(--chg); background: var(--chg-bg); }
+  .ghwarn { font: 11px var(--mono); color: var(--chg); background: var(--chg-bg);
+    border-radius: 6px; padding: 6px 9px; margin: 0 0 12px; }
 
   #scrim { position: fixed; inset: 0; background: #0006; opacity: 0; pointer-events: none;
     transition: opacity .15s; }
@@ -131,15 +203,39 @@
 </header>
 
 <main>
+  <p class="ghwarn" id="ghwarn" hidden></p>
+
   <section class="lane" id="lane" hidden>
     <h2>needs human — /factory approve &lt;id&gt; · /factory rework &lt;id&gt; &lt;note&gt;</h2>
     <div class="cards" id="laneCards"></div>
   </section>
+
+  <section class="rail" id="backlog" hidden>
+    <h2>
+      <b>backlog</b> <span class="hint" id="backlogHint"></span>
+      <span class="toggle" id="tierFilter"></span>
+    </h2>
+    <div class="rows" id="backlogRows"></div>
+  </section>
+
   <section class="queue" id="queue" hidden>
-    <h2>queued — waiting for a slot</h2>
+    <h2>queued — on the board, waiting for a slot</h2>
     <div class="pills" id="queuePills"></div>
   </section>
+
   <div class="pipe" id="pipe"></div>
+
+  <section class="rail" id="shipped" hidden style="margin-top:22px">
+    <h2>
+      <b>shipped</b> <span class="hint">merged on GitHub</span>
+      <span class="toggle" id="shipToggle">
+        <button data-scope="factory">factory</button>
+        <button data-scope="all">all</button>
+      </span>
+    </h2>
+    <div class="shipcards" id="shippedCards"></div>
+  </section>
+
   <p class="empty" id="empty" hidden>No jobs yet. Run <code>/factory &lt;feature&gt;</code> or <code>/factory next</code>.</p>
 </main>
 
@@ -165,7 +261,13 @@ const REVIEWERS = ['security', 'ux', 'ui', 'code'];
 const IN_FLIGHT = ['spec', 'build', 'review', 'decision'];
 let board = { jobs: [] }, open = null;
 
-/* ---------- board ---------- */
+/* GitHub truth: the ready-for-dev backlog, and which PRs actually merged.
+   Served by serve.py, which shells out to `gh`. Under plain `python -m
+   http.server` this is the last snapshot serve.py mirrored to disk. */
+let gh = { backlog: [], merged: [], openPRs: [] };
+let shipScope = 'factory';
+
+/* ---------- polling ---------- */
 
 async function poll() {
   try {
@@ -179,22 +281,75 @@ async function poll() {
   setTimeout(poll, 2000);
 }
 
+/* gh costs a round trip to GitHub, so this loop is slow on purpose; serve.py
+   caches for 60s behind it. The board keeps updating every 2s regardless. */
+async function pollGitHub() {
+  try {
+    const r = await fetch('github.json?t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) { gh = await r.json(); render(); setStatus(true, board.updated); }
+  } catch (e) { /* keep the last snapshot */ }
+  setTimeout(pollGitHub, 60000);
+}
+
 function setStatus(ok, when) {
-  document.getElementById('status').innerHTML =
-    `<span class="dot${ok ? '' : ' stale'}"></span>` +
-    (ok ? (when ? 'updated ' + new Date(when).toLocaleTimeString() : 'idle') : when);
+  const bits = [`<span class="dot${ok ? '' : ' stale'}"></span>` +
+    (ok ? (when ? 'board ' + new Date(when).toLocaleTimeString() : 'idle') : when)];
+  if (gh.fetched) bits.push('gh ' + new Date(gh.fetched).toLocaleTimeString());
+  document.getElementById('status').innerHTML = bits.join(' · ');
+}
+
+/* ---------- joining the board to GitHub ---------- */
+
+const byBranch = (list, job) =>
+  (job.branch && (list || []).find(p => p.branch === job.branch)) || null;
+const mergedPR = job => byBranch(gh.merged, job);
+const openPR = job => byBranch(gh.openPRs, job);
+
+/* A job is shipped when GitHub says its branch merged - whatever the board
+   still thinks. That is the point: the board records what the factory did, and
+   merging is the one step the factory never does. */
+const isShipped = job => !!mergedPR(job) || job.stage === 'merged';
+
+function ago(iso) {
+  if (!iso) return '';
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 90) return 'just now';
+  if (s < 5400) return Math.round(s / 60) + 'm ago';
+  if (s < 172800) return Math.round(s / 3600) + 'h ago';
+  return Math.round(s / 86400) + 'd ago';
 }
 
 function render() {
   const jobs = board.jobs || [];
+  const live = jobs.filter(j => !isShipped(j));
 
-  const working = jobs.filter(j => IN_FLIGHT.includes(j.stage) && !j.blockedBy).length;
-  const blocked = jobs.filter(j => IN_FLIGHT.includes(j.stage) && j.blockedBy).length;
-  const queued = jobs.filter(j => j.stage === 'queued');
+  const working = live.filter(j => IN_FLIGHT.includes(j.stage) && !j.blockedBy).length;
+  const blocked = live.filter(j => IN_FLIGHT.includes(j.stage) && j.blockedBy).length;
+  const queued = live.filter(j => j.stage === 'queued');
+  const shipped = jobs.filter(isShipped);
+  const factoryMerged = (gh.merged || []).filter(p => p.factory);
   document.getElementById('counts').textContent =
     `${working}/${board.cap || 3} in flight`
     + (blocked ? ` · ${blocked} blocked` : '')
-    + (queued.length ? ` · ${queued.length} queued` : '');
+    + (queued.length ? ` · ${queued.length} queued` : '')
+    + ((gh.backlog || []).length
+      ? ` · ${(gh.tiers || {}).ready || 0}/${gh.backlog.length} issues ready` : '')
+    + (factoryMerged.length ? ` · ${factoryMerged.length} shipped` : '');
+
+  renderBacklog(jobs);
+  renderShipped(shipped, factoryMerged);
+
+  /* Say so when the backlog and the merge list are not live, rather than let
+     them read as current. Served statically, github.json never refreshes. */
+  const age = gh.fetched ? (Date.now() - new Date(gh.fetched)) / 60000 : null;
+  const warn = document.getElementById('ghwarn');
+  warn.hidden = !(gh.error || (age !== null && age > 10));
+  if (!warn.hidden) {
+    const when = gh.fetched ? new Date(gh.fetched).toLocaleString() : 'never fetched';
+    warn.textContent = (gh.error ? `GitHub unavailable (${gh.error})` : 'GitHub data is stale')
+      + ` — the backlog and merged PRs are a snapshot from ${when}.`
+      + ' For live data serve the dashboard with: python factory/serve.py';
+  }
 
   document.getElementById('queue').hidden = !queued.length;
   document.getElementById('queuePills').replaceChildren(...queued.map(j => {
@@ -205,7 +360,7 @@ function render() {
     return b;
   }));
 
-  const flagged = jobs.filter(j => j.stage === 'needs-human');
+  const flagged = live.filter(j => j.stage === 'needs-human');
   const lane = document.getElementById('lane');
   lane.hidden = !flagged.length;
   document.getElementById('laneCards').replaceChildren(...flagged.map(card));
@@ -216,7 +371,7 @@ function render() {
     col.className = 'col';
     const head = document.createElement('h2');
     head.innerHTML = `<b>${label}</b> ${who}`;
-    const here = jobs.filter(j => j.stage === stage);
+    const here = live.filter(j => j.stage === stage);
     const body = document.createElement('div');
     if (here.length) body.replaceChildren(...here.map(card));
     else body.className = 'drop';
@@ -227,41 +382,278 @@ function render() {
   document.getElementById('empty').hidden = jobs.length > 0;
 }
 
-function card(job) {
-  const el = document.createElement('button');
+/* ---------- the backlog (GitHub, not the board) ---------- */
+
+/* Every open issue, bucketed. `ready` is exactly what /factory next will take;
+   the other four are the grooming work, and each says why it is not ready. */
+const TIERS = [
+  ['ready', 'ready', 'what /factory next picks up, lowest number first'],
+  ['blocked', 'blocked', 'the issue itself says something must land first'],
+  ['unlabelled', 'not labelled', 'reads complete, but never marked ready-for-dev'],
+  ['groom', 'needs grooming', 'missing what a spec-writer needs to build from'],
+  ['epic', 'epic', 'split into one issue per deliverable before opening a job'],
+];
+const MISSING_LABEL = { goal: 'goal', files: 'file list', criteria: 'acceptance criteria' };
+let tierFilter = 'all';
+
+function renderBacklog(jobs) {
+  const rows = gh.backlog || [];
+  const counts = gh.tiers || {};
+  document.getElementById('backlog').hidden = !rows.length;
+  document.getElementById('backlogHint').textContent = rows.length
+    ? `${rows.length} open issue${rows.length === 1 ? '' : 's'} · ${counts.ready || 0} ready to build`
+    : '';
+
+  const filters = document.getElementById('tierFilter');
+  const shown = TIERS.filter(([k]) => counts[k]);
+  filters.replaceChildren(...[['all', 'all', 'every open issue']].concat(shown).map(([k, label, hint]) => {
+    const b = document.createElement('button');
+    b.textContent = k === 'all' ? `all (${rows.length})` : `${label} (${counts[k]})`;
+    b.title = hint;
+    b.setAttribute('aria-pressed', tierFilter === k);
+    b.onclick = () => { tierFilter = k; render(); };
+    return b;
+  }));
+
+  const onBoard = new Map(jobs.filter(j => j.issue).map(j => [j.issue, j]));
+  const out = [];
+  for (const [tier, label, hint] of TIERS) {
+    const here = rows.filter(i => i.tier === tier
+      && (tierFilter === 'all' || tierFilter === tier));
+    if (!here.length) continue;
+    if (tierFilter === 'all') {
+      const h = document.createElement('div');
+      h.className = 'grouphead';
+      h.innerHTML = `<b class="t-${tier}">${esc(label)}</b> <span>${here.length}</span>`
+        + `<em>${esc(hint)}</em>`;
+      out.push(h);
+    }
+    out.push(...here.map(i => backlogRow(i, onBoard.get(i.number))));
+  }
+  document.getElementById('backlogRows').replaceChildren(...out);
+}
+
+function backlogRow(issue, job) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  const url = `https://github.com/${gh.repo || board.repo}/issues/${issue.number}`;
+
+  const num = document.createElement('a');
+  num.className = 'num';
+  num.href = url;
+  num.target = '_blank';
+  num.rel = 'noreferrer';
+  num.textContent = '#' + issue.number;
+
+  const title = document.createElement('a');
+  title.className = 'rt';
+  title.href = url;
+  title.target = '_blank';
+  title.rel = 'noreferrer';
+  title.textContent = issue.title || '';
+  title.title = issue.title || '';
+
+  const tags = document.createElement('span');
+  tags.className = 'tags';
+  const chip = (text, cls, tip) => {
+    const s = document.createElement('span');
+    s.className = 'tag ' + (cls || '');
+    s.textContent = text;
+    if (tip) s.title = tip;
+    tags.append(s);
+    return s;
+  };
+
+  if (job) {
+    const b = document.createElement('button');
+    b.className = 'tag on';
+    b.textContent = isShipped(job) ? 'shipped' : job.stage;
+    b.title = `on the board as ${job.id} — open its files`;
+    b.onclick = () => openJob(job);
+    tags.append(b);
+  }
+
+  /* Why it is not ready, most specific first. An open issue it waits on is a
+     fact; a prerequisite note is the issue's own words, shown verbatim. */
+  if (issue.blockedBy && issue.blockedBy.length) {
+    chip('needs ' + issue.blockedBy.map(n => '#' + n).join(' '), 't-blocked',
+      'these issues are still open, and this one says they must land first');
+  } else if (issue.blockedReason) {
+    /* Show the issue's own stated reason, not the word "blocked" - "not
+       startable on a Windows dev box" is the whole answer for #172. */
+    const why = issue.blockedReason.replace(/^(prerequisites?|blocked by|depends on)\b[\s—–:-]*/i, '');
+    chip(why.length > 38 ? why.slice(0, 37) + '…' : (why || 'blocked'),
+      't-blocked', issue.blockedReason);
+  }
+  if (issue.tier === 'epic') {
+    chip('epic', 't-epic', 'explicit epic markers — split before opening a job');
+  }
+  /* A hint, never a demotion: a labelled issue stays ready. */
+  if (issue.missing && issue.missing.length) {
+    chip('no ' + issue.missing.map(m => MISSING_LABEL[m] || m).join(' / '),
+      issue.tier === 'ready' ? 'soft' : 't-groom',
+      'the spec-writer builds from Goal, Files and Acceptance Criteria');
+  }
+  for (const l of (issue.labels || [])
+    .filter(l => l !== (gh.label || 'ready-for-dev') && !/^phase-\d/.test(l))
+    .slice(0, 2)) chip(l);
+  if (issue.milestone) chip(issue.milestone, 'ms');
+
+  row.append(num, title, tags);
+  return row;
+}
+
+/* ---------- shipped (merged on GitHub) ---------- */
+
+const SHIP_LIMIT = 18;
+
+function renderShipped(shippedJobs, factoryMerged) {
+  const all = gh.merged || [];
+  /* Every merged PR in the repo is mostly dependabot, so cap the wide view -
+     the point of this rail is what shipped lately, not a merge archive. */
+  const scoped = shipScope === 'all' ? all : factoryMerged;
+  const pool = scoped.slice(0, SHIP_LIMIT);
+  const hidden = scoped.length - pool.length;
+  const section = document.getElementById('shipped');
+  section.hidden = !pool.length && !shippedJobs.length;
+
+  for (const b of document.getElementById('shipToggle').children) {
+    b.setAttribute('aria-pressed', b.dataset.scope === shipScope);
+    b.textContent = b.dataset.scope === 'all' ? `all (${all.length})`
+      : `factory (${factoryMerged.length})`;
+  }
+
+  /* A merged PR with a board job renders as the job card, so the review trail
+     and its files stay one click away. One without - the job was cleaned up, or
+     a human opened the PR - renders as the PR alone. */
+  const claimed = new Set();
+  const cards = [];
+  for (const job of shippedJobs) {
+    const pr = mergedPR(job);
+    if (pr && !pool.includes(pr)) continue;
+    if (pr) claimed.add(pr.number);
+    cards.push({ at: pr ? pr.mergedAt : job.started, el: card(job) });
+  }
+  for (const pr of pool) {
+    if (!claimed.has(pr.number)) cards.push({ at: pr.mergedAt, el: prCard(pr) });
+  }
+  cards.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+  const els = cards.map(c => c.el);
+  if (hidden > 0) {
+    const more = document.createElement('p');
+    more.className = 'empty';
+    more.style.flex = '1 1 100%';
+    more.textContent = `… ${hidden} older merged PR${hidden === 1 ? '' : 's'} not shown`;
+    els.push(more);
+  }
+  document.getElementById('shippedCards').replaceChildren(...els);
+}
+
+for (const b of document.getElementById('shipToggle').children) {
+  b.onclick = () => { shipScope = b.dataset.scope; render(); };
+}
+
+function prCard(pr) {
+  const el = document.createElement('a');
   el.className = 'card';
-  el.onclick = () => openJob(job);
-  el.innerHTML = `<div class="id">${esc(job.id)}</div>
+  el.href = pr.url;
+  el.target = '_blank';
+  el.rel = 'noreferrer';
+  el.innerHTML = `<div class="id">${esc(pr.branch || '')}</div>
+    <div class="title">${esc(pr.title || '')}</div>`;
+  el.append(prFooter(pr, true, false));
+  return el;
+}
+
+function prFooter(pr, merged, linked) {
+  const f = document.createElement('div');
+  f.className = 'pr';
+  const label = `PR #${esc(pr.number)}`;
+  const bits = [linked && pr.url
+    ? `<a class="n" href="${esc(pr.url)}" target="_blank" rel="noreferrer">${label}</a>`
+    : `<span class="n">${label}</span>`];
+  if (merged) {
+    if (pr.mergeCommit) bits.push(`<span>${esc(pr.mergeCommit)}</span>`);
+    if (pr.additions != null) {
+      bits.push(`<span class="diff"><span class="add">+${pr.additions}</span>`
+        + ` <span class="del">-${pr.deletions}</span></span>`);
+    }
+    bits.push(`<span class="when" title="${esc(pr.mergedAt || '')}">merged ${ago(pr.mergedAt)}</span>`);
+  } else {
+    bits.push(`<span class="checks ${esc(pr.checks)}">checks ${esc(pr.checks)}</span>`);
+    if (pr.mergeable === 'CONFLICTING') {
+      bits.push('<span class="checks CONFLICTING">conflicts</span>');
+    }
+    bits.push(`<span class="when" title="${esc(pr.created || '')}">opened ${ago(pr.created)}</span>`);
+  }
+  f.innerHTML = bits.join('');
+  return f;
+}
+
+/* The card body is one button that opens the drawer; the PR footer sits outside
+   it, because a link nested in a button is neither valid nor reachable by
+   keyboard. */
+function card(job) {
+  const el = document.createElement('div');
+  el.className = 'card';
+
+  const main = document.createElement('button');
+  main.className = 'cardmain';
+  main.onclick = () => openJob(job);
+  main.innerHTML = `<div class="id">${esc(job.id)}</div>
     <div class="title">${esc(job.title || '')}</div>
     <div class="branch">${esc(job.branch || 'no branch yet')}</div>`;
 
-  for (const h of job.history || []) el.append(roundRow(h.round, h.reviews, true));
-  if (job.reviews) el.append(roundRow(job.round || 1, job.reviews, false));
+  for (const h of job.history || []) main.append(roundRow(h.round, h.reviews, true));
+  if (job.reviews) main.append(roundRow(job.round || 1, job.reviews, false));
 
   if (job.blockedBy) {
     const b = document.createElement('div');
     b.className = 'blocked';
     b.textContent = `waiting on ${job.blockedBy}`;
-    el.append(b);
-  }
-
-  if (job.pr) {
-    const p = document.createElement('a');
-    p.className = 'note';
-    p.href = job.pr;
-    p.target = '_blank';
-    p.rel = 'noreferrer';
-    p.textContent = 'PR ' + (job.pr.match(/\/pull\/(\d+)/)?.[1] ? '#' + job.pr.match(/\/pull\/(\d+)/)[1] : job.pr);
-    el.append(p);
+    main.append(b);
   }
 
   if (job.decision || job.note) {
     const n = document.createElement('div');
     n.className = 'note';
     n.textContent = [job.decision, job.note].filter(Boolean).join(' — ');
-    el.append(n);
+    main.append(n);
   }
+  el.append(main);
+
+  /* Prefer what GitHub says over what the board recorded - the board cannot
+     know that a human merged the PR. */
+  const done = mergedPR(job), live = openPR(job);
+  if (done || live) el.append(prFooter(done || live, !!done, true));
+  else if (job.pr) el.append(prFooter(prFromUrl(job.pr), job.stage === 'merged', true));
+
+  /* Issues filed from this job's deferred findings. Without these the findings
+     only ever existed in a gitignored folder. */
+  if ((job.followups || []).length) el.append(followupRow(job.followups));
   return el;
+}
+
+function followupRow(numbers) {
+  const row = document.createElement('div');
+  row.className = 'pr follow';
+  const repo = gh.repo || board.repo;
+  row.append(document.createTextNode(
+    `${numbers.length} follow-up${numbers.length === 1 ? '' : 's'}`));
+  for (const n of numbers) {
+    const a = document.createElement('a');
+    a.href = `https://github.com/${repo}/issues/${n}`;
+    a.target = '_blank';
+    a.rel = 'noreferrer';
+    a.textContent = '#' + n;
+    row.append(a);
+  }
+  return row;
+}
+
+/* A board that recorded a PR url but no GitHub snapshot to match it against. */
+function prFromUrl(url) {
+  return { number: (url.match(/\/pull\/(\d+)/) || [])[1] || '?', url, checks: 'none' };
 }
 
 function roundRow(n, reviews, past) {
@@ -399,6 +791,7 @@ function md(src) {
 }
 
 poll();
+pollGitHub();
 </script>
 </body>
 </html>
