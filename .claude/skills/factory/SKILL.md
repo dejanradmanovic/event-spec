@@ -1,6 +1,6 @@
 ---
 name: factory
-description: Run GitHub issues through the software factory loop — spec, build, four parallel reviews, approval, merge. Up to three jobs run at once, each in its own git worktree. Use for /factory <feature>, /factory next [n], /factory approve <job-id>, /factory rework <job-id> <note>, /factory status, /factory clean.
+description: Run GitHub issues through the software factory loop — spec, build, four parallel reviews, approval, pull request. Up to three jobs run at once, each in its own git worktree, and each ships as its own PR. Use for /factory <feature>, /factory next [n], /factory approve <job-id>, /factory rework <job-id> <note>, /factory status, /factory clean.
 ---
 
 # The software factory
@@ -9,8 +9,14 @@ You are the **orchestrator**. You run the loop, spawn every agent, and you are t
 **only writer of `factory/board.json`**. You never write code yourself and you never
 write an agent's file for it.
 
-**Up to 3 jobs run at once.** Each job owns a branch and its own git worktree. You stay
-in the main tree, and the main tree always stays on `main`.
+**Up to 3 jobs run at once.** Each job owns a branch and its own git worktree, and each
+approved job ships as **its own pull request**. You stay in the main tree, and the main
+tree always stays on `main`.
+
+**You never write to `main`.** Not a merge, not a commit, not a push. `main` is a
+read-only reference you branch from and diff against. An approved job is handed over by
+pushing its branch and opening a PR; whether that PR lands, and when, is the user's call
+on GitHub. One feature, one branch, one PR.
 
 ## The loop (edit this to change the factory)
 
@@ -48,14 +54,18 @@ in the main tree, and the main tree always stays on `main`.
              APPROVE │               │ ESCALATE
                      ▼               ▼
               ┌─────────────┐ ┌─────────────┐
-              │merge to main│ │ needs-human │ ◄── /factory approve
-              └─────────────┘ └─────────────┘
+              │  push + PR  │ │ needs-human │ ◄── /factory approve
+              └──────┬──────┘ └─────────────┘
+                     ▼
+              ┌─────────────┐
+              │ human merges│  ← on GitHub, never here
+              └─────────────┘
 ```
 
 Every job runs its own copy of that loop, and the copies overlap in time:
 
 ```
-168-rate-limiting  spec─build─review r1─build─review r2─decision──► merged
+168-rate-limiting  spec─build─review r1─build─review r2─decision──► PR #181
 167-validate-json       spec─build─review r1──────────────────────► needs-human
 169-pii-redaction            spec─build─review r1─ …
 170-docs-lint          queued — at the cap, waiting for a slot
@@ -65,7 +75,7 @@ Every job runs its own copy of that loop, and the copies overlap in time:
 
 | What | Where | Who writes it |
 |---|---|---|
-| `main` | the main tree, `<root>/` | you, by merging |
+| `main` | the main tree, `<root>/` | **nobody** — read-only here; only a human merging a PR on GitHub |
 | job code | `<root>/.worktrees/<job-id>/`, branch `factory/<job-id>` | that job's builder |
 | job artifacts | `<root>/factory/jobs/<job-id>/` | spec-writer, builder, reviewers, approver |
 | the board | `<root>/factory/board.json` | you, and only you |
@@ -99,8 +109,16 @@ three `## Step` headings, or more than a dozen checklist items, means it is an e
 #101 (the Swift SDK, six steps) is the live example. Do not open it. Say it needs
 splitting into one issue per deliverable, and move to the next in the queue.
 
-Nothing in the loop writes to GitHub. **Merging** has the one place a public action is
-offered, and it is always the user's call.
+The loop touches GitHub in exactly two places, both read-only: reading the queue, and
+the spec-writer fetching an issue body. Everything else — specs, builds, reviews,
+decisions — is local files and local commits.
+
+The **one outward-facing step is the handover**: pushing the branch and opening the PR,
+after an APPROVE. That is the whole point of the loop, so it does not need asking each
+time — but treat it as publication, because it is. A PR is visible to everyone with repo
+access, it triggers CI, and it notifies reviewers. Nothing beyond it is ever automatic:
+the factory does not merge the PR, does not close the issue, does not comment on the
+issue, and does not push to `main`.
 
 ## Rules
 
@@ -111,10 +129,15 @@ offered, and it is always the user's call.
 - **WAIT FOR ALL is per job.** A round closes only when all four `review-*.md` files
   exist in **that job's** round folder. Another job's round is irrelevant to it. Never
   resume a builder mid-round, never read a partial round.
-- **Never block.** A job waiting on a merge or on a blocker must not stop you from
+- **Never block.** A job waiting on its PR or on a blocker must not stop you from
   advancing a different job.
 - **The builder owns the branch.** It works and commits only inside its own worktree.
   No one else commits, and nobody but you touches the main tree.
+- **Never write to `main`.** No `git merge`, no commit, no `git push origin main`, no
+  rebase of `main`. If you ever find yourself about to change `main`, stop — that is the
+  signal you have taken over a decision that belongs to the user.
+- **One job, one PR.** Never bundle two jobs into one PR, and never push one job's work
+  onto another job's branch.
 - **Never commit `factory/`.** `board.json` and `jobs/` are gitignored working state.
 
 ## Repo facts (pass these to every agent)
@@ -157,6 +180,7 @@ transition and every verdict that lands.
         { "round": 1, "reviews": { "security": "CHANGES", "ux": "PASS", "ui": "PASS", "code": "CHANGES" } }
       ],
       "decision": null,
+      "pr": null,
       "blockedBy": null,
       "builderAgent": "builder-168-rate-limiting",
       "note": "",
@@ -166,13 +190,17 @@ transition and every verdict that lands.
 }
 ```
 
-- `stage`: `queued` | `spec` | `build` | `review` | `decision` | `merged` | `needs-human`
+- `stage`: `queued` | `spec` | `build` | `review` | `decision` | `pr-open` | `needs-human`
+  — `pr-open` is terminal for the factory: the work is handed over and the PR is the
+  user's to merge. There is no `merged` stage, because the factory never merges anything.
 - `issue`: the GitHub issue number this job implements, or `null` for an ad-hoc job
 - `branch` and `worktree`: `null` until the build stage creates them
 - `reviews`: always the **current** round. Values `pending` | `PASS` | `CHANGES`
 - `history`: every closed round, in order. Push the finished `reviews` here when a round
   ends and you open the next one
 - `decision`: `null` | `APPROVE` | `ESCALATE`
+- `pr`: the pull request URL once opened, else `null`. The dashboard links it, and it is
+  how a human gets from a board card to the actual review surface.
 - `blockedBy`: the id of the job this one is waiting on, or `null`
 - `note`: one line for a human — why it escalated, what rework was asked for
 - Newest job first.
@@ -180,7 +208,7 @@ transition and every verdict that lands.
 ## The dispatch loop
 
 Each in-flight job is either **working** (an agent is running for it) or **ready** (it
-needs you to launch its next stage). Repeat until every job is `merged` or
+needs you to launch its next stage). Repeat until every job is `pr-open` or
 `needs-human`:
 
 1. **Admit.** While fewer than `cap` jobs are **working**, open the next queued job. A
@@ -257,36 +285,77 @@ folder and the absolute worktree.
 - `ESCALATE` → `stage: "needs-human"`, copy the approver's reason into `note`. Keep the
   worktree — a human will want it. Anything `blockedBy` this job stays blocked until a
   human resolves it; say so in your report.
-- `APPROVE` → join the merge queue below.
+- `APPROVE` → open the pull request, below.
 
-**a job left the board** (merged, or escalated and then resolved) → clear `blockedBy` on
-every job waiting for it, so those become ready.
+**a job left the board** (PR opened, or escalated and then resolved) → clear `blockedBy`
+on every job waiting for it, so those become ready.
 
-## Merging (one at a time)
+## Opening the pull request
 
-Merges are the one thing that must never overlap. Hold a mental lock: one merge, start
-to finish, before the next. It all runs in the main tree, which is already on `main`.
+This is the handover. It runs entirely against the job's own branch — `main` is never
+touched, so PRs do not contend with each other and need no lock. Run it per job, as each
+one is approved.
 
-1. `git -C <root> status --porcelain` — the main tree must be clean. If it is not, stop
-   and tell the user.
-2. Last gate: `go test ./...` **in the job's worktree**. On failure, `needs-human` with
-   the real output in `note`, and no merge.
-3. `git -C <root> merge --no-ff factory/<id> -m "[factory] <id>: <title> (#<issue>)"`
-   — drop the `(#<issue>)` for an ad-hoc job. The reference makes the merge commit
-   cross-link the issue once the user pushes; it does not close anything.
-4. **Conflict** → `git -C <root> merge --abort`, `stage: "needs-human"`, and put the
-   conflicting paths in `note`. Do not resolve it yourself.
-5. `stage: "merged"`. Do **not** push and do **not** delete the branch — pushing is the
-   user's call. Report the merge commit and the issue number.
+1. Last gate: `go test ./...` **in the job's worktree**. On failure, `stage:
+   "needs-human"` with the real output in `note`, and no PR. A green run here is what the
+   PR body gets to claim.
+2. `git -C <root>/.worktrees/<id> status --porcelain` must be empty. Uncommitted work in
+   a worktree means the builder left something behind — stop and say so.
+3. Push the branch:
+   `git -C <root>/.worktrees/<id> push -u origin factory/<id>`
+   Expect pre-push hooks to run; they are part of the gate, so do not pass `--no-verify`.
+   If the push is rejected because the remote branch moved, do **not** force — stop,
+   `needs-human`, and report it.
+4. Create the PR with `gh pr create --base main --head factory/<id>`, `--title
+   "[factory] <id>: <title>"`, and `--body-file` pointing at a body you write to
+   `<root>/factory/jobs/<id>/pr-body.md` (see below). Add `--label` for each label on the
+   issue and `--milestone` from it, matching what `create-pr` does for hand-written PRs.
+5. Record the URL in `pr`, set `stage: "pr-open"`, and report the URL and issue number.
+6. Then check mergeability once, and only to report it:
+   `gh pr view <url> --json mergeable,mergeStateStatus`. A conflicted PR is not a factory
+   failure — the branch was cut from an older `main` — but the user should hear it in the
+   same breath as the link. Do not rebase or resolve it yourself.
 
-The issue stays open and uncommented. Commenting on or closing an issue is a public
-action on someone's repo, so it is never part of the loop: report what merged, then ask
-once whether to comment the merge commit on the issue and close it. Act only on a clear
-yes, and never on an ad-hoc job, which has no issue.
+Do **not** merge the PR, do **not** delete the branch, and do **not** mark it ready-to-
+merge on the user's behalf. The PR is where your work stops.
 
-After a merge the other in-flight branches are behind `main`. Leave them there: their
-reviews were sound for what they changed, and the overlap check at spec time is what
-keeps the next merge clean.
+### The PR body
+
+The job folder already contains everything a reviewer wants, so assemble it rather than
+inventing prose. Write `pr-body.md` with:
+
+- **What changed** — from the spec's `## Goal`, as bullets naming real files and
+  functions, not "added the package".
+- **Closes #&lt;issue&gt;** for an issue-backed job; omit entirely for an ad-hoc one.
+- **How to test** — the spec's acceptance criteria as runnable commands, with the actual
+  output the builder recorded. Do not restate a criterion you cannot name a command for.
+- **Review trail** — a small table of the four verdicts per round, and the approver's
+  one-line verdict. This is the factory's value: a human can see it was reviewed four
+  ways before it reached them.
+- **Caveats and limits** — every honest limit the build report or approver recorded:
+  what could not be verified on this machine, what is assumed about unlanded work, which
+  acceptance criteria are deliberately unticked. Put these *in* the PR, not only in the
+  terminal. A caveat that lives only in chat is a caveat the reviewer never sees.
+- **Deferred findings** — anything the reviewers raised and consciously did not block on,
+  with the issue number tracking it.
+
+Never claim a check you did not run. If the build report says something is unverifiable
+here, the PR body says so too, in the same words.
+
+### The issue
+
+The issue stays **open and uncommented** by the loop. `Closes #<issue>` in the PR body is
+the only link, and it acts only if and when a human merges. Commenting on an issue is a
+separate public action: report the PR, then ask once whether to comment or close. Act
+only on a clear yes, and never for an ad-hoc job, which has no issue.
+
+### Branches fall behind, and that is fine
+
+Each branch is cut from the `main` that existed when its spec cleared, so once one PR
+merges the others are behind. Leave them: their reviews were sound for what they changed,
+and the file-overlap check at spec time is what keeps two open PRs from fighting. GitHub
+will show "this branch is out of date" — updating a branch is a decision about merge
+order, which belongs to whoever merges, not to the factory.
 
 ## Commands
 
@@ -300,14 +369,14 @@ epic. Run the dispatch loop until all of them are terminal. If the queue is empt
 so and stop.
 
 ### /factory status
-One line per job: id, issue, stage, round, the four verdicts, and `blockedBy` or `note`.
-Then the counts — in flight, queued, needs-human, merged. Read it from `board.json`; do
-not re-derive it from the filesystem.
+One line per job: id, issue, stage, round, the four verdicts, the PR URL if open, and
+`blockedBy` or `note`. Then the counts — in flight, queued, needs-human, PRs open. Read
+it from `board.json`; do not re-derive it from the filesystem.
 
 ### /factory approve `<job-id>`
 For a `needs-human` job the user has decided to accept. Read `decision.md` so you can
-restate what was escalated, then run the merge sequence above. If the tests fail, do not
-merge.
+restate what was escalated, then run the PR sequence above — and say in the PR body what
+was escalated and that a human overrode it. If the tests fail, do not open the PR.
 
 ### /factory rework `<job-id> <note>`
 For a `needs-human` job the user wants another pass at. Write the note verbatim to
@@ -319,10 +388,14 @@ worktree and record the new address. A rework round gets a full four-reviewer ro
 any other.
 
 ### /factory clean
-For each `merged` job: `git -C <root> worktree remove .worktrees/<id>`, then
-`git -C <root> worktree prune`. Leave the branches — they are the audit trail — and
-leave `needs-human` worktrees alone. Report what you removed. If a worktree refuses to
-go because it has uncommitted changes, name it and do not force it.
+For each `pr-open` job **whose PR has actually been merged or closed** — check with
+`gh pr view <url> --json state`: `git -C <root> worktree remove .worktrees/<id>`, then
+`git -C <root> worktree prune`. Leave the branches — they are the audit trail, and a
+still-open PR needs its branch alive. Leave `needs-human` worktrees alone, and leave the
+worktree of any PR still open: a reviewer may ask for a change, and that is a `/factory
+rework` away only while the worktree exists. Report what you removed and what you kept,
+with the reason. If a worktree refuses to go because it has uncommitted changes, name it
+and do not force it.
 
 ## Dashboard
 

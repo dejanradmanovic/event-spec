@@ -159,7 +159,7 @@ const STAGES = [
   ['build',    'build',    'builder'],
   ['review',   'review',   '4 reviewers'],
   ['decision', 'decision', 'approver'],
-  ['merged',   'merged',   'on main'],
+  ['pr-open',  'PR open',  'awaiting human merge'],
 ];
 const REVIEWERS = ['security', 'ux', 'ui', 'code'];
 const IN_FLIGHT = ['spec', 'build', 'review', 'decision'];
@@ -243,6 +243,16 @@ function card(job) {
     b.className = 'blocked';
     b.textContent = `waiting on ${job.blockedBy}`;
     el.append(b);
+  }
+
+  if (job.pr) {
+    const p = document.createElement('a');
+    p.className = 'note';
+    p.href = job.pr;
+    p.target = '_blank';
+    p.rel = 'noreferrer';
+    p.textContent = 'PR ' + (job.pr.match(/\/pull\/(\d+)/)?.[1] ? '#' + job.pr.match(/\/pull\/(\d+)/)[1] : job.pr);
+    el.append(p);
   }
 
   if (job.decision || job.note) {
