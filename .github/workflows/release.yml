@@ -204,3 +204,34 @@ jobs:
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
+
+  # ── Swift: build + test only, parallel and NON-GATING ────────────────────
+  # A failure here does not block the release: no other job depends on it and
+  # the tag is pushed from release-go. SPM consumers resolve the
+  # `v{version}` tag created there, so there is nothing to publish.
+  release-swift:
+    name: Swift — build and test (advisory, does not block the release)
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Detect Swift package
+        id: detect
+        run: |
+          if [ -f sdk/swift/Package.swift ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::sdk/swift/Package.swift not present - skipping Swift release checks"
+          fi
+
+      - name: Build
+        if: steps.detect.outputs.present == 'true'
+        working-directory: sdk/swift
+        run: swift build -c release
+
+      - name: Test
+        if: steps.detect.outputs.present == 'true'
+        working-directory: sdk/swift
+        run: swift test
