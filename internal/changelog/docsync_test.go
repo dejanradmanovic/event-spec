@@ -14,19 +14,36 @@ var update = flag.Bool("update", false, "write docs/docs/changelog.md from CHANG
 // `paths: docs/**` trigger still fires when the changelog changes.
 const docsMirror = "../../docs/docs/changelog.md"
 
-// mirrorHeader is everything the docs page adds on top of CHANGELOG.md. No `title` in the
-// front matter: the mirrored `# Changelog` is the page's only H1.
-const mirrorHeader = `---
+// mirrorFrontMatter carries no `title`: Docusaurus takes the page title, and with it the
+// browser-tab <title>, from the mirrored `# Changelog` heading, the same way every
+// sibling page does.
+const mirrorFrontMatter = `---
 sidebar_label: Changelog
 sidebar_position: 99
 ---
 
-<!-- generated from CHANGELOG.md; run: go test ./internal/changelog -update -->
-
 `
 
+// mirrorComment warns whoever opens the docs page that it is generated, and names the
+// command that regenerates it.
+const mirrorComment = "<!-- generated from CHANGELOG.md; run: go test ./internal/changelog -update -->"
+
+// mirrorPage renders the docs page: front matter, the changelog's `# Changelog` heading,
+// the generated-file comment, then the rest of the file verbatim. The comment goes *below*
+// the heading because @docusaurus/utils' parseMarkdownContentTitle only recognises the H1
+// when it is the first line of content; with the comment above it the page title degraded
+// to the route slug and the browser tab read "changelog" instead of "Changelog".
+func mirrorPage(t *testing.T, root string) string {
+	t.Helper()
+	h1, rest, found := strings.Cut(lf(root), "\n")
+	if !found || h1 != "# Changelog" {
+		t.Fatalf("CHANGELOG.md must start with a %q line, got %q", "# Changelog", h1)
+	}
+	return mirrorFrontMatter + h1 + "\n\n" + mirrorComment + "\n" + rest
+}
+
 func TestDocsMirrorInSync(t *testing.T) {
-	want := mirrorHeader + lf(string(readRoot(t)))
+	want := mirrorPage(t, string(readRoot(t)))
 
 	if *update {
 		if err := os.WriteFile(docsMirror, []byte(want), 0o644); err != nil {
