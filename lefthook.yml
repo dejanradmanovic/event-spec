@@ -14,9 +14,28 @@ pre-commit:
     kotlin-fmt:
       glob: "sdk/kotlin/**"
       run: ./sdk/kotlin/gradlew -p sdk/kotlin ktfmtCheck
+    # Guarded on the toolchain as well as the glob, so contributors without Swift can
+    # still commit; CI (ci-swift.yml) is the enforcement point. `swift format` is only
+    # a toolchain subcommand on recent Swift releases, hence the --version probe.
+    # The echo message stays unquoted: lefthook mangles quoted multi-word strings
+    # in run: on Windows.
+    swift-fmt:
+      glob: "sdk/swift/**"
+      run: |
+        if swift format --version >/dev/null 2>&1; then
+          swift format lint --strict --recursive sdk/swift/Sources sdk/swift/Tests
+        else
+          echo swift format unavailable - skipping swift-fmt
+        fi
 
 pre-push:
   commands:
+    # `tests` and `lint` are deliberately unconditional: Go results depend on inputs
+    # that are not `.go` files (codegen/testdata/golden/**, spec fixture YAML, go.mod),
+    # so a `glob: "*.go"` would skip runs that matter. A glob would also be unreliable
+    # here - on the first push of a branch with no upstream lefthook cannot compute a
+    # push range and runs globbed commands regardless of what changed, while later
+    # pushes of the same branch filter normally.
     tests:
       run: go test ./...
     lint:
@@ -28,3 +47,15 @@ pre-push:
     kotlin-tests:
       glob: "sdk/kotlin/**"
       run: ./sdk/kotlin/gradlew -p sdk/kotlin test
+    # Guarded on the toolchain as well as the glob: on the first push of a branch the
+    # glob is ignored (see above), and this repo must stay pushable without Swift.
+    # if/then/else, not `cmd && cmd || echo`: the latter returns 0 when swift test
+    # itself fails, which would make the hook silently useless.
+    swift-tests:
+      glob: "sdk/swift/**"
+      run: |
+        if command -v swift >/dev/null 2>&1; then
+          swift test --package-path sdk/swift
+        else
+          echo swift toolchain not found - skipping swift-tests
+        fi
