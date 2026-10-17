@@ -46,14 +46,13 @@ func Section(doc []byte, version string) (string, error) {
 }
 
 // Unreleased returns the body of the "## [Unreleased]" block, the section a contributor
-// adds to and the structure tests assert on.
+// adds to. An empty body is a legitimate state — it is what the heading looks like
+// immediately after a release promotion — so only a missing heading is an error. Section
+// errors on an empty section instead, because an empty release body is not legitimate.
 func Unreleased(doc []byte) (string, error) {
 	body, found := sectionBody(doc, func(line string) bool { return line == unreleasedHeading })
 	if !found {
 		return "", fmt.Errorf("%w: %s", ErrSectionNotFound, unreleasedHeading)
-	}
-	if body == "" {
-		return "", errors.New("changelog: Unreleased section is empty")
 	}
 	return body, nil
 }

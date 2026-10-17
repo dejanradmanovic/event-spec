@@ -160,6 +160,21 @@ func TestUnreleased(t *testing.T) {
 	}
 }
 
+// TestUnreleasedEmptyIsNotAnError covers the state a release promotion leaves behind: the
+// heading is there with nothing under it yet. Erroring here is what used to make the
+// documented promotion recipe fail the test suite.
+func TestUnreleasedEmptyIsNotAnError(t *testing.T) {
+	promoted := []byte("# Changelog\n\n## [Unreleased]\n\n## [1.0.0] - 2026-01-01\n\n### Breaking\n\n- x\n")
+
+	got, err := changelog.Unreleased(promoted)
+	if err != nil {
+		t.Fatalf("Unreleased on a freshly promoted file: %v", err)
+	}
+	if got != "" {
+		t.Errorf("Unreleased = %q, want an empty body", got)
+	}
+}
+
 func TestVersions(t *testing.T) {
 	got, err := changelog.Versions(readFixture(t))
 	if err != nil {
@@ -280,31 +295,25 @@ func TestRootChangelogStructure(t *testing.T) {
 }
 
 // TestBreakingEntryGitEnv pins the migration content a user upgrading past 8c00715
-// (issue #184, PR #197) needs before the upgrade, not after it. The entry is pinned where
-// it lives today, under ## [Unreleased]; the pull request that promotes it to a version
-// heading moves this assertion with it.
+// (issue #184, PR #197) needs before the upgrade, not after it. The entry is found by
+// content, not by which section holds it: promoting it from ## [Unreleased] to a version
+// heading is a routine release step and must not need a test edit.
 func TestBreakingEntryGitEnv(t *testing.T) {
-	unreleased, err := changelog.Unreleased(readRoot(t))
-	if err != nil {
-		t.Fatalf("Unreleased: %v", err)
-	}
-
-	breaking, ok := subsection(unreleased, "### Breaking")
+	breaking, ok := gitEnvBreakingEntry(lf(string(readRoot(t))))
 	if !ok {
-		t.Fatalf("Unreleased section has no %q subheading:\n%s", "### Breaking", unreleased)
+		t.Fatalf("no %q subsection in CHANGELOG.md mentions GIT_SSH_COMMAND", "### Breaking")
 	}
 
 	want := []string{
-		"GIT_SSH_COMMAND",
-		"GIT_ASKPASS",
-		"GIT_PROXY_COMMAND",
-		"GIT_EXTERNAL_DIFF",
-		"GIT_EXEC_PATH",
-		"GIT_CONFIG_KEY_",
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_ALLOW_PROTOCOL=file:git:http:https:ssh",
 		"core.sshCommand",
 		"core.askPass",
+		"core.gitProxy",
+		"diff.external",
+		// The one secret-bearing migration row needs its caution; see the security
+		// review of #204 and of this job.
+		"credential.helper",
 		"184",
 		"197",
 	}
@@ -313,6 +322,80 @@ func TestBreakingEntryGitEnv(t *testing.T) {
 			t.Errorf("Breaking entry does not mention %q", w)
 		}
 	}
+
+	// Every variable the resolver strips and names in an error has to be answered either
+	// by a migration-table row or by the sentence recording that it has no config
+	// equivalent (GIT_EXEC_PATH). Same two-place rule as registry/git's own docs test, so
+	// this copy and docs/docs/registry/git.md can be checked the same way.
+	for _, name := range []string{
+		"GIT_SSH_COMMAND",
+		"GIT_SSH",
+		"GIT_ASKPASS",
+		"GIT_PROXY_COMMAND",
+		"GIT_EXTERNAL_DIFF",
+		"GIT_EXEC_PATH",
+		"GIT_CONFIG_COUNT",
+		"GIT_CONFIG_KEY_",
+	} {
+		if !migrationDocumented(breaking, name) {
+			t.Errorf("Breaking entry has no migration-table row for %q and no %q sentence naming it",
+				name, "no git config equivalent")
+		}
+	}
+}
+
+// gitEnvBreakingEntry returns the "### Breaking" subsection that carries the GIT_* entry,
+// wherever in the file it currently lives.
+func gitEnvBreakingEntry(text string) (string, bool) {
+	for _, s := range breakingSubsections(text) {
+		if strings.Contains(s, "GIT_SSH_COMMAND") {
+			return s, true
+		}
+	}
+	return "", false
+}
+
+// breakingSubsections returns the body of every "### Breaking" subsection in file order.
+func breakingSubsections(text string) []string {
+	var (
+		out   []string
+		lines []string
+		open  bool
+	)
+	flush := func() {
+		if open {
+			out = append(out, strings.TrimSpace(strings.Join(lines, "\n")))
+			lines, open = nil, false
+		}
+	}
+	for _, line := range strings.Split(text, "\n") {
+		switch {
+		case line == "### Breaking":
+			flush()
+			open = true
+		case strings.HasPrefix(line, "## ") || strings.HasPrefix(line, "### "):
+			flush()
+		case open:
+			lines = append(lines, line)
+		}
+	}
+	flush()
+	return out
+}
+
+// migrationDocumented reports whether name is answered by a migration-table row or by a
+// line stating it has no git config equivalent.
+func migrationDocumented(section, name string) bool {
+	for _, line := range strings.Split(section, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.Contains(line, name) {
+			continue
+		}
+		if strings.HasPrefix(line, "|") || strings.Contains(line, "no git config equivalent") {
+			return true
+		}
+	}
+	return false
 }
 
 // TestEarlierReleases pins the recorded no-backfill decision.
