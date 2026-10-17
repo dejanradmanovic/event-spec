@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/dejanradmanovic/event-spec/registry"
@@ -150,8 +151,27 @@ func (r *Resolver) loadFromCache() error {
 	return nil
 }
 
+// gitEnv returns os.Environ() with every GIT_* variable removed. Git exports
+// GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE into every hook's environment, and
+// GIT_DIR overrides -C, so a pull triggered from inside a hook would otherwise
+// clone into the caller's own repository instead of the cache directory.
+// Variables must be dropped, not blanked: git treats GIT_DIR="" as set.
+// testutil/gitenv.go holds the canonical version of this list for tests.
+func gitEnv() []string {
+	base := os.Environ()
+	env := make([]string, 0, len(base))
+	for _, kv := range base {
+		if key, _, ok := strings.Cut(kv, "="); ok && strings.HasPrefix(strings.ToUpper(key), "GIT_") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return env
+}
+
 func (r *Resolver) runGit(ctx context.Context, args ...string) error {
 	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Env = gitEnv()
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

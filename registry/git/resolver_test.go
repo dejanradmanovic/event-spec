@@ -1,16 +1,19 @@
 package git_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/dejanradmanovic/event-spec/registry"
 	"github.com/dejanradmanovic/event-spec/registry/git"
 	"github.com/dejanradmanovic/event-spec/spec"
+	"github.com/dejanradmanovic/event-spec/testutil"
 )
 
 const schemaHeader = `$schema: "https://event-spec.io/schemas/event/v1"` + "\n"
@@ -36,12 +39,7 @@ func newBareRepo(t *testing.T, events map[string]string) string {
 
 	mustGit := func(dir string, args ...string) {
 		t.Helper()
-		cmd := exec.CommandContext(context.Background(), "git", args...)
-		cmd.Dir = dir
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
+		testutil.RunGit(t, dir, args...)
 	}
 
 	// Init a working tree, commit specs, then push to a bare clone.
@@ -49,8 +47,8 @@ func newBareRepo(t *testing.T, events map[string]string) string {
 		t.Fatal(err)
 	}
 	mustGit(work, "init", "-b", "main")
-	mustGit(work, "config", "user.email", "test@test.com")
-	mustGit(work, "config", "user.name", "Test")
+	mustGit(work, "config", "--local", "user.email", "test@test.com")
+	mustGit(work, "config", "--local", "user.name", "Test")
 
 	specsDir := filepath.Join(work, "specs")
 	for relPath, content := range events {
@@ -122,20 +120,15 @@ func TestPull_fetchUpdatesIndex(t *testing.T) {
 
 	mustGit := func(dir string, args ...string) {
 		t.Helper()
-		cmd := exec.CommandContext(context.Background(), "git", args...)
-		cmd.Dir = dir
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
+		testutil.RunGit(t, dir, args...)
 	}
 
 	if err := os.MkdirAll(work, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	mustGit(work, "init", "-b", "main")
-	mustGit(work, "config", "user.email", "test@test.com")
-	mustGit(work, "config", "user.name", "Test")
+	mustGit(work, "config", "--local", "user.email", "test@test.com")
+	mustGit(work, "config", "--local", "user.name", "Test")
 
 	writeSpec := func(relPath, content string) {
 		full := filepath.Join(work, "specs", relPath)
@@ -201,4 +194,82 @@ func TestPublishEvent_returnsErrReadOnly(t *testing.T) {
 	if !errors.Is(err, registry.ErrReadOnly) {
 		t.Errorf("want ErrReadOnly, got %v", err)
 	}
+}
+
+// TestNewBareRepo_IgnoresInheritedGitDir covers the whole stack under a hook's
+// environment: the fixture helpers and the resolver's own runGit must both
+// ignore an inherited GIT_DIR instead of cloning into it (#184).
+func TestNewBareRepo_IgnoresInheritedGitDir(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	scratch := filepath.Join(t.TempDir(), "scratch")
+	if err := os.MkdirAll(scratch, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, scratch, "init", "-b", "main")
+	if err := os.WriteFile(filepath.Join(scratch, "file.txt"), []byte("scratch"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, scratch, "add", ".")
+	testutil.RunGit(t, scratch, "commit", "-m", "scratch")
+
+	headBefore := gitOutput(t, scratch, "rev-parse", "HEAD")
+	configBefore, err := os.ReadFile(filepath.Join(scratch, ".git", "config"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("GIT_DIR", filepath.Join(scratch, ".git"))
+
+	remote := newBareRepo(t, map[string]string{
+		"ecommerce/product_viewed/1-0-0.yaml": eventYAML("ecommerce", "product_viewed", "1-0-0", "active"),
+	})
+	resolver, err := git.NewWithPull(context.Background(), git.Config{
+		Remote:   remote,
+		Branch:   "main",
+		CacheDir: filepath.Join(t.TempDir(), "cache"),
+	})
+	if err != nil {
+		t.Fatalf("NewWithPull: %v", err)
+	}
+	// A second Pull takes the fetch/checkout path, where GIT_DIR would
+	// override the resolver's own -C <cacheDir>.
+	if err := resolver.Pull(context.Background()); err != nil {
+		t.Fatalf("second pull: %v", err)
+	}
+
+	events, err := resolver.ListEvents(context.Background(), registry.ListFilter{})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(events) != 1 {
+		t.Errorf("want 1 event, got %d", len(events))
+	}
+
+	if head := gitOutput(t, scratch, "rev-parse", "HEAD"); head != headBefore {
+		t.Errorf("scratch HEAD moved: %s -> %s", headBefore, head)
+	}
+	if status := gitOutput(t, scratch, "status", "--porcelain"); status != "" {
+		t.Errorf("scratch working tree dirtied:\n%s", status)
+	}
+	configAfter, err := os.ReadFile(filepath.Join(scratch, ".git", "config"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(configBefore, configAfter) {
+		t.Errorf("scratch .git/config changed:\nbefore:\n%s\nafter:\n%s", configBefore, configAfter)
+	}
+}
+
+// gitOutput runs git in dir through the isolated helper and returns trimmed
+// combined output.
+func gitOutput(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	out, err := testutil.GitCommand(context.Background(), dir, args...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+	return strings.TrimSpace(string(out))
 }
