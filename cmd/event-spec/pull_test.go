@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/dejanradmanovic/event-spec/testutil"
 )
 
 func TestPullCmd_WrongMode(t *testing.T) {
@@ -141,20 +142,15 @@ func pullTestBareRepo(t *testing.T, events map[string]string) string {
 
 	mustRun := func(dir string, args ...string) {
 		t.Helper()
-		c := exec.CommandContext(context.Background(), "git", args...)
-		c.Dir = dir
-		out, err := c.CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
+		testutil.RunGit(t, dir, args...)
 	}
 
 	if err := os.MkdirAll(work, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	mustRun(work, "init", "-b", "main")
-	mustRun(work, "config", "user.email", "test@test.com")
-	mustRun(work, "config", "user.name", "Test")
+	mustRun(work, "config", "--local", "user.email", "test@test.com")
+	mustRun(work, "config", "--local", "user.name", "Test")
 
 	for relPath, content := range events {
 		full := filepath.Join(work, "specs", relPath)
