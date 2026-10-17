@@ -8,6 +8,7 @@ import (
 	"github.com/dejanradmanovic/event-spec/codegen"
 	_ "github.com/dejanradmanovic/event-spec/codegen/golang"
 	_ "github.com/dejanradmanovic/event-spec/codegen/kotlin"
+	_ "github.com/dejanradmanovic/event-spec/codegen/swift"
 	_ "github.com/dejanradmanovic/event-spec/codegen/typescript"
 	"github.com/dejanradmanovic/event-spec/registry/local"
 	"github.com/dejanradmanovic/event-spec/spec"
@@ -103,7 +104,7 @@ func newGenerateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&lang, "lang", "", "target language: go, typescript (overrides source config)")
+	cmd.Flags().StringVar(&lang, "lang", "", "target language: go, typescript, kotlin, swift (overrides source config)")
 	cmd.Flags().StringVar(&out, "out", "", "output directory for generated files (overrides source config)")
 
 	return cmd
