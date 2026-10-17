@@ -491,33 +491,3 @@ worktree of any PR still open: a reviewer may ask for a change, and that is a `/
 rework` away only while the worktree exists. Report what you removed and what you kept,
 with the reason. If a worktree refuses to go because it has uncommitted changes, name it
 and do not force it.
-
-## Dashboard
-
-```
-python factory/serve.py            # on Windows this repo's interpreter is `py`
-```
-
-Then open <http://localhost:8000/dashboard.html>. You do not need to tell it anything.
-
-It shows three things, from two sources:
-
-| Rail | Source | What it is |
-|---|---|---|
-| **backlog** | GitHub | open `ready-for-dev` issues, lowest number first — what `/factory next` will pick up. A row already on the board carries its stage as a chip that opens the job. |
-| **pipeline** and **needs human** | `board.json` | the loop's own state, polled every 2s |
-| **shipped** | GitHub | factory PRs that **actually merged** — PR number, merge commit, diff size, and when. Toggle to `all` for every merged PR in the repo. |
-
-`serve.py` exists because the backlog and the merge truth are **not in this repo**. It
-serves `factory/` and answers `GET /github.json` by shelling out to `gh` (the same two
-read-only queries the loop uses, plus merged and open PRs), caching for 60s and mirroring
-the result to `factory/github.json`.
-
-That mirror is the fallback. Under plain `python -m http.server`, or when `gh` is missing,
-unauthenticated or offline, the dashboard reads the last snapshot and says so in a banner
-rather than passing stale data off as current. `factory/github.json` is a cache — it is
-gitignored, and nothing but `serve.py` writes it.
-
-The card a job gets in **shipped** is its own card, review chips and all, so the audit
-trail stays one click away after the PR lands. A merged PR with no job on the board — the
-job was cleaned up, or a human opened the PR — shows as the PR alone.
