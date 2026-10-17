@@ -74,6 +74,7 @@ const sidebars: SidebarsConfig = {
         'contributing/license',
       ],
     },
+    'changelog',
   ],
 
   serverSidebar: [
