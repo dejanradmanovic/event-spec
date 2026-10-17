@@ -1,4 +1,4 @@
-.PHONY: build run test lint fmt vet tidy install-tools hooks help test-kotlin lint-kotlin fmt-kotlin
+.PHONY: build run test lint fmt vet tidy install-tools hooks help test-kotlin lint-kotlin fmt-kotlin test-swift lint-swift fmt-swift
 
 BIN := event-spec
 PORT ?= 8080
@@ -26,6 +26,16 @@ test-cover:
 test-kotlin:
 	./sdk/kotlin/gradlew -p sdk/kotlin test
 
+## test-swift: run Swift SDK tests (skipped when no Swift toolchain is present)
+test-swift:
+	@if ! command -v swift >/dev/null 2>&1; then \
+		echo "swift not found - skipping Swift tests"; \
+	elif [ ! -f sdk/swift/Package.swift ]; then \
+		echo "sdk/swift/Package.swift not found - skipping Swift tests"; \
+	else \
+		swift test --package-path sdk/swift; \
+	fi
+
 ## lint: run all linters (Go + Kotlin)
 lint:
 	golangci-lint run --timeout=5m
@@ -35,6 +45,16 @@ lint:
 lint-kotlin:
 	./sdk/kotlin/gradlew -p sdk/kotlin ktfmtCheck
 
+## lint-swift: check Swift source formatting (skipped when no Swift toolchain is present)
+lint-swift:
+	@if ! command -v swift-format >/dev/null 2>&1; then \
+		echo "swift-format not found - skipping Swift lint"; \
+	elif [ ! -f sdk/swift/Package.swift ]; then \
+		echo "sdk/swift/Package.swift not found - skipping Swift lint"; \
+	else \
+		swift-format lint --recursive --strict sdk/swift; \
+	fi
+
 ## fmt: format all Go source files
 fmt:
 	gofmt -w .
@@ -42,6 +62,16 @@ fmt:
 ## fmt-kotlin: format Kotlin source files
 fmt-kotlin:
 	./sdk/kotlin/gradlew -p sdk/kotlin ktfmtFormat
+
+## fmt-swift: format Swift source files (skipped when no Swift toolchain is present)
+fmt-swift:
+	@if ! command -v swift-format >/dev/null 2>&1; then \
+		echo "swift-format not found - skipping Swift format"; \
+	elif [ ! -f sdk/swift/Package.swift ]; then \
+		echo "sdk/swift/Package.swift not found - skipping Swift format"; \
+	else \
+		swift-format format --in-place --recursive sdk/swift; \
+	fi
 
 ## vet: run go vet
 vet:
