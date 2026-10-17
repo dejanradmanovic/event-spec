@@ -50,18 +50,20 @@ event-spec pull && event-spec generate web-app
 
 The tag comes first, which is git's own precedence for a bare name. A `ref` that names a branch therefore follows that branch's remote tip rather than freezing on the local copy the first clone left behind ([#211](https://github.com/dejanradmanovic/event-spec/issues/211)) — but `branch:` says that more plainly, so use `branch:` to follow and `ref:` to pin.
 
-Anything that is none of the three is rejected, including `HEAD`, `main~2` and fully qualified spellings such as `refs/heads/main`. A pin has to name something the remote has.
+Anything that is none of the three is rejected before anything is cloned, including `HEAD`, revision expressions such as `main~2` or `v1.4.0^{}`, and fully qualified spellings such as `refs/heads/main`. A pin has to name something the remote has.
 
 The cache is always left on a detached HEAD, never on a local branch, so nothing a pull checks out can go stale.
 
-:::warning A tag and a branch of the same name
-If the remote carries both a tag and a branch called `v1.4.0` and they point at different commits, `event-spec pull` fails and names both SHAs instead of picking one. Resolving it silently would mean that anyone who can push a branch — even where tags and `main` are protected — could redirect every consumer pinned to that tag. To pin past an ambiguity, set `ref` to the commit SHA: a SHA is the one spelling nothing pushed to the remote can shadow.
+:::warning Two things of the same name
+All three forms are looked up, and if any two of them resolve to **different** commits the pull fails and names every SHA it found, instead of picking one. The usual shape is a tag and a branch both called `v1.4.0`; the sharper one is a branch whose name is the 40-hex SHA of the commit you pinned, which git allows. Picking a winner silently would mean that anyone who can push a branch — even where tags and `main` are protected — could redirect every consumer pinned to that tag or that commit. To pin past an ambiguity, set `ref` to the commit SHA: a SHA is the one spelling nothing pushed to the remote can shadow.
+
+Two of the same name at the *same* commit is not ambiguous and resolves normally, so a release tag and a release branch on one commit are fine. Annotated tags are compared by the commit they point at, not by the tag object's own SHA.
 :::
 
 :::note A pin means a full clone
 Without `ref`, the first pull clones with `--depth 1`, which also means a single branch and no tags. A shallow clone holds only the tip of the tracked branch, which is exactly what a pinned commit or a tag is not, so setting `ref` clones the full history instead — the only way the pin can resolve. The costs are a slower first pull on a large tracking-plan repo, and every commit and branch of that repo on disk in the cache, where a shallow clone kept only the tip.
 
-A cache that was cloned before you added the pin is still shallow, and a fetch never deepens one. `event-spec pull` then fails naming `registry.ref` and says so; re-clone with `event-spec pull --force`. The same applies to a `branch` you change after the first pull: a shallow cache tracks only the branch it was cloned with.
+A cache cloned before you added the pin is still shallow, and a fetch never deepens one. When that is why a ref cannot be found, `event-spec pull` says so and tells you to re-clone with `event-spec pull --force`. It only says that when re-cloning would actually help: if the remote has no tag or branch of that name, the pull says *that* instead and shows you the `git ls-remote` command that lists what the remote does have, because re-cloning a typo just reproduces the error.
 :::
 
 ## Version pinning

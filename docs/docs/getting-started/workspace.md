@@ -41,7 +41,7 @@ destinations_dir: ./destinations # directory of destination definition YAML file
 | `registry.mode` | string | `local` | Registry backend: `local`, `git`, or `server`. |
 | `registry.remote` | string | — | Git clone URL of the shared tracking-plan repo (git mode). |
 | `registry.branch` | string | `main` | Branch to follow (git mode). Each pull moves the cache to its remote tip. |
-| `registry.ref` | string | — | Exact commit SHA or tag to pin the cache to (git mode). Overrides `registry.branch`. |
+| `registry.ref` | string | — | Exact commit SHA or tag to pin the cache to (git mode). Overrides `registry.branch`. Resolved against the remote as a tag, then a remote branch, then a commit SHA; a name that means two different commits is refused. |
 | `registry.url` | string | — | Server base URL (server mode). |
 | `registry.cache_dir` | string | `~/.event-spec/cache/<hash>` | Local clone path for git mode. |
 | `registry.api_key` | string | — | API key for server mode. Supports `${ENV_VAR}` expansion. |
