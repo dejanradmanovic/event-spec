@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/dejanradmanovic/event-spec/registry"
@@ -150,12 +151,90 @@ func (r *Resolver) loadFromCache() error {
 	return nil
 }
 
+// strippedExecVars are the variables gitEnv removes that let the environment
+// choose a program for git to run. They are listed separately so a failing
+// git invocation can tell the user which one of theirs was dropped, instead of
+// surfacing an unexplained "Permission denied (publickey)".
+var strippedExecVars = []string{
+	"GIT_SSH",
+	"GIT_SSH_COMMAND",
+	"GIT_ASKPASS",
+	"GIT_PROXY_COMMAND",
+	"GIT_EXTERNAL_DIFF",
+	"GIT_EXEC_PATH",
+	"GIT_CONFIG_COUNT",
+}
+
+// gitEnv returns os.Environ() with every GIT_* variable removed, plus two
+// hardening defaults.
+//
+// Git exports GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE into every hook's
+// environment, and GIT_DIR overrides -C, so a pull triggered from inside a
+// hook would otherwise clone into the caller's own repository instead of the
+// cache directory. Variables must be dropped, not blanked: git treats
+// GIT_DIR="" as set. testutil/gitenv.go holds the canonical version of this
+// list for tests.
+//
+// The filter is an allowlist in the right direction: it also removes the
+// variables that name a program for git to execute (GIT_SSH_COMMAND,
+// GIT_ASKPASS, GIT_PROXY_COMMAND, GIT_EXTERNAL_DIFF, GIT_EXEC_PATH,
+// GIT_CONFIG_KEY_n=core.hooksPath), which matters because event-spec runs
+// inside hooks, make targets and CI steps, where the environment is often set
+// by someone other than the user. The supported way to configure SSH and
+// credentials is the user's own git config — core.sshCommand,
+// credential.helper, url.*.insteadOf — which this function deliberately leaves
+// alone by not redirecting GIT_CONFIG_GLOBAL. runGit names the dropped
+// variables in its error when a command fails, and docs/docs/registry/git.md
+// documents the migration.
+//
+// Two values are then added back: GIT_TERMINAL_PROMPT=0 so a pull fails fast
+// instead of blocking on a credential prompt in a batch context, and a
+// conservative GIT_ALLOW_PROTOCOL, which keeps a hardened caller's protocol
+// restriction from being lost with the rest of the environment and blocks the
+// code-executing ext:: transport for a Remote taken from event-spec.yaml.
+func gitEnv() []string {
+	base := os.Environ()
+	env := make([]string, 0, len(base)+2)
+	for _, kv := range base {
+		if key, _, ok := strings.Cut(kv, "="); ok && strings.HasPrefix(strings.ToUpper(key), "GIT_") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return append(env,
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_ALLOW_PROTOCOL=file:git:http:https:ssh",
+	)
+}
+
+// strippedExecVarsInEnv returns the names of the command-execution variables
+// present in the caller's environment, which gitEnv has removed. Only names
+// are returned: a value such as GIT_CONFIG_VALUE_n can hold a credential.
+func strippedExecVarsInEnv() []string {
+	var found []string
+	for _, key := range strippedExecVars {
+		if _, ok := os.LookupEnv(key); ok {
+			found = append(found, key)
+		}
+	}
+	return found
+}
+
 func (r *Resolver) runGit(ctx context.Context, args ...string) error {
 	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Env = gitEnv()
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("git %v: %w", args[0], err)
+		if stripped := strippedExecVarsInEnv(); len(stripped) > 0 {
+			return fmt.Errorf("%w (event-spec deliberately removed %s from git's "+
+				"environment so the environment cannot choose which program git runs; "+
+				"configure the equivalent in your git config instead, e.g. "+
+				"'git config --global core.sshCommand \"ssh -i /path/to/key\"' or "+
+				"credential.helper)",
+				err, strings.Join(stripped, ", "))
+		}
+		return err
 	}
 	return nil
 }
