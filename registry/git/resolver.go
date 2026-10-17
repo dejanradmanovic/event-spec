@@ -151,18 +151,94 @@ func (r *Resolver) loadFromCache() error {
 	return nil
 }
 
-// strippedExecVars are the variables gitEnv removes that let the environment
-// choose a program for git to run. They are listed separately so a failing
-// git invocation can tell the user which one of theirs was dropped, instead of
-// surfacing an unexplained "Permission denied (publickey)".
-var strippedExecVars = []string{
-	"GIT_SSH",
-	"GIT_SSH_COMMAND",
-	"GIT_ASKPASS",
-	"GIT_PROXY_COMMAND",
-	"GIT_EXTERNAL_DIFF",
-	"GIT_EXEC_PATH",
-	"GIT_CONFIG_COUNT",
+// execVarFix pairs a variable gitEnv removes with the git config setting that
+// replaces it. It is the single source for both halves of the migration
+// guidance: strippedExecVarsHint renders it into the terminal, and
+// docs_test.go pins it against the table in docs/docs/registry/git.md, so
+// neither side can drift from the other without failing the build.
+type execVarFix struct {
+	// name is the environment variable gitEnv removes.
+	name string
+	// config is the git config key that replaces it, empty when git has none.
+	config string
+	// value is a placeholder for the suggested command's argument. Only ever
+	// a placeholder: the caller's own value may be a credential.
+	value string
+	// caveat is a second line qualifying config, or, when config is empty,
+	// what to do instead of configuring anything.
+	caveat string
+	// docsPhrase is the wording the migration guide must carry for this
+	// variable beyond the config key itself; empty when the key says it all.
+	docsPhrase string
+}
+
+// execVarFixes are the variables gitEnv removes that let the environment
+// choose a program for git to run, each with its replacement. They are listed
+// separately from the rest of the GIT_* scrub so a failing git invocation can
+// tell the user which one of theirs was dropped and what to use instead,
+// rather than surfacing an unexplained "Permission denied (publickey)".
+//
+// The git config equivalents are git's own, from git-config(1): core.gitProxy
+// is documented as overridden by GIT_PROXY_COMMAND but applies to the git://
+// protocol only, and diff.external as overridden by GIT_EXTERNAL_DIFF.
+// GIT_EXEC_PATH has no config key at all: git takes it only as the
+// --exec-path option, which event-spec never passes, so its entry carries no
+// config key and says as much.
+var execVarFixes = []execVarFix{
+	{
+		name:   "GIT_SSH",
+		config: "core.sshCommand",
+		value:  `"ssh -i /path/to/key"`,
+	},
+	{
+		name:   "GIT_SSH_COMMAND",
+		config: "core.sshCommand",
+		value:  `"ssh -i /path/to/key"`,
+	},
+	{
+		name:   "GIT_ASKPASS",
+		config: "core.askPass",
+		value:  "/path/to/askpass",
+	},
+	{
+		name:       "GIT_PROXY_COMMAND",
+		config:     "core.gitProxy",
+		value:      "/path/to/proxy",
+		caveat:     "git:// remotes only; an HTTPS remote needs http.proxy",
+		docsPhrase: "http.proxy",
+	},
+	{
+		name:       "GIT_EXTERNAL_DIFF",
+		config:     "diff.external",
+		value:      "/path/to/diff",
+		caveat:     "never affects a pull, which only runs clone, fetch and checkout",
+		docsPhrase: "never affects a pull",
+	},
+	{
+		name:       "GIT_EXEC_PATH",
+		caveat:     "no git config equivalent: put your git first on PATH",
+		docsPhrase: "no git config equivalent",
+	},
+	{
+		name:       "GIT_CONFIG_COUNT",
+		config:     "<key>",
+		value:      "<value>",
+		caveat:     "if <value> is a credential, use credential.helper instead",
+		docsPhrase: "credential.helper",
+	},
+}
+
+// strippedExecVars are the names in execVarFixes, in the same order. Derived
+// rather than written out so the list the error names can never include a
+// variable the error has no fix for.
+var strippedExecVars = execVarFixNames()
+
+func execVarFixNames() []string {
+	names := make([]string, len(execVarFixes))
+	for i, fix := range execVarFixes {
+		names[i] = fix.name
+	}
+	return names
 }
 
 // gitEnv returns os.Environ() with every GIT_* variable removed, plus two
@@ -220,30 +296,60 @@ func strippedExecVarsInEnv() []string {
 	return found
 }
 
+// gitDocsURL is the published form of docs/docs/registry/git.md, which holds
+// the full migration table. docs_test.go pins the two together, so moving the
+// page fails the build instead of leaving a dead pointer in a user's terminal.
+const gitDocsURL = "https://event-spec.io/docs/registry/git"
+
 // strippedExecVarsHint renders the diagnostic runGit appends to a failed git
 // command when the caller had command-execution variables set. It is built one
 // line at a time and joined with "\n" rather than wrapped at display time:
 // event-spec has no way to know the console width, and a pull that fails in a
 // git hook or a CI log is often read on something that does not wrap at all.
-// Each line stays under 80 runes, which is why the variable names get a line
-// each: the worst case is all of strippedExecVars set at once. Names only,
-// never values, for the same reason as strippedExecVarsInEnv.
+// Each line stays under 80 runes, which is why every variable gets its own
+// lines: the worst case is all of execVarFixes set at once.
+//
+// The replacement shown is the one execVarFixes records for that variable, not
+// a single stock example, because five of the seven have nothing to do with
+// SSH and GIT_EXEC_PATH has no git config equivalent to offer at all. Names
+// only, never values, for the same reason as strippedExecVarsInEnv.
 func strippedExecVarsHint(stripped []string) string {
-	lines := make([]string, 0, len(stripped)+6)
-	lines = append(lines,
+	lines := []string{
 		"event-spec deliberately removed the following variables from git's",
 		"environment, so a hook, make target or CI step cannot choose which",
-		"program git runs:",
-	)
+		"program git runs, and what to use instead:",
+	}
 	for _, name := range stripped {
 		lines = append(lines, "  "+name)
+		fix, ok := lookupExecVarFix(name)
+		if !ok {
+			// Unreachable from strippedExecVarsInEnv, which only returns
+			// names from execVarFixes; kept so a variable added to the scrub
+			// without a fix degrades to the table rather than to silence.
+			lines = append(lines, "    see "+gitDocsURL)
+			continue
+		}
+		if fix.config != "" {
+			lines = append(lines, "    git config --global "+fix.config+" "+fix.value)
+		}
+		if fix.caveat != "" {
+			lines = append(lines, "    "+fix.caveat)
+		}
 	}
-	lines = append(lines,
-		"configure the equivalent in your git config instead, e.g.",
-		`  git config --global core.sshCommand "ssh -i /path/to/key"`,
-		"or credential.helper if you authenticate with an HTTPS token",
-	)
-	return strings.Join(lines, "\n")
+	return strings.Join(append(lines,
+		"the full table, including the HTTPS cases, is at",
+		"  "+gitDocsURL,
+	), "\n")
+}
+
+// lookupExecVarFix returns the recorded fix for an environment variable name.
+func lookupExecVarFix(name string) (execVarFix, bool) {
+	for _, fix := range execVarFixes {
+		if fix.name == name {
+			return fix, true
+		}
+	}
+	return execVarFix{}, false
 }
 
 func (r *Resolver) runGit(ctx context.Context, args ...string) error {
@@ -253,7 +359,10 @@ func (r *Resolver) runGit(ctx context.Context, args ...string) error {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		if stripped := strippedExecVarsInEnv(); len(stripped) > 0 {
-			return fmt.Errorf("%w\n%s", err, strippedExecVarsHint(stripped))
+			// The blank line is the seam between git's own output, which
+			// cmd.Stderr has already written, and event-spec's advice; the
+			// hint's opening clause names the voice from there on.
+			return fmt.Errorf("%w\n\n%s", err, strippedExecVarsHint(stripped))
 		}
 		return err
 	}

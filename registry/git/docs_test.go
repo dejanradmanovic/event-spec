@@ -41,22 +41,58 @@ func TestGitDocsCoverStrippedExecVars(t *testing.T) {
 
 	t.Run("every stripped variable is documented", func(t *testing.T) {
 		for _, name := range strippedExecVars {
-			// Word boundaries so GIT_SSH_COMMAND does not vouch for GIT_SSH.
-			re := regexp.MustCompile(`\b` + regexp.QuoteMeta(name) + `\b`)
-			var documented bool
-			for _, line := range lines {
-				if !re.MatchString(line) {
-					continue
-				}
-				if strings.HasPrefix(line, "|") || strings.Contains(line, noConfigPhrase) {
-					documented = true
-					break
-				}
-			}
-			if !documented {
+			if len(migrationLinesFor(lines, name)) == 0 {
 				t.Errorf("%s: %s appears in no migration-table row and in no line saying %q",
 					gitDocsPath, name, noConfigPhrase)
 			}
+		}
+	})
+
+	// The terminal hint and the migration guide are two renderings of
+	// execVarFixes, and a user who reads one and then the other must not be
+	// told two different things. Editing either side alone fails here.
+	t.Run("the guide states the same fix as the hint", func(t *testing.T) {
+		body := strings.Join(lines, "\n")
+
+		for _, fix := range execVarFixes {
+			found := migrationLinesFor(lines, fix.name)
+			if len(found) == 0 {
+				continue // already reported by the subtest above
+			}
+
+			want := fix.config
+			if want == "" {
+				want = noConfigPhrase
+			}
+			var stated bool
+			for _, line := range found {
+				if strings.Contains(line, want) {
+					stated = true
+					break
+				}
+			}
+			if !stated {
+				t.Errorf("%s: the hint offers %s %q for %s, but no line documenting it says %q:\n%s",
+					gitDocsPath, "git config", want, fix.name, want, strings.Join(found, "\n"))
+			}
+
+			// The caveats are prose and worded for their medium, so only the
+			// phrase that carries the fact is pinned, and anywhere in the page
+			// counts: the credential caution sits below the table, not in a row.
+			if fix.docsPhrase != "" && !strings.Contains(body, fix.docsPhrase) {
+				t.Errorf("%s: the hint tells %s users %q, but the page never says %q",
+					gitDocsPath, fix.name, fix.caveat, fix.docsPhrase)
+			}
+		}
+	})
+
+	// The hint points at the published page; if the file moves, the pointer is
+	// dead and only a test like this notices.
+	t.Run("the hint's docs pointer matches the docs path", func(t *testing.T) {
+		want := strings.TrimSuffix(strings.TrimPrefix(gitDocsPath, "../../docs"), ".md")
+		if !strings.HasSuffix(gitDocsURL, want) {
+			t.Errorf("gitDocsURL %q does not end in %q, the published path of %s",
+				gitDocsURL, want, gitDocsPath)
 		}
 	})
 
@@ -141,6 +177,62 @@ func TestStrippedExecVarsHintFitsEightyColumns(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestStrippedExecVarsHintNamesThePerVariableFix is the regression test for
+// the round-1 defect: the hint closed with the same core.sshCommand example
+// whatever had been stripped, so five of the seven variables got advice for a
+// different variable, and GIT_EXEC_PATH was told to configure an equivalent it
+// does not have.
+func TestStrippedExecVarsHintNamesThePerVariableFix(t *testing.T) {
+	for _, fix := range execVarFixes {
+		t.Run(fix.name, func(t *testing.T) {
+			if fix.config == "" && fix.caveat == "" {
+				t.Fatal("entry offers the user nothing: set config or caveat")
+			}
+
+			hint := strippedExecVarsHint([]string{fix.name})
+
+			if !strings.Contains(hint, fix.name) {
+				t.Errorf("hint does not name the variable:\n%s", hint)
+			}
+			if fix.config == "" {
+				// Nothing to configure, so the hint must not say otherwise.
+				if strings.Contains(hint, "git config --global") {
+					t.Errorf("%s has no config equivalent, but the hint suggests one:\n%s", fix.name, hint)
+				}
+			} else if want := "git config --global " + fix.config; !strings.Contains(hint, want) {
+				t.Errorf("hint does not offer %q:\n%s", want, hint)
+			}
+			if fix.caveat != "" && !strings.Contains(hint, fix.caveat) {
+				t.Errorf("hint drops the caveat %q:\n%s", fix.caveat, hint)
+			}
+			// The round-1 bug, stated directly.
+			if fix.config != "core.sshCommand" && strings.Contains(hint, "core.sshCommand") {
+				t.Errorf("hint gives the SSH example for %s, whose fix is %q:\n%s", fix.name, fix.config, hint)
+			}
+			if !strings.Contains(hint, gitDocsURL) {
+				t.Errorf("hint does not point at %s:\n%s", gitDocsURL, hint)
+			}
+		})
+	}
+}
+
+// migrationLinesFor returns the lines that document a variable: a
+// migration-table row, or the sentence for the one variable git has no config
+// key for. Word boundaries, so GIT_SSH_COMMAND does not vouch for GIT_SSH.
+func migrationLinesFor(lines []string, name string) []string {
+	re := regexp.MustCompile(`\b` + regexp.QuoteMeta(name) + `\b`)
+	var found []string
+	for _, line := range lines {
+		if !re.MatchString(line) {
+			continue
+		}
+		if strings.HasPrefix(line, "|") || strings.Contains(line, noConfigPhrase) {
+			found = append(found, line)
+		}
+	}
+	return found
 }
 
 func readGitDocs(t *testing.T) []string {
