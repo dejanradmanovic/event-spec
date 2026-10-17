@@ -169,6 +169,8 @@ type execVarFix struct {
 	caveat string
 	// docsPhrase is the wording the migration guide must carry for this
 	// variable beyond the config key itself; empty when the key says it all.
+	// Distinctive enough to appear only where this fact is stated, since
+	// docs_test.go looks for it anywhere on the page.
 	docsPhrase string
 }
 
@@ -224,7 +226,7 @@ var execVarFixes = []execVarFix{
 		config:     "<key>",
 		value:      "<value>",
 		caveat:     "if <value> is a credential, use credential.helper instead",
-		docsPhrase: "credential.helper",
+		docsPhrase: "use `credential.helper`",
 	},
 }
 
