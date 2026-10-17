@@ -151,6 +151,32 @@ func TestGenerateCmd_FlagsOnly_TypeScript(t *testing.T) {
 	}
 }
 
+func TestGenerateCmd_FlagsOnly_Swift(t *testing.T) {
+	root := t.TempDir()
+	specsDir := filepath.Join(root, "specs")
+	if err := os.MkdirAll(specsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeSpec(t, specsDir, "test_event.yaml", validSpecYAML)
+	writeWorkspaceConfig(t, root, "specs")
+	withWorkDir(t, root)
+
+	outDir := t.TempDir()
+	cmd := newGenerateCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{"--lang", "swift", "--out", outDir})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, f := range []string{"EventSpec.swift", "TestEvent.swift"} {
+		if _, err := os.Stat(filepath.Join(outDir, f)); err != nil {
+			t.Errorf("expected %s to be generated: %v", f, err)
+		}
+	}
+}
+
 // TestGenerateCmd_NoWorkspaceFallback — no event-spec.yaml; falls back to ./specs.
 func TestGenerateCmd_NoWorkspaceFallback(t *testing.T) {
 	root := t.TempDir()
