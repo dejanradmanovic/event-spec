@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/dejanradmanovic/event-spec/registry"
 	"github.com/dejanradmanovic/event-spec/registry/git"
@@ -303,6 +304,26 @@ func TestPull_FailureNamesStrippedExecVars(t *testing.T) {
 	}
 	if strings.Contains(msg, "deploy_key_secret") {
 		t.Errorf("error leaks the variable's value: %s", msg)
+	}
+	if !strings.Contains(msg, "\n") {
+		t.Errorf("hint is not broken across lines: %s", msg)
+	}
+	// A blank line separates git's own message from event-spec's advice.
+	if !strings.Contains(msg, "\n\n") {
+		t.Errorf("no blank line between git's message and the hint: %s", msg)
+	}
+	// The embedded newlines must not cost the caller the wrapped error: the
+	// hint is spliced in with %w, so the exit status is still reachable.
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Errorf("the hint wrap broke unwrapping: %T does not unwrap to *exec.ExitError", err)
+	}
+	// The first line is git's own message and may embed a long temp path; the
+	// hint that follows is hard-wrapped, and that is what 80 columns applies to.
+	for i, line := range strings.Split(msg, "\n")[1:] {
+		if n := utf8.RuneCountInString(line); n > 80 {
+			t.Errorf("line %d of the error is %d runes, want <= 80:\n%s", i+2, n, line)
+		}
 	}
 }
 
