@@ -234,6 +234,13 @@ func (r *refRemote) push(t *testing.T) {
 	testutil.RunGit(t, r.work, "push", r.bare, "main")
 }
 
+// pushBranch creates a branch of its own name on the bare remote at sha. It
+// is how the fixture plays the shadowing push: a branch named after a tag.
+func (r *refRemote) pushBranch(t *testing.T, sha, name string) {
+	t.Helper()
+	testutil.RunGit(t, r.work, "push", r.bare, sha+":refs/heads/"+name)
+}
+
 // url is the Remote the resolver is configured with. It is a file:// URL, not
 // the bare path: git ignores --depth for a plain local path ("warning: --depth
 // is ignored in local clones"), which would make a shallow clone a full one
@@ -376,6 +383,116 @@ func TestPull_refResolution(t *testing.T) {
 		for _, want := range []string{"registry.ref", "no-such-thing"} {
 			if !strings.Contains(err.Error(), want) {
 				t.Errorf("error does not mention %q: %v", want, err)
+			}
+		}
+		// A pin makes the clone full, so re-cloning cannot turn a typo into a
+		// hit: the message must not send the user through one. It points at
+		// the remote's own tags and branches instead.
+		if strings.Contains(err.Error(), "--force") {
+			t.Errorf("error promises --force for a typo on a full cache:\n%v", err)
+		}
+		if !strings.Contains(err.Error(), "check registry.ref against") {
+			t.Errorf("error does not point at the likely cause:\n%v", err)
+		}
+	})
+
+	// A tag and a branch of one name at different commits is the shadowing
+	// push: with the clone no longer shallow, a branch named after a tag is
+	// fetched into the cache, and resolving the branch first would hand
+	// anyone with branch-push access every consumer pinned to that tag.
+	t.Run("a tag shadowed by a same-named branch is refused", func(t *testing.T) {
+		remote := newRefRemote(t)
+		second := remote.commit(t, "auth", "user_signed_up")
+		remote.push(t)
+		remote.pushBranch(t, second, remote.tag)
+
+		_, err := git.NewWithPull(context.Background(), git.Config{
+			Remote:   remote.url(),
+			Branch:   "main",
+			CacheDir: filepath.Join(t.TempDir(), "cache"),
+			Ref:      remote.tag,
+		})
+		if err == nil {
+			t.Fatalf("expected an ambiguous %q to be refused", remote.tag)
+		}
+		for _, want := range []string{"registry.ref", "ambiguous", remote.tag, remote.first, second} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("error does not mention %q:\n%v", want, err)
+			}
+		}
+	})
+
+	// The same name at the *same* commit is not ambiguous and must not be
+	// refused: a tag and a release branch on one commit is an ordinary thing
+	// for a tracking-plan repo to carry.
+	t.Run("a same-named branch at the same commit still resolves", func(t *testing.T) {
+		remote := newRefRemote(t)
+		remote.pushBranch(t, remote.first, remote.tag)
+
+		cacheDir := filepath.Join(t.TempDir(), "cache")
+		resolver, err := git.NewWithPull(context.Background(), git.Config{
+			Remote:   remote.url(),
+			Branch:   "main",
+			CacheDir: cacheDir,
+			Ref:      remote.tag,
+		})
+		if err != nil {
+			t.Fatalf("pull: %v", err)
+		}
+		if got := headSHA(t, cacheDir); got != remote.first {
+			t.Errorf("cache HEAD = %s, want %s", got, remote.first)
+		}
+		if _, err := resolver.ListEvents(context.Background(), registry.ListFilter{}); err != nil {
+			t.Fatalf("ListEvents: %v", err)
+		}
+	})
+
+	// The one case where re-cloning is the fix, and the one the docs promise:
+	// a cache cloned before the pin existed is shallow, holds no tags and no
+	// commit but the tip, and a fetch never deepens it.
+	t.Run("a pin added to a shallow cache names --force", func(t *testing.T) {
+		remote := newRefRemote(t)
+		remote.commit(t, "auth", "user_signed_up")
+		remote.push(t)
+
+		cacheDir := filepath.Join(t.TempDir(), "cache")
+		cfg := git.Config{Remote: remote.url(), Branch: "main", CacheDir: cacheDir}
+		if _, err := git.NewWithPull(context.Background(), cfg); err != nil {
+			t.Fatalf("first pull without a ref: %v", err)
+		}
+
+		cfg.Ref = remote.first // older than the shallow cache's only commit
+		_, err := git.NewWithPull(context.Background(), cfg)
+		if err == nil {
+			t.Fatal("expected a pin unreachable in a shallow cache to fail")
+		}
+		for _, want := range []string{"registry.ref", "shallow", "event-spec pull --force"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("error does not mention %q:\n%v", want, err)
+			}
+		}
+	})
+
+	// The empty-Ref error path, reachable in the same shallow cache: a
+	// --depth 1 clone is single-branch, so a registry.branch changed
+	// afterwards has no remote-tracking ref and no fetch will create one.
+	t.Run("a branch missing from a shallow cache names --force", func(t *testing.T) {
+		remote := newRefRemote(t)
+		cacheDir := filepath.Join(t.TempDir(), "cache")
+		cfg := git.Config{Remote: remote.url(), Branch: "main", CacheDir: cacheDir}
+		if _, err := git.NewWithPull(context.Background(), cfg); err != nil {
+			t.Fatalf("first pull on main: %v", err)
+		}
+
+		remote.pushBranch(t, remote.first, "release")
+		cfg.Branch = "release"
+		_, err := git.NewWithPull(context.Background(), cfg)
+		if err == nil {
+			t.Fatal("expected a branch absent from a single-branch cache to fail")
+		}
+		for _, want := range []string{"registry.branch", "release", "event-spec pull --force"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("error does not mention %q:\n%v", want, err)
 			}
 		}
 	})

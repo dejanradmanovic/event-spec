@@ -179,6 +179,153 @@ func TestStrippedExecVarsHintFitsEightyColumns(t *testing.T) {
 	}
 }
 
+// TestRefErrorsFitEightyColumns is the sibling guard for the two errors
+// resolveCheckoutRef returns. They had none in round 1, and the unresolvable
+// one shipped as a 331-character single sentence that broke mid-word at 80
+// columns — the exact shape #204/PR #206 had just removed from
+// strippedExecVarsHint a few lines up in the same file.
+//
+// Unbounded user data — a remote URL, a configured ref, a fully qualified ref
+// form — cannot be wrapped without being corrupted, so the invariant pinned
+// here is placement rather than length: every datum sits at the end of its
+// line, so a narrow console can only ever fold the datum, never the sentence
+// that explains it. What is measured is each line with its trailing datum
+// removed.
+func TestRefErrorsFitEightyColumns(t *testing.T) {
+	const maxCols = 80
+
+	// A realistic remote, long enough that the round-1 one-liner overflowed
+	// on it, and the ref forms built from a realistic tag pin.
+	const remote = "https://github.com/my-org/analytics-specs.git"
+	const ref = "v1.4.0"
+	var (
+		tagRev    = "refs/tags/" + ref
+		branchRev = "refs/remotes/origin/" + ref
+		tagSHA    = "948eef2f3c1d4a5b6e7f8a9b0c1d2e3f4a5b6c7d"
+		branchSHA = "d0f8c3755e2a1b9c8d7e6f5a4b3c2d1e0f9a8b7c"
+	)
+
+	tests := []struct {
+		name string
+		err  error
+		// data is the user-supplied text allowed to run past maxCols, and
+		// only ever at the end of a line.
+		data []string
+	}{
+		{
+			name: "unresolved ref, full cache",
+			err: unresolvedRefError{
+				key:    "registry.ref",
+				value:  ref,
+				remote: remote,
+				candidates: []refCandidate{
+					{kind: "tag", rev: tagRev},
+					{kind: "branch", rev: branchRev},
+					{kind: "commit", rev: ref, skip: "not 7-40 hex digits, so not a commit SHA"},
+				},
+			},
+			data: []string{remote, ref, tagRev, branchRev},
+		},
+		{
+			name: "unresolved ref, shallow cache",
+			err: unresolvedRefError{
+				key:    "registry.ref",
+				value:  strings.Repeat("a", 40),
+				remote: remote,
+				candidates: []refCandidate{
+					{kind: "tag", rev: "refs/tags/" + strings.Repeat("a", 40)},
+					{kind: "branch", rev: "refs/remotes/origin/" + strings.Repeat("a", 40)},
+					{kind: "commit", rev: strings.Repeat("a", 40)},
+				},
+				shallow: true,
+			},
+			data: []string{
+				remote,
+				"refs/tags/" + strings.Repeat("a", 40),
+				"refs/remotes/origin/" + strings.Repeat("a", 40),
+				strings.Repeat("a", 40),
+			},
+		},
+		{
+			name: "unresolved branch",
+			err: unresolvedRefError{
+				key:        "registry.branch",
+				value:      "release/2026-q1",
+				remote:     remote,
+				candidates: []refCandidate{{kind: "branch", rev: "refs/remotes/origin/release/2026-q1"}},
+				shallow:    true,
+			},
+			data: []string{remote, "release/2026-q1", "refs/remotes/origin/release/2026-q1"},
+		},
+		{
+			name: "ambiguous ref",
+			err: ambiguousRefError{
+				ref:    ref,
+				remote: remote,
+				tag:    refCandidate{kind: "tag", rev: tagRev, sha: tagSHA},
+				branch: refCandidate{kind: "branch", rev: branchRev, sha: branchSHA},
+			},
+			data: []string{remote, ref, tagRev, branchRev, tagSHA, branchSHA},
+		},
+		{
+			name: "a remote URL on its own longer than the line budget",
+			err: unresolvedRefError{
+				key:        "registry.ref",
+				value:      ref,
+				remote:     "https://" + strings.Repeat("sub.", 30) + "example.com/org/specs.git",
+				candidates: []refCandidate{{kind: "tag", rev: tagRev}},
+			},
+			data: []string{"https://" + strings.Repeat("sub.", 30) + "example.com/org/specs.git", ref, tagRev},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			msg := tt.err.Error()
+
+			for i, line := range strings.Split(msg, "\n") {
+				measured := line
+				for _, datum := range tt.data {
+					if trimmed, ok := trimSuffixOnce(measured, datum); ok {
+						measured = trimmed
+						break
+					}
+				}
+				if n := utf8.RuneCountInString(measured); n > maxCols {
+					t.Errorf("line %d is %d runes of prose, want <= %d:\n%s", i+1, n, maxCols, line)
+				}
+				if strings.Contains(line, "\r") {
+					t.Errorf("line %d contains a carriage return: %q", i+1, line)
+				}
+				if trimmed := strings.TrimRight(line, " \t"); trimmed != line {
+					t.Errorf("line %d has trailing whitespace: %q", i+1, line)
+				}
+			}
+
+			// ST1005: the message is an error string, and it is spliced into
+			// others by the callers of Pull.
+			if last := msg[len(msg)-1:]; strings.ContainsAny(last, ".:\n") {
+				t.Errorf("message ends in %q; an error string must not end in punctuation or a newline", last)
+			}
+			// The whole point of the shape: a reader who only sees the first
+			// line still learns which config key is at fault.
+			if first := strings.Split(msg, "\n")[0]; !strings.Contains(first, "registry.") {
+				t.Errorf("first line names no config key: %q", first)
+			}
+		})
+	}
+}
+
+// trimSuffixOnce reports whether s ends in suffix, and returns s without it.
+// Unlike strings.TrimSuffix it distinguishes "was not there" from "was there",
+// which is what decides whether a line carries a trailing datum at all.
+func trimSuffixOnce(s, suffix string) (string, bool) {
+	if suffix == "" || !strings.HasSuffix(s, suffix) {
+		return s, false
+	}
+	return strings.TrimSuffix(s, suffix), true
+}
+
 // TestStrippedExecVarsHintNamesThePerVariableFix is the regression test for
 // the round-1 defect: the hint closed with the same core.sshCommand example
 // whatever had been stripped, so five of the seven variables got advice for a
