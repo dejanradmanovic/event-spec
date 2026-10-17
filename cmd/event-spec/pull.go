@@ -83,7 +83,7 @@ func newPullCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "delete the cache and re-clone")
-	cmd.Flags().StringVar(&ref, "ref", "", "override the branch/tag/SHA from event-spec.yaml")
+	cmd.Flags().StringVar(&ref, "ref", "", "check out this tag, remote branch or commit SHA instead of registry.ref/registry.branch")
 
 	return cmd
 }
