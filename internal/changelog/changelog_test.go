@@ -307,19 +307,32 @@ func TestBreakingEntryGitEnv(t *testing.T) {
 	want := []string{
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_ALLOW_PROTOCOL=file:git:http:https:ssh",
-		"core.sshCommand",
-		"core.askPass",
-		"core.gitProxy",
-		"diff.external",
-		// The one secret-bearing migration row needs its caution; see the security
-		// review of #204 and of this job.
-		"credential.helper",
+		// The caution on the one secret-bearing migration row. The key it names occurs
+		// nowhere else in the file, so deleting the caution fails here. credential.helper,
+		// asserted here until round 3, also occurs in the "your git config is untouched"
+		// sentence that predates the caution, so it guarded nothing.
+		"http.extraHeader",
 		"184",
 		"197",
 	}
 	for _, w := range want {
 		if !strings.Contains(breaking, w) {
 			t.Errorf("Breaking entry does not mention %q", w)
+		}
+	}
+
+	// Each migration target has to sit on a table row. Asserting it anywhere in the
+	// subsection would not bite: core.sshCommand also occurs in the "your git config is
+	// untouched" sentence below the table, so deleting its row would leave the plain
+	// Contains check satisfied by unrelated prose.
+	for _, target := range []string{
+		"core.sshCommand",
+		"core.askPass",
+		"core.gitProxy",
+		"diff.external",
+	} {
+		if !onMigrationRow(breaking, target) {
+			t.Errorf("no migration-table row names %q", target)
 		}
 	}
 
@@ -381,6 +394,18 @@ func breakingSubsections(text string) []string {
 	}
 	flush()
 	return out
+}
+
+// onMigrationRow reports whether s appears on a migration-table row, as opposed to
+// anywhere in the surrounding prose.
+func onMigrationRow(section, s string) bool {
+	for _, line := range strings.Split(section, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "|") && strings.Contains(line, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // migrationDocumented reports whether name is answered by a migration-table row or by a
