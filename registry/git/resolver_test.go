@@ -273,3 +273,63 @@ func gitOutput(t *testing.T, dir string, args ...string) string {
 	}
 	return strings.TrimSpace(string(out))
 }
+
+// TestPull_FailureNamesStrippedExecVars covers the diagnosability half of the
+// environment scrub: when the user had an env-var-based SSH setup, a failing
+// pull must say event-spec dropped it and point at the git config equivalent,
+// instead of leaving them with a bare "Permission denied (publickey)".
+func TestPull_FailureNamesStrippedExecVars(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	const keyPath = "ssh -i /home/user/.ssh/deploy_key_secret"
+	t.Setenv("GIT_SSH_COMMAND", keyPath)
+
+	_, err := git.NewWithPull(context.Background(), git.Config{
+		Remote:   filepath.Join(t.TempDir(), "does-not-exist.git"),
+		Branch:   "main",
+		CacheDir: filepath.Join(t.TempDir(), "cache"),
+	})
+	if err == nil {
+		t.Fatal("expected the clone of a missing remote to fail")
+	}
+
+	msg := err.Error()
+	for _, want := range []string{"GIT_SSH_COMMAND", "core.sshCommand", "event-spec deliberately removed"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error does not mention %q: %s", want, msg)
+		}
+	}
+	if strings.Contains(msg, "deploy_key_secret") {
+		t.Errorf("error leaks the variable's value: %s", msg)
+	}
+}
+
+// TestPull_RejectsExtTransport checks the GIT_ALLOW_PROTOCOL default: Remote
+// comes from event-spec.yaml and is not validated, and an "ext::" remote makes
+// git run an arbitrary command. The sentinel proves nothing was executed.
+func TestPull_RejectsExtTransport(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	dir := t.TempDir()
+	sentinel := filepath.ToSlash(filepath.Join(dir, "executed"))
+	script := filepath.Join(dir, "payload.sh")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\ntouch \""+sentinel+"\"\nexit 1\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := git.NewWithPull(context.Background(), git.Config{
+		Remote:   "ext::sh " + filepath.ToSlash(script),
+		Branch:   "main",
+		CacheDir: filepath.Join(dir, "cache"),
+	})
+	if err == nil {
+		t.Fatal("expected an ext:: remote to be refused")
+	}
+	if _, err := os.Stat(sentinel); err == nil {
+		t.Fatal("the ext:: payload executed; GIT_ALLOW_PROTOCOL did not block it")
+	}
+}
