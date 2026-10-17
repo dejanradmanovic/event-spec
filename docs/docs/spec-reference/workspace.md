@@ -15,7 +15,7 @@ sidebar_position: 4
 | `registry.mode` | string | No | `local` | Registry backend: `local` \| `git` \| `server`. |
 | `registry.remote` | string | Conditional | — | Git clone URL of the shared tracking-plan repo (git mode). |
 | `registry.branch` | string | No | `main` | Branch to follow (git mode). Each pull moves the cache to its remote tip. |
-| `registry.ref` | string | No | — | Exact commit SHA or tag to pin the cache to (git mode). Overrides `registry.branch`; resolved against the remote, so a branch name is accepted too. |
+| `registry.ref` | string | No | — | Exact commit SHA or tag to pin the cache to (git mode). Overrides `registry.branch`. Resolved against the remote as a tag, then a remote branch, then a commit SHA, so a branch name is accepted too. |
 | `registry.url` | string | Conditional | — | Server base URL (server mode). |
 | `registry.cache_dir` | string | No | `~/.event-spec/cache/<hash>` | Local clone path for git mode. Override for CI or monorepo layouts. |
 | `registry.api_key` | string | Conditional | — | API key for server mode. Supports `${ENV_VAR}` expansion. |
