@@ -61,6 +61,33 @@ version heading in a separate pull request just before the release is dispatched
   at the top of the GitHub Release body.
   ([issue #205](https://github.com/dejanradmanovic/event-spec/issues/205))
 
+### Fixed
+
+- **`event-spec pull` kept the cache frozen when `registry.ref` named a branch.** A
+  `registry.ref` holding a branch name was checked out as a local branch, and the local
+  branch a shallow clone creates is never advanced by a fetch: every later pull printed
+  `✓ Indexed N event(s).` and indexed the same commit as the first one, forever. On a
+  fresh cache the opposite half of the bug applied — the clone followed
+  `registry.branch` and ignored `registry.ref` entirely, so a pin to a commit or tag was
+  silently not honoured.
+
+  `registry.ref` is now resolved against the remote — `origin/<ref>`, then
+  `refs/tags/<ref>`, then `<ref>` as a commit — and checked out detached, so a
+  branch-named ref follows the remote branch while a commit or tag still pins. The cache
+  is never left on a local branch. Nothing to change in your config: a `ref` naming a
+  branch now does what it looked like it did. `registry.branch` remains the plainer way
+  to say "follow a branch".
+
+  Two consequences worth knowing. Setting `registry.ref` makes the first clone a full
+  one, because a `--depth 1` clone cannot contain an older commit or a tag outside the
+  tracked branch's tip — a slower first pull on a large tracking-plan repo. And a cache
+  cloned before you added a pin may be shallow and unable to resolve it; the pull now
+  fails naming `registry.ref` instead of succeeding against the wrong commit, and
+  `event-spec pull --force` re-clones it.
+
+  Details: [git registry docs](https://event-spec.io/docs/registry/git),
+  [issue #211](https://github.com/dejanradmanovic/event-spec/issues/211).
+
 ## Earlier releases
 
 Entries in this file start after `v0.4.2`. The releases up to and including `v0.4.2`
