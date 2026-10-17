@@ -4,6 +4,8 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/dejanradmanovic/event-spec/codegen"
@@ -144,6 +146,37 @@ func TestGenerate_UnsupportedLang(t *testing.T) {
 	}
 }
 
+// An unsupported language must name the ones that are available. Telling a user
+// "cobol" is unsupported without saying what is supported makes them go read the
+// registry, and the CLI's --lang help can drift from reality.
+func TestLookupLang_UnsupportedNamesSupported(t *testing.T) {
+	_, err := codegen.LookupLang("cobol")
+	if err == nil {
+		t.Fatal("expected error for unsupported language")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, `"cobol"`) {
+		t.Errorf("error should quote the rejected id, got: %s", msg)
+	}
+	for _, want := range codegen.RegisteredLangs() {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error should list supported language %q, got: %s", want, msg)
+		}
+	}
+}
+
+func TestRegisteredLangs_SortedAndComplete(t *testing.T) {
+	got := codegen.RegisteredLangs()
+	for _, want := range []string{"go", "kotlin", "swift", "typescript"} {
+		if !slices.Contains(got, want) {
+			t.Errorf("RegisteredLangs() missing %q: %v", want, got)
+		}
+	}
+	if !slices.IsSorted(got) {
+		t.Errorf("RegisteredLangs() not sorted: %v", got)
+	}
+}
+
 func TestGenerate_Go_StatusAware(t *testing.T) {
 	events := testStatusEvents()
 	outDir := t.TempDir()
@@ -215,10 +248,12 @@ func compareOrUpdate(t *testing.T, gotDir, goldenDir string) {
 	if err != nil {
 		t.Fatalf("read goldenDir: %v", err)
 	}
+	golden := make(map[string]bool, len(entries))
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
+		golden[e.Name()] = true
 		want, err := os.ReadFile(filepath.Join(goldenDir, e.Name()))
 		if err != nil {
 			t.Fatalf("read golden %s: %v", e.Name(), err)
@@ -229,6 +264,23 @@ func compareOrUpdate(t *testing.T, gotDir, goldenDir string) {
 		}
 		if string(got) != string(want) {
 			t.Errorf("file %s does not match golden:\n--- want ---\n%s\n--- got ---\n%s", e.Name(), want, got)
+		}
+	}
+
+	// Walking only goldenDir would silently ignore a generated file that has no
+	// golden counterpart, which is how go_status/eventspec.go went unverified and
+	// reappeared as an untracked file after every `-update`. Assert the sets match.
+	gotEntries, err := os.ReadDir(gotDir)
+	if err != nil {
+		t.Fatalf("read outDir: %v", err)
+	}
+	for _, e := range gotEntries {
+		if e.IsDir() {
+			continue
+		}
+		if !golden[e.Name()] {
+			t.Errorf("generated file %s has no golden in %s; run `go test ./codegen -update` and commit it",
+				e.Name(), goldenDir)
 		}
 	}
 }
