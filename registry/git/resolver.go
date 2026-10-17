@@ -220,6 +220,32 @@ func strippedExecVarsInEnv() []string {
 	return found
 }
 
+// strippedExecVarsHint renders the diagnostic runGit appends to a failed git
+// command when the caller had command-execution variables set. It is built one
+// line at a time and joined with "\n" rather than wrapped at display time:
+// event-spec has no way to know the console width, and a pull that fails in a
+// git hook or a CI log is often read on something that does not wrap at all.
+// Each line stays under 80 runes, which is why the variable names get a line
+// each: the worst case is all of strippedExecVars set at once. Names only,
+// never values, for the same reason as strippedExecVarsInEnv.
+func strippedExecVarsHint(stripped []string) string {
+	lines := make([]string, 0, len(stripped)+6)
+	lines = append(lines,
+		"event-spec deliberately removed the following variables from git's",
+		"environment, so a hook, make target or CI step cannot choose which",
+		"program git runs:",
+	)
+	for _, name := range stripped {
+		lines = append(lines, "  "+name)
+	}
+	lines = append(lines,
+		"configure the equivalent in your git config instead, e.g.",
+		`  git config --global core.sshCommand "ssh -i /path/to/key"`,
+		"or credential.helper if you authenticate with an HTTPS token",
+	)
+	return strings.Join(lines, "\n")
+}
+
 func (r *Resolver) runGit(ctx context.Context, args ...string) error {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Env = gitEnv()
@@ -227,12 +253,7 @@ func (r *Resolver) runGit(ctx context.Context, args ...string) error {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		if stripped := strippedExecVarsInEnv(); len(stripped) > 0 {
-			return fmt.Errorf("%w (event-spec deliberately removed %s from git's "+
-				"environment so the environment cannot choose which program git runs; "+
-				"configure the equivalent in your git config instead, e.g. "+
-				"'git config --global core.sshCommand \"ssh -i /path/to/key\"' or "+
-				"credential.helper)",
-				err, strings.Join(stripped, ", "))
+			return fmt.Errorf("%w\n%s", err, strippedExecVarsHint(stripped))
 		}
 		return err
 	}
