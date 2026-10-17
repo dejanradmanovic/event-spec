@@ -40,12 +40,36 @@ jobs:
       - name: Test (with race detector)
         run: go test -race ./...
 
+      # Before the tag: a version with no CHANGELOG.md section fails the run while
+      # nothing has been published, instead of leaving a pushed tag with no release.
+      # VERSION goes through env rather than into the script text: a `${{ }}` expansion is
+      # substituted before bash parses the line, so quoting alone would not stop command
+      # substitution in a dispatched version string.
+      - name: Extract changelog section
+        env:
+          VERSION: ${{ inputs.version }}
+        run: go run ./internal/changelog/cmd/release-notes -version "$VERSION" -out release-notes.md
+
       - name: Create and push tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
           git push origin "v${{ inputs.version }}"
+
+      # The merged-PR list that --generate-notes used to produce, appended under the
+      # changelog section. gh only documents prepending extra text via --notes, so the
+      # body is assembled here instead.
+      - name: Append generated notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          printf '\n' >> release-notes.md
+          gh api --method POST "repos/$REPO/releases/generate-notes" \
+            -f tag_name="v$VERSION" \
+            --jq .body >> release-notes.md
 
       - name: Build CLI binaries for all platforms
         run: |
@@ -81,7 +105,7 @@ jobs:
         run: |
           gh release create "v${{ inputs.version }}" \
             --title "v${{ inputs.version }}" \
-            --generate-notes \
+            --notes-file release-notes.md \
             dist/*.tar.gz dist/*.zip
 
       - name: Stage Linux binaries for Docker

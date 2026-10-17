@@ -134,6 +134,7 @@ const config: Config = {
           items: [
             { label: 'GitHub', href: 'https://github.com/dejanradmanovic/event-spec' },
             { label: 'Contributing', to: '/docs/contributing' },
+            { label: 'Changelog', to: '/docs/changelog' },
             { label: 'License', to: '/docs/contributing/license' },
           ],
         },
