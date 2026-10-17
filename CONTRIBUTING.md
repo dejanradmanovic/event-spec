@@ -34,6 +34,8 @@ make hooks   # install pre-commit and pre-push hooks
 | `make fmt` | Format all Go source files |
 | `make tidy` | Tidy and verify go modules |
 
+- **Never exec `git` directly from a test.** Use `testutil.GitCommand` / `testutil.RunGit`, which strip every inherited `GIT_*` variable. Git exports `GIT_DIR` into hook environments and it overrides both `cmd.Dir` and `-C`, so an unguarded fixture repo operates on your own checkout when the tests run from `pre-push`. `testutil.TestNoUnguardedGitExec` fails the build if a new call site appears, and the helper needs git >= 2.32 for `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_SYSTEM`.
+
 ## Pre-commit hooks
 
 After running `make hooks`, the following checks run automatically:

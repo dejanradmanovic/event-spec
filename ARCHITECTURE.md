@@ -161,7 +161,8 @@ event-spec/
 │
 └── testutil/
     ├── mock_provider.go
-    └── capture_provider.go        Records events for assertion in tests
+    ├── capture_provider.go        Records events for assertion in tests
+    └── gitenv.go                  Hermetic git env for tests that exec git
 ```
 
 ---
