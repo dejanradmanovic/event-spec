@@ -23,8 +23,6 @@ func swiftCase(s string) string { return escapeKeyword(codegen.ToCamelCase(s)) }
 
 var funcMap = template.FuncMap{
 	"swiftCase": swiftCase,
-	"toCamel":   codegen.ToCamelCase,
-	"toPascal":  codegen.ToPascalCase,
 }
 
 func init() {
