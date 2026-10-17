@@ -14,8 +14,11 @@ public struct WishlistSharedProperties {
 }
 
 public extension EventSpec {
-    // Draft: dispatched as no-op unless the client enables draft dispatch.
-    func wishlistShared(_ props: WishlistSharedProperties, options: TrackOptions? = nil) async throws {
+    /// Draft: dispatched as no-op unless the client enables draft dispatch.
+    func wishlistShared(
+        _ props: WishlistSharedProperties,
+        options: TrackOptions? = nil
+    ) async throws {
         try await client.track(
             Event(
                 name: "Wishlist Shared",

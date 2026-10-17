@@ -15,7 +15,10 @@ public struct CheckoutAbandonedProperties {
 
 public extension EventSpec {
     @available(*, deprecated, message: "Use checkout_started instead.")
-    func checkoutAbandoned(_ props: CheckoutAbandonedProperties, options: TrackOptions? = nil) async throws {
+    func checkoutAbandoned(
+        _ props: CheckoutAbandonedProperties,
+        options: TrackOptions? = nil
+    ) async throws {
         try await client.track(
             Event(
                 name: "Checkout Abandoned",

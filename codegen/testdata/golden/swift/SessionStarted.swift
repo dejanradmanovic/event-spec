@@ -4,7 +4,9 @@
 import EventSpecAnalytics
 
 public extension EventSpec {
-    func sessionStarted(options: TrackOptions? = nil) async throws {
+    func sessionStarted(
+        options: TrackOptions? = nil
+    ) async throws {
         try await client.track(
             Event(
                 name: "Session Started"

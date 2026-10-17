@@ -26,9 +26,12 @@ public struct {{.ParamsTypeName}} {
 }
 {{end}}
 public extension EventSpec {
-{{if .IsDraft}}    // Draft: dispatched as no-op unless the client enables draft dispatch.
+{{if .IsDraft}}    /// Draft: dispatched as no-op unless the client enables draft dispatch.
 {{end}}{{if .IsDeprecated}}    @available(*, deprecated, message: "{{.Description}}")
-{{end}}    func {{.MethodName}}({{if .HasProps}}_ props: {{.ParamsTypeName}}, {{end}}options: TrackOptions? = nil) async throws {
+{{end}}    func {{.MethodName}}(
+{{if .HasProps}}        _ props: {{.ParamsTypeName}},
+{{end}}        options: TrackOptions? = nil
+    ) async throws {
         try await client.track(
             Event(
                 name: "{{.EventName}}"{{if .IsDraft}},

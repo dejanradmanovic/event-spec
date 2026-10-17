@@ -26,7 +26,10 @@ public struct ProductViewedProperties {
 }
 
 public extension EventSpec {
-    func productViewed(_ props: ProductViewedProperties, options: TrackOptions? = nil) async throws {
+    func productViewed(
+        _ props: ProductViewedProperties,
+        options: TrackOptions? = nil
+    ) async throws {
         try await client.track(
             Event(
                 name: "Product Viewed",
