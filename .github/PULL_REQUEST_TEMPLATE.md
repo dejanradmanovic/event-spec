@@ -13,6 +13,8 @@
 ## Checklist
 
 - [ ] Tests added or updated
+- [ ] CHANGELOG.md updated under `## [Unreleased]` if this changes user-visible behaviour,
+      and `docs/docs/changelog.md` regenerated with `go test ./internal/changelog -update`
 - [ ] `go test ./...` passes
 - [ ] `golangci-lint run` passes
 - [ ] No new `TODO`/`FIXME` left without a tracking issue

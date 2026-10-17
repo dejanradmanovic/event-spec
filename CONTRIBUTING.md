@@ -81,7 +81,35 @@ Examples:
 - One PR per issue
 - Link the issue in the description: `Closes #N`
 - Keep PRs focused; refactors unrelated to the issue go in separate PRs
+- A user-visible behaviour change adds a `CHANGELOG.md` entry under `## [Unreleased]` in
+  the same PR (see **Changelog** below)
 - All CI checks must pass before merge
+
+## Changelog
+
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+- If a PR changes something a user can observe — CLI behaviour, flags, config keys,
+  generated code, SDK or provider APIs, an error message someone scripts against — it adds
+  a bullet under `## [Unreleased]`, in the same PR, under `### Added`, `### Changed`,
+  `### Deprecated`, `### Removed`, `### Fixed`, `### Security` or `### Breaking`.
+- Internal refactors, test-only changes and typo fixes need no entry.
+- A `### Breaking` entry says what to do, not only what changed: name the old setting and
+  the new one, and link the issue or PR.
+- Links in `CHANGELOG.md` must be absolute. The file is mirrored to
+  `docs/docs/changelog.md` for [event-spec.io](https://event-spec.io/docs/changelog),
+  which builds with `onBrokenLinks: 'throw'`. After editing `CHANGELOG.md`, regenerate the
+  mirror and commit it:
+
+  ```bash
+  go test ./internal/changelog -update
+  ```
+
+Releasing: `release.yml` extracts the released version's section into the GitHub Release
+body **before** it pushes the tag, so a release needs a promoted section. Open a PR that
+renames `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD` (adding a fresh empty
+`## [Unreleased]` above it) and merge it before dispatching the release workflow —
+dispatching a version with no section fails the run at the pre-tag step.
 
 ## Issue triage
 

@@ -63,7 +63,34 @@ If a hook blocks you unexpectedly, investigate the root cause rather than bypass
 1. Fork the repository and create a branch from `main`
 2. Write tests for any new functionality
 3. Ensure `make test && make lint` passes
-4. Open a PR with a clear description of what changed and why
+4. Add a `CHANGELOG.md` entry under `## [Unreleased]` if the change is user-visible (see
+   [Changelog entries](#changelog-entries))
+5. Open a PR with a clear description of what changed and why
+
+## Changelog entries
+
+A user-visible behaviour change adds a `CHANGELOG.md` entry under `## [Unreleased]` in the
+same pull request. The file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and is published as the [Changelog](../changelog.md) page on this site.
+
+- User-visible means observable from outside the repository: CLI behaviour, flags, config
+  keys, generated code, SDK or provider APIs, or an error message someone scripts against.
+  Internal refactors, test-only changes and typo fixes need no entry.
+- Put the bullet under one of `### Added`, `### Changed`, `### Deprecated`,
+  `### Removed`, `### Fixed`, `### Security` or `### Breaking`.
+- A `### Breaking` entry says what to do, not only what changed: name the old setting and
+  the new one, and link the issue or pull request.
+- Links in `CHANGELOG.md` must be absolute — this site builds with
+  `onBrokenLinks: 'throw'` and the file is mirrored verbatim.
+- Regenerate the mirrored page and commit it:
+
+  ```bash
+  go test ./internal/changelog -update
+  ```
+
+The release workflow extracts the released version's section into the GitHub Release body
+*before* it pushes the tag, so a release needs its `## [x.y.z] - YYYY-MM-DD` heading
+promoted (in its own pull request) before the workflow is dispatched.
 
 ## Areas to contribute
 
