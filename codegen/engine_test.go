@@ -9,6 +9,7 @@ import (
 	"github.com/dejanradmanovic/event-spec/codegen"
 	_ "github.com/dejanradmanovic/event-spec/codegen/golang"
 	_ "github.com/dejanradmanovic/event-spec/codegen/kotlin"
+	_ "github.com/dejanradmanovic/event-spec/codegen/swift"
 	_ "github.com/dejanradmanovic/event-spec/codegen/typescript"
 	"github.com/dejanradmanovic/event-spec/spec"
 )
@@ -81,6 +82,59 @@ func TestGenerate_DeletedEventAbsent_Kotlin(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(outDir, "LegacyPageview.kt")); !os.IsNotExist(err) {
 		t.Error("deleted event should produce no Kotlin file")
+	}
+}
+
+func TestGenerate_Swift(t *testing.T) {
+	events := testEvents()
+	outDir := t.TempDir()
+	if err := codegen.Run(events, "swift", outDir, "test-workspace", "test-source", ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	compareOrUpdate(t, outDir, filepath.Join("testdata", "golden", "swift"))
+}
+
+func TestGenerate_Swift_StatusAware(t *testing.T) {
+	events := testStatusEvents()
+	outDir := t.TempDir()
+	if err := codegen.Run(events, "swift", outDir, "test-workspace", "test-source", ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	compareOrUpdate(t, outDir, filepath.Join("testdata", "golden", "swift_status"))
+}
+
+func TestGenerate_NoPropsEventSwiftHasFile(t *testing.T) {
+	events := []*spec.EventDef{testSessionStartedEvent()}
+	outDir := t.TempDir()
+	if err := codegen.Run(events, "swift", outDir, "", "", ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "SessionStarted.swift")); err != nil {
+		t.Errorf("expected SessionStarted.swift to be generated: %v", err)
+	}
+}
+
+func TestGenerate_DeletedEventAbsent_Swift(t *testing.T) {
+	events := []*spec.EventDef{testDeletedEvent()}
+	outDir := t.TempDir()
+	if err := codegen.Run(events, "swift", outDir, "", "", ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "LegacyPageview.swift")); !os.IsNotExist(err) {
+		t.Error("deleted event should produce no Swift file")
+	}
+}
+
+func TestLookupLang_Swift(t *testing.T) {
+	lc, err := codegen.LookupLang("swift")
+	if err != nil {
+		t.Fatalf("LookupLang: %v", err)
+	}
+	if lc.ID != "swift" {
+		t.Errorf("ID = %q, want %q", lc.ID, "swift")
+	}
+	if lc.FileExt != ".swift" {
+		t.Errorf("FileExt = %q, want %q", lc.FileExt, ".swift")
 	}
 }
 
