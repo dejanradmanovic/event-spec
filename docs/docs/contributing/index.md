@@ -90,7 +90,11 @@ and is published as the [Changelog](../changelog.md) page on this site.
 
 The release workflow extracts the released version's section into the GitHub Release body
 *before* it pushes the tag, so a release needs its `## [x.y.z] - YYYY-MM-DD` heading
-promoted (in its own pull request) before the workflow is dispatched.
+promoted before the workflow is dispatched. That promotion is an ordinary pull request:
+rename `## [Unreleased]`, add a fresh (possibly empty) `## [Unreleased]` above it, and
+regenerate the mirror. See
+[Releasing](https://github.com/dejanradmanovic/event-spec/blob/main/CONTRIBUTING.md#releasing)
+for the full recipe.
 
 ## Areas to contribute
 

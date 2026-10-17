@@ -105,11 +105,21 @@ Examples:
   go test ./internal/changelog -update
   ```
 
-Releasing: `release.yml` extracts the released version's section into the GitHub Release
-body **before** it pushes the tag, so a release needs a promoted section. Open a PR that
-renames `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD` (adding a fresh empty
-`## [Unreleased]` above it) and merge it before dispatching the release workflow —
-dispatching a version with no section fails the run at the pre-tag step.
+## Releasing
+
+`release.yml` extracts the released version's section into the GitHub Release body
+**before** it pushes the tag, so a release needs a promoted section. The promotion is an
+ordinary PR, merged before the release workflow is dispatched:
+
+1. Rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD`.
+2. Add a fresh `## [Unreleased]` heading above it. Leaving it empty until the next change
+   lands is fine; nothing fails on an empty `## [Unreleased]`.
+3. Regenerate and commit the docs mirror: `go test ./internal/changelog -update`.
+4. Preview the body the release will carry:
+   `go run ./internal/changelog/cmd/release-notes -version x.y.z`.
+
+Dispatching a version with no section fails the run at the pre-tag step, before any tag
+exists.
 
 ## Issue triage
 
