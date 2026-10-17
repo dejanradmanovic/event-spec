@@ -28,7 +28,7 @@ version: 1
 workspace: "my-company"
 registry:
   mode: git
-  url: https://github.com/my-org/analytics-specs.git
+  remote: https://github.com/my-org/analytics-specs.git
   ref: main
 specs_dir: ./specs
 ```
