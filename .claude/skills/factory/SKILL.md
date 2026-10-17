@@ -1,6 +1,6 @@
 ---
 name: factory
-description: Run GitHub issues through the software factory loop — spec, build, four parallel reviews, approval, pull request. Up to three jobs run at once, each in its own git worktree, and each ships as its own PR. Use for /factory <feature>, /factory next [n], /factory approve <job-id>, /factory rework <job-id> <note>, /factory status, /factory clean.
+description: Run GitHub issues through the software factory loop — spec, build, four parallel reviews, approval, pull request, then follow-up issues for the findings nobody blocked on. Up to three jobs run at once, each in its own git worktree, and each ships as its own PR. Use for /factory <feature>, /factory next [n], /factory groom [n|issue…], /factory approve <job-id>, /factory rework <job-id> <note>, /factory followups <job-id>, /factory status, /factory clean.
 ---
 
 # The software factory
@@ -57,6 +57,11 @@ on GitHub. One feature, one branch, one PR.
               │  push + PR  │ │ needs-human │ ◄── /factory approve
               └──────┬──────┘ └─────────────┘
                      ▼
+              ┌──────────────────┐
+              │ followup-writer  │  deferred findings → proposed issues
+              │       opus       │
+              └──────┬───────────┘
+                     ▼ ask once, then file
               ┌─────────────┐
               │ human merges│  ← on GitHub, never here
               └─────────────┘
@@ -77,8 +82,10 @@ Every job runs its own copy of that loop, and the copies overlap in time:
 |---|---|---|
 | `main` | the main tree, `<root>/` | **nobody** — read-only here; only a human merging a PR on GitHub |
 | job code | `<root>/.worktrees/<job-id>/`, branch `factory/<job-id>` | that job's builder |
-| job artifacts | `<root>/factory/jobs/<job-id>/` | spec-writer, builder, reviewers, approver |
+| job artifacts | `<root>/factory/jobs/<job-id>/` | spec-writer, builder, reviewers, approver, followup-writer |
+| groom drafts | `<root>/factory/groom/<issue>/` | groomer — drafts for a human, never applied |
 | the board | `<root>/factory/board.json` | you, and only you |
+| the GitHub snapshot | `<root>/factory/github.json` | `factory/serve.py` — a cache, never you |
 
 `factory/jobs/` and `board.json` are gitignored, so they exist **only in the main tree** —
 a worktree has no `factory/jobs/` in it at all. Hand every agent **absolute** paths: the
@@ -104,14 +111,30 @@ sections are what the spec-writer builds on, and the issue number becomes the jo
 every branch, job folder and board card traces back to one issue.
 
 **Skip epics.** `ready-for-dev` marks work ready for a *human*, which is not the same as
-small enough for one autonomous job. Before opening an issue, read its body: more than
-three `## Step` headings, or more than a dozen checklist items, means it is an epic —
-#101 (the Swift SDK, six steps) is the live example. Do not open it. Say it needs
-splitting into one issue per deliverable, and move to the next in the queue.
+small enough for one autonomous job. Before opening an issue, read its body. The signals
+that it is an epic are **explicit**: more than three `## Step` headings, an `epic` label,
+or "epic" in the title — #101 (the Swift SDK, now a tracking epic over #172-#177) is the
+live example. Do not open it. Say it needs splitting into one issue per deliverable, and
+move to the next in the queue.
 
-The loop touches GitHub in exactly two places, both read-only: reading the queue, and
-the spec-writer fetching an issue body. Everything else — specs, builds, reviews,
-decisions — is local files and local commits.
+Do **not** judge size by counting checkboxes. A well-scoped issue here routinely carries
+13-27 acceptance-criteria checkboxes — that is the house style, not an epic. #167 has 13
+and is one afternoon's work; #101 has six and is six issues. The dashboard flags the
+same explicit signals as `epic?`, a hint to read the issue, never a verdict.
+
+An issue that is *not* `ready-for-dev` is not necessarily unfinished. #172 and #174 are
+complete and deliberately unlabelled, because they need a Swift toolchain that this
+Windows box does not have — the issues say so themselves. Never "fix" that by labelling
+them. The dashboard tiers the whole tracker (ready, blocked, not labelled, needs
+grooming, epic) and `/factory groom` interrogates one issue in depth; between them, read
+why something is unlabelled before assuming it was an oversight.
+
+The build loop touches GitHub in exactly two places, both read-only: reading the queue,
+and the spec-writer fetching an issue body. **This is also its sharpest blind spot** — the
+spec-writer fetches only its *own* issue, so a dependency stated in a sibling issue is
+invisible to every stage. `/factory groom` exists to read those siblings.
+
+Everything else — specs, builds, reviews, decisions — is local files and local commits.
 
 The **one outward-facing step is the handover**: pushing the branch and opening the PR,
 after an APPROVE. That is the whole point of the loop, so it does not need asking each
@@ -181,6 +204,7 @@ transition and every verdict that lands.
       ],
       "decision": null,
       "pr": null,
+      "followups": [],
       "blockedBy": null,
       "builderAgent": "builder-168-rate-limiting",
       "note": "",
@@ -191,8 +215,12 @@ transition and every verdict that lands.
 ```
 
 - `stage`: `queued` | `spec` | `build` | `review` | `decision` | `pr-open` | `needs-human`
-  — `pr-open` is terminal for the factory: the work is handed over and the PR is the
-  user's to merge. There is no `merged` stage, because the factory never merges anything.
+  | `merged` — `pr-open` is terminal **for the factory**: the work is handed over and the
+  PR is the user's to merge. `merged` is not a stage the loop ever reaches on its own;
+  record it only once you have *confirmed* the merge on GitHub (`gh pr view <url> --json
+  state`), the way `/factory clean` already does. You still never merge anything.
+  The dashboard does not wait for that: it moves a job to its **shipped** rail as soon as
+  GitHub reports the branch merged, whatever the board still says.
 - `issue`: the GitHub issue number this job implements, or `null` for an ad-hoc job
 - `branch` and `worktree`: `null` until the build stage creates them
 - `reviews`: always the **current** round. Values `pending` | `PASS` | `CHANGES`
@@ -200,8 +228,12 @@ transition and every verdict that lands.
   ends and you open the next one
 - `decision`: `null` | `APPROVE` | `ESCALATE`
 - `pr`: the pull request URL once opened, else `null`. The dashboard links it, and it is
-  how a human gets from a board card to the actual review surface.
+  how a human gets from a board card to the actual review surface. Set it the moment the
+  PR exists — a card with a merged PR and `pr: null` is a card that cannot be traced.
 - `blockedBy`: the id of the job this one is waiting on, or `null`
+- `followups`: issue numbers filed from this job's deferred findings, `[]` if none yet.
+  The dashboard shows them on the card, and they appear in the backlog rail as *not
+  labelled* — complete, unqueued, waiting for your read.
 - `note`: one line for a human — why it escalated, what rework was asked for
 - Newest job first.
 
@@ -336,11 +368,49 @@ inventing prose. Write `pr-body.md` with:
   what could not be verified on this machine, what is assumed about unlanded work, which
   acceptance criteria are deliberately unticked. Put these *in* the PR, not only in the
   terminal. A caveat that lives only in chat is a caveat the reviewer never sees.
-- **Deferred findings** — anything the reviewers raised and consciously did not block on,
-  with the issue number tracking it.
+- **Deferred findings** — anything the reviewers raised and consciously did not block on.
+  Cite the issue number tracking it when one already exists; the rest are filed right
+  after this PR opens, by **Follow-up issues** below. Do not promise a number you have
+  not created — that promise is how three merged PRs ended up citing follow-ups that
+  were never filed.
 
 Never claim a check you did not run. If the build report says something is unverifiable
 here, the PR body says so too, in the same words.
+
+### Follow-up issues
+
+The PR is open, and the reviewers' deferred findings are now sitting in a **gitignored**
+job folder. Once that worktree is cleaned, the only record of them is prose in a merged
+PR body: not queryable, not assignable, invisible in the backlog. So the last stage of
+the loop turns them into issues.
+
+1. Launch `followup-writer` with the absolute job folder and worktree. It writes
+   `followups.md`: one complete proposed issue per deferred finding, deduped against the
+   live tracker, plus a `## Not filed` section with its reasoning. It never touches
+   GitHub.
+2. Read it. **Then ask the user once**, listing the proposed titles and the count, and
+   say what it declined to file and why. Creating issues is a public write — it notifies
+   watchers and it is the kind of thing that fills a tracker with noise if it runs
+   unattended. One clear yes covers the whole batch for this job.
+3. On a yes, file each with `gh issue create --title ... --body-file ...`, the labels the
+   proposal names, and `--milestone` when it names one. Write each body to
+   `factory/jobs/<id>/followup-<n>.md` first so there is a local record of exactly what
+   was filed.
+4. Record the numbers in the job's `followups` array in `board.json`, and report them with
+   the PR link.
+
+Two rules hold firm:
+
+- **Never apply `ready-for-dev`.** These arrive complete but unlabelled, which is
+  deliberate: the dashboard tiers them as *not labelled* so they surface for a human read
+  rather than silently entering the build queue. Whether the factory works on something
+  next is the user's decision, and a loop that queues its own follow-up work decides that
+  for them.
+- **Never file a NIT the reviewer withdrew.** When a builder answered a point with a
+  measurement and the reviewer stood down, that argument is settled. Reopening it as an
+  issue is noise, and noise is what makes a tracker unusable.
+
+If `followups.md` starts with `NONE`, say so in one line and file nothing.
 
 ### The issue
 
@@ -378,6 +448,31 @@ For a `needs-human` job the user has decided to accept. Read `decision.md` so yo
 restate what was escalated, then run the PR sequence above — and say in the PR body what
 was escalated and that a human overrode it. If the tests fail, do not open the PR.
 
+### /factory groom `[n | <issue-number> …]`
+Grill issues **before** the factory spends a worktree on them. With issue numbers, grooms
+exactly those. With a bare `n` (default 3), takes the first `n` issues that are not
+`ready-for-dev`, lowest number first — the grooming backlog the dashboard shows.
+
+For each, create `factory/groom/<issue>/` and launch `groomer` with the issue number, that
+absolute folder, and the main tree path. Groom in parallel, all in one message — they only
+read. Then report one line per issue: verdict, the deciding reason, and the proposed edits
+file path. Never apply the edits and never label anything; `groom.md` is a draft for the
+user to paste or ignore.
+
+This exists because every other gate in the loop is post-build and diff-scoped. Four
+reviewers reading a worktree cannot catch "the prerequisite has not landed" — which is how
+#173 shipped `codegen/swift` generating calls against a Swift runtime absent from `main`,
+with #172 saying so in its own body. The groomer reads sibling issues; nothing else does.
+
+`factory/groom/` is gitignored working state, like `factory/jobs/`.
+
+### /factory followups `<job-id>`
+Run the follow-up stage on its own, for a job whose PR is already open or merged — including
+one that shipped before this stage existed. Same sequence as **Follow-up issues**: launch
+`followup-writer`, read `followups.md`, ask once with the titles, file on a yes, record the
+numbers in `followups`. Safe to re-run: the agent searches the tracker first, so an
+already-filed follow-up comes back as "already tracked as #N" rather than a duplicate.
+
 ### /factory rework `<job-id> <note>`
 For a `needs-human` job the user wants another pass at. Write the note verbatim to
 `factory/jobs/<job-id>/rework-<round+1>.md`, push the current `reviews` onto `history`,
@@ -400,8 +495,29 @@ and do not force it.
 ## Dashboard
 
 ```
-cd factory && python3 -m http.server 8000   # or: python -m http.server 8000
+python factory/serve.py            # on Windows this repo's interpreter is `py`
 ```
 
-Then open <http://localhost:8000/dashboard.html>. It polls `board.json`; you do not need
-to tell it anything.
+Then open <http://localhost:8000/dashboard.html>. You do not need to tell it anything.
+
+It shows three things, from two sources:
+
+| Rail | Source | What it is |
+|---|---|---|
+| **backlog** | GitHub | open `ready-for-dev` issues, lowest number first — what `/factory next` will pick up. A row already on the board carries its stage as a chip that opens the job. |
+| **pipeline** and **needs human** | `board.json` | the loop's own state, polled every 2s |
+| **shipped** | GitHub | factory PRs that **actually merged** — PR number, merge commit, diff size, and when. Toggle to `all` for every merged PR in the repo. |
+
+`serve.py` exists because the backlog and the merge truth are **not in this repo**. It
+serves `factory/` and answers `GET /github.json` by shelling out to `gh` (the same two
+read-only queries the loop uses, plus merged and open PRs), caching for 60s and mirroring
+the result to `factory/github.json`.
+
+That mirror is the fallback. Under plain `python -m http.server`, or when `gh` is missing,
+unauthenticated or offline, the dashboard reads the last snapshot and says so in a banner
+rather than passing stale data off as current. `factory/github.json` is a cache — it is
+gitignored, and nothing but `serve.py` writes it.
+
+The card a job gets in **shipped** is its own card, review chips and all, so the audit
+trail stays one click away after the PR lands. A merged PR with no job on the board — the
+job was cleaned up, or a human opened the PR — shows as the PR alone.

@@ -18,9 +18,12 @@ coverage.html
 registry.db
 .env
 
-# Software factory working state (the skill, agents, dashboard and backlog are tracked)
+# Software factory working state (the skill, agents and dashboard are tracked)
 /factory/board.json
 /factory/jobs/
+/factory/groom/
+/factory/github.json
+/factory/__pycache__/
 /.worktrees/
 
 # Go workspace
