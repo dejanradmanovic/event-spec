@@ -16,10 +16,20 @@ import (
 )
 
 func main() {
-	if err := run(os.Args[1:], os.Stdout); err != nil {
-		fmt.Fprintf(os.Stderr, "release-notes: %v\n", err)
-		os.Exit(1)
+	if code := exitCode(run(os.Args[1:], os.Stdout), os.Stderr); code != 0 {
+		os.Exit(code)
 	}
+}
+
+// exitCode maps a run error to a process exit code, reporting it on stderr. A help request
+// is not a failure: flag has already printed the usage text, and every command in
+// cmd/event-spec exits 0 on -h.
+func exitCode(err error, stderr io.Writer) int {
+	if err == nil || errors.Is(err, flag.ErrHelp) {
+		return 0
+	}
+	_, _ = fmt.Fprintf(stderr, "release-notes: %v\n", err)
+	return 1
 }
 
 func run(args []string, stdout io.Writer) error {

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"os"
 	"path/filepath"
 	"strings"
@@ -153,5 +154,41 @@ func TestRunErrors(t *testing.T) {
 				t.Errorf("error %q does not mention %q", err, tt.wantInErr)
 			}
 		})
+	}
+}
+
+func TestRunHelpIsNotAFailure(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"-h"}, &stdout)
+	if !errors.Is(err, flag.ErrHelp) {
+		t.Fatalf("run(-h) err = %v, want flag.ErrHelp", err)
+	}
+	for _, want := range []string{"-version", "-changelog", "-out"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("usage text does not document %q:\n%s", want, stdout.String())
+		}
+	}
+
+	var stderr bytes.Buffer
+	if code := exitCode(err, &stderr); code != 0 {
+		t.Errorf("exitCode(flag.ErrHelp) = %d, want 0", code)
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr = %q, want nothing for a help request", stderr.String())
+	}
+}
+
+func TestExitCode(t *testing.T) {
+	var stderr bytes.Buffer
+	if code := exitCode(nil, &stderr); code != 0 {
+		t.Errorf("exitCode(nil) = %d, want 0", code)
+	}
+
+	stderr.Reset()
+	if code := exitCode(changelog.ErrSectionNotFound, &stderr); code != 1 {
+		t.Errorf("exitCode(ErrSectionNotFound) = %d, want 1", code)
+	}
+	if want := "release-notes: changelog section not found\n"; stderr.String() != want {
+		t.Errorf("stderr = %q, want %q", stderr.String(), want)
 	}
 }
