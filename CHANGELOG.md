@@ -15,17 +15,33 @@ version heading in a separate pull request just before the release is dispatched
 
 - **`event-spec pull` no longer passes `GIT_*` environment variables through to git.**
   Every variable whose name starts with `GIT_` is removed from the environment before git
-  starts, so an inherited `GIT_DIR` can no longer retarget your checkout and
-  `GIT_SSH_COMMAND`, `GIT_ASKPASS`, `GIT_PROXY_COMMAND`, `GIT_EXTERNAL_DIFF`,
-  `GIT_EXEC_PATH` or `GIT_CONFIG_KEY_n` can no longer decide which program git executes.
-  If you authenticate through one of those variables today, move the setting into your git
-  config — it is a one-line change:
+  starts, so an inherited `GIT_DIR` can no longer retarget your checkout, and
+  `GIT_SSH_COMMAND` (or the older `GIT_SSH`), `GIT_ASKPASS`, `GIT_PROXY_COMMAND`,
+  `GIT_EXTERNAL_DIFF`, `GIT_EXEC_PATH` and `GIT_CONFIG_COUNT` with `GIT_CONFIG_KEY_n` /
+  `GIT_CONFIG_VALUE_n` can no longer decide which program git executes. If you
+  authenticate or configure git through one of those variables today, move the setting
+  into your git config:
 
   | Instead of | Use |
   |---|---|
-  | `GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key"` | `git config --global core.sshCommand "ssh -i ~/.ssh/deploy_key"` |
+  | `GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key"`, or the older `GIT_SSH` | `git config --global core.sshCommand "ssh -i ~/.ssh/deploy_key"` |
   | `GIT_ASKPASS=/path/to/askpass` | `git config --global core.askPass /path/to/askpass` |
-  | `GIT_CONFIG_KEY_0=<key>` / `GIT_CONFIG_VALUE_0=<value>` | `git config --global <key> <value>` |
+  | `GIT_PROXY_COMMAND=/path/to/proxy` | `git config --global core.gitProxy /path/to/proxy` — applies to `git://` remotes only; an HTTPS remote needs `git config --global http.proxy http://host:port` instead |
+  | `GIT_EXTERNAL_DIFF=/path/to/diff` | `git config --global diff.external /path/to/diff` — never affects a pull, which only runs `clone`, `fetch` and `checkout` |
+  | `GIT_CONFIG_COUNT=1` with `GIT_CONFIG_KEY_0=<key>` / `GIT_CONFIG_VALUE_0=<value>` | `git config --global <key> <value>` |
+
+  `GIT_EXEC_PATH` has no git config equivalent: git accepts it only as the `--exec-path`
+  option, which `event-spec` never passes. To run a non-default git, put it first on
+  `PATH`.
+
+  **If the value is a credential, do not persist it.** The usual reason to reach for
+  `GIT_CONFIG_KEY_n` in CI is `http.extraHeader=Authorization: Bearer <token>` or
+  `url.https://<token>@host/.insteadOf`, and `git config --global` writes that token in
+  plaintext to `~/.gitconfig` — created mode 0644, echoed by `git config --list`, and
+  routinely swept up by dotfile backups, image layers and CI caches — plus a copy in your
+  shell history. That is worse than the environment variable it replaces. Put secrets in a
+  `credential.helper`, or in a `.git/config` you do not commit, and keep `--global` for
+  settings that are not themselves credentials.
 
   Two values are now set for you instead of inherited: `GIT_TERMINAL_PROMPT=0`, so a pull
   fails fast rather than blocking on a credential prompt, and
