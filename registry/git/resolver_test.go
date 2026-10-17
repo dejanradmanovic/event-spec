@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/dejanradmanovic/event-spec/registry"
 	"github.com/dejanradmanovic/event-spec/registry/git"
@@ -303,6 +304,16 @@ func TestPull_FailureNamesStrippedExecVars(t *testing.T) {
 	}
 	if strings.Contains(msg, "deploy_key_secret") {
 		t.Errorf("error leaks the variable's value: %s", msg)
+	}
+	if !strings.Contains(msg, "\n") {
+		t.Errorf("hint is not broken across lines: %s", msg)
+	}
+	// The first line is git's own message and may embed a long temp path; the
+	// hint that follows is hard-wrapped, and that is what 80 columns applies to.
+	for i, line := range strings.Split(msg, "\n")[1:] {
+		if n := utf8.RuneCountInString(line); n > 80 {
+			t.Errorf("line %d of the error is %d runes, want <= 80:\n%s", i+2, n, line)
+		}
 	}
 }
 
