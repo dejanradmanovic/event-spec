@@ -12,10 +12,11 @@ build:
 run: build
 	./$(BIN) serve --port $(PORT) --db $(DB_DSN)
 
-## test: run all tests (Go + Kotlin)
+## test: run all tests (Go + Kotlin + Swift)
 test:
 	go test ./...
 	$(MAKE) test-kotlin
+	$(MAKE) test-swift
 
 ## test-cover: run tests and open coverage report
 test-cover:
@@ -36,10 +37,11 @@ test-swift:
 		swift test --package-path sdk/swift; \
 	fi
 
-## lint: run all linters (Go + Kotlin)
+## lint: run all linters (Go + Kotlin + Swift)
 lint:
 	golangci-lint run --timeout=5m
 	$(MAKE) lint-kotlin
+	$(MAKE) lint-swift
 
 ## lint-kotlin: check Kotlin source formatting
 lint-kotlin:
@@ -55,7 +57,7 @@ lint-swift:
 		swift-format lint --recursive --strict sdk/swift; \
 	fi
 
-## fmt: format all Go source files
+## fmt: format Go source files (see fmt-kotlin, fmt-swift for the SDKs)
 fmt:
 	gofmt -w .
 
@@ -82,12 +84,19 @@ tidy:
 	go mod tidy
 	go mod verify
 
-## install-tools: install dev tools (golangci-lint, lefthook) and TypeScript dependencies
+## install-tools: install dev tools (golangci-lint, lefthook, swift-format) and TypeScript dependencies
 install-tools:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	go install github.com/evilmartians/lefthook@latest
 	@command -v pnpm >/dev/null 2>&1 || npm install -g pnpm
 	cd sdk/typescript && pnpm install
+	@if command -v swift-format >/dev/null 2>&1; then \
+		echo "swift-format already installed"; \
+	elif [ "$$(uname -s)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then \
+		brew install swift-format; \
+	else \
+		echo "swift-format: skipped (needs macOS + Homebrew); see https://github.com/swiftlang/swift-format"; \
+	fi
 
 ## hooks: install git hooks via lefthook (covers Go and TypeScript)
 hooks:
