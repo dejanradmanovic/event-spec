@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>event-spec · software factory</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #fff; --line: #e2e1dc; --ink: #1c1b19; --mute: #6f6d66;
+    --pass: #2f7d4f; --pass-bg: #e8f3ea; --chg: #a55b06; --chg-bg: #fcf0de;
+    --pend: #9b9890; --pend-bg: #f1f0ed; --flag: #b4341f; --flag-bg: #fdeeea;
+    --accent: #3b5bdb; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a; --panel: #1e1e23; --line: #32323a; --ink: #e9e8e4; --mute: #9b988f;
+      --pass: #6fcf8e; --pass-bg: #1d2f24; --chg: #e2a33c; --chg-bg: #33280f;
+      --pend: #76736c; --pend-bg: #26262c; --flag: #f0796a; --flag-bg: #351c1a;
+      --accent: #8ca2ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    padding: 20px 24px 14px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+  h1 span { color: var(--mute); font-weight: 400; }
+  .meta { margin-left: auto; color: var(--mute); font: 12px/1 var(--mono);
+    display: flex; align-items: center; gap: 14px; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--pass); margin-right: 6px; vertical-align: middle; }
+  .dot.stale { background: var(--pend); }
+
+  main { padding: 18px 24px 40px; }
+  .lane { margin-bottom: 22px; border: 1px solid var(--flag); background: var(--flag-bg);
+    border-radius: 10px; padding: 12px 14px; }
+  .lane h2 { margin: 0 0 10px; font-size: 11px; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--flag); }
+  .lane .cards { display: flex; gap: 12px; flex-wrap: wrap; }
+  .lane .card { flex: 1 1 320px; max-width: 460px; }
+
+  .queue { margin-bottom: 20px; }
+  .queue h2 { margin: 0 0 8px; font-size: 11px; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--mute); }
+  .pills { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { background: var(--panel); border: 1px dashed var(--line); border-radius: 999px;
+    padding: 5px 12px; font: inherit; font-size: 12px; color: var(--mute);
+    cursor: pointer; }
+  .pill:hover { border-color: var(--accent); color: var(--ink); }
+  .pill b { font: 11px var(--mono); color: var(--ink); font-weight: 400; }
+
+  .pipe { display: grid; grid-template-columns: repeat(5, minmax(190px, 1fr));
+    gap: 12px; overflow-x: auto; padding-bottom: 6px; }
+  .col { min-width: 190px; }
+  .col > h2 { margin: 0 0 9px; font-size: 11px; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--mute); display: flex; gap: 6px; }
+  .col > h2 b { color: var(--ink); font-weight: 600; }
+  .col .drop { min-height: 56px; border: 1px dashed var(--line); border-radius: 10px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 11px 12px; margin-bottom: 10px; cursor: pointer; text-align: left;
+    width: 100%; color: inherit; font: inherit; display: block;
+    transition: border-color .12s, transform .12s; }
+  .card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .card .id { font: 11px var(--mono); color: var(--mute); }
+  .card .title { font-weight: 600; margin: 2px 0 4px; }
+  .card .branch { font: 11px var(--mono); color: var(--mute);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .note { margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--flag); }
+
+  .round { display: flex; align-items: center; gap: 4px; margin-top: 7px; }
+  .round .rn { font: 10px var(--mono); color: var(--mute); width: 20px; flex: none; }
+  .round.past { opacity: .55; }
+  .chip { font: 10px/1 var(--mono); padding: 4px 5px; border-radius: 5px; flex: 1;
+    text-align: center; border: 1px solid transparent; }
+  .chip.PASS { color: var(--pass); background: var(--pass-bg); border-color: var(--pass); }
+  .chip.CHANGES { color: var(--chg); background: var(--chg-bg); border-color: var(--chg); }
+  .chip.pending { color: var(--pend); background: var(--pend-bg);
+    border: 1px dashed var(--pend); }
+  .blocked { margin-top: 7px; font: 11px var(--mono); color: var(--chg);
+    background: var(--chg-bg); border-radius: 5px; padding: 4px 6px; }
+  .empty { color: var(--mute); font-size: 13px; padding: 10px 2px; }
+
+  #scrim { position: fixed; inset: 0; background: #0006; opacity: 0; pointer-events: none;
+    transition: opacity .15s; }
+  #scrim.open { opacity: 1; pointer-events: auto; }
+  #drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(720px, 100%);
+    background: var(--panel); border-left: 1px solid var(--line);
+    transform: translateX(100%); transition: transform .18s ease-out;
+    display: flex; flex-direction: column; }
+  #drawer.open { transform: none; }
+  #drawer header { padding: 16px 18px 12px; }
+  #drawer h1 { font: 13px var(--mono); }
+  #dMeta { font: 11px var(--mono); color: var(--mute); margin-top: 4px;
+    word-break: break-all; }
+  #dMeta a { color: var(--accent); }
+  #close { margin-left: auto; background: none; border: 1px solid var(--line);
+    color: var(--mute); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+  #tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 18px;
+    border-bottom: 1px solid var(--line); }
+  #tabs button { font: 11px var(--mono); padding: 4px 8px; border-radius: 6px;
+    border: 1px solid var(--line); background: none; color: var(--mute); cursor: pointer; }
+  #tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--accent); }
+  #doc { padding: 18px; overflow: auto; flex: 1; }
+  #doc h1, #doc h2, #doc h3 { margin: 1.3em 0 .5em; font-size: 14px; }
+  #doc h1 { font-size: 16px; margin-top: 0; }
+  #doc h3 { color: var(--mute); }
+  #doc pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; overflow-x: auto; font: 12px/1.5 var(--mono); }
+  #doc code { font: 12px var(--mono); background: var(--bg); padding: 1px 4px;
+    border-radius: 4px; }
+  #doc pre code { background: none; padding: 0; }
+  #doc table { border-collapse: collapse; font: 12px var(--mono); margin: .6em 0; }
+  #doc th, #doc td { border: 1px solid var(--line); padding: 4px 9px; text-align: left; }
+  #doc li { margin: .2em 0; }
+  #doc a { color: var(--accent); }
+  .badge { display: inline-block; font: 11px/1 var(--mono); padding: 5px 8px;
+    border-radius: 6px; margin-bottom: 14px; }
+  .badge.good { color: var(--pass); background: var(--pass-bg); }
+  .badge.bad { color: var(--chg); background: var(--chg-bg); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>event-spec <span>· software factory</span></h1>
+  <div class="meta"><span id="counts"></span><span id="status"><span class="dot"></span>connecting…</span></div>
+</header>
+
+<main>
+  <section class="lane" id="lane" hidden>
+    <h2>needs human — /factory approve &lt;id&gt; · /factory rework &lt;id&gt; &lt;note&gt;</h2>
+    <div class="cards" id="laneCards"></div>
+  </section>
+  <section class="queue" id="queue" hidden>
+    <h2>queued — waiting for a slot</h2>
+    <div class="pills" id="queuePills"></div>
+  </section>
+  <div class="pipe" id="pipe"></div>
+  <p class="empty" id="empty" hidden>No jobs yet. Run <code>/factory &lt;feature&gt;</code> or <code>/factory next</code>.</p>
+</main>
+
+<div id="scrim"></div>
+<aside id="drawer" aria-hidden="true">
+  <header>
+    <div><h1 id="dTitle"></h1><div id="dMeta"></div></div>
+    <button id="close">esc</button>
+  </header>
+  <div id="tabs"></div>
+  <div id="doc"></div>
+</aside>
+
+<script>
+const STAGES = [
+  ['spec',     'spec',     'spec-writer'],
+  ['build',    'build',    'builder'],
+  ['review',   'review',   '4 reviewers'],
+  ['decision', 'decision', 'approver'],
+  ['merged',   'merged',   'on main'],
+];
+const REVIEWERS = ['security', 'ux', 'ui', 'code'];
+const IN_FLIGHT = ['spec', 'build', 'review', 'decision'];
+let board = { jobs: [] }, open = null;
+
+/* ---------- board ---------- */
+
+async function poll() {
+  try {
+    const r = await fetch('board.json?t=' + Date.now(), { cache: 'no-store' });
+    board = await r.json();
+    render();
+    setStatus(true, board.updated);
+  } catch (e) {
+    setStatus(false, 'board.json unreachable');
+  }
+  setTimeout(poll, 2000);
+}
+
+function setStatus(ok, when) {
+  document.getElementById('status').innerHTML =
+    `<span class="dot${ok ? '' : ' stale'}"></span>` +
+    (ok ? (when ? 'updated ' + new Date(when).toLocaleTimeString() : 'idle') : when);
+}
+
+function render() {
+  const jobs = board.jobs || [];
+
+  const working = jobs.filter(j => IN_FLIGHT.includes(j.stage) && !j.blockedBy).length;
+  const blocked = jobs.filter(j => IN_FLIGHT.includes(j.stage) && j.blockedBy).length;
+  const queued = jobs.filter(j => j.stage === 'queued');
+  document.getElementById('counts').textContent =
+    `${working}/${board.cap || 3} in flight`
+    + (blocked ? ` · ${blocked} blocked` : '')
+    + (queued.length ? ` · ${queued.length} queued` : '');
+
+  document.getElementById('queue').hidden = !queued.length;
+  document.getElementById('queuePills').replaceChildren(...queued.map(j => {
+    const b = document.createElement('button');
+    b.className = 'pill';
+    b.onclick = () => openJob(j);
+    b.innerHTML = `<b>${esc(j.id)}</b> ${esc(j.title || '')}`;
+    return b;
+  }));
+
+  const flagged = jobs.filter(j => j.stage === 'needs-human');
+  const lane = document.getElementById('lane');
+  lane.hidden = !flagged.length;
+  document.getElementById('laneCards').replaceChildren(...flagged.map(card));
+
+  const pipe = document.getElementById('pipe');
+  pipe.replaceChildren(...STAGES.map(([stage, label, who]) => {
+    const col = document.createElement('div');
+    col.className = 'col';
+    const head = document.createElement('h2');
+    head.innerHTML = `<b>${label}</b> ${who}`;
+    const here = jobs.filter(j => j.stage === stage);
+    const body = document.createElement('div');
+    if (here.length) body.replaceChildren(...here.map(card));
+    else body.className = 'drop';
+    col.append(head, body);
+    return col;
+  }));
+
+  document.getElementById('empty').hidden = jobs.length > 0;
+}
+
+function card(job) {
+  const el = document.createElement('button');
+  el.className = 'card';
+  el.onclick = () => openJob(job);
+  el.innerHTML = `<div class="id">${esc(job.id)}</div>
+    <div class="title">${esc(job.title || '')}</div>
+    <div class="branch">${esc(job.branch || 'no branch yet')}</div>`;
+
+  for (const h of job.history || []) el.append(roundRow(h.round, h.reviews, true));
+  if (job.reviews) el.append(roundRow(job.round || 1, job.reviews, false));
+
+  if (job.blockedBy) {
+    const b = document.createElement('div');
+    b.className = 'blocked';
+    b.textContent = `waiting on ${job.blockedBy}`;
+    el.append(b);
+  }
+
+  if (job.decision || job.note) {
+    const n = document.createElement('div');
+    n.className = 'note';
+    n.textContent = [job.decision, job.note].filter(Boolean).join(' — ');
+    el.append(n);
+  }
+  return el;
+}
+
+function roundRow(n, reviews, past) {
+  const row = document.createElement('div');
+  row.className = 'round' + (past ? ' past' : '');
+  row.innerHTML = `<span class="rn">r${n}</span>` + REVIEWERS.map(k => {
+    const v = (reviews || {})[k] || 'pending';
+    return `<span class="chip ${v}" title="${k}: ${v}">${k}</span>`;
+  }).join('');
+  return row;
+}
+
+/* ---------- drawer ---------- */
+
+async function openJob(job) {
+  open = job;
+  document.getElementById('dTitle').textContent = job.id;
+
+  const meta = document.getElementById('dMeta');
+  meta.replaceChildren();
+  if (job.issue && board.repo) {
+    const a = document.createElement('a');
+    a.href = `https://github.com/${board.repo}/issues/${job.issue}`;
+    a.target = '_blank';
+    a.rel = 'noreferrer';
+    a.textContent = `#${job.issue}`;
+    meta.append(a, document.createTextNode('  ·  '));
+  }
+  meta.append(document.createTextNode(
+    [job.branch, job.worktree].filter(Boolean).join('  ·  ') || 'no branch or worktree yet'));
+  document.getElementById('scrim').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'false');
+  document.getElementById('doc').textContent = 'loading…';
+
+  const paths = ['spec.md', 'build.md'];
+  for (let r = 1; r <= (job.round || 1); r++) {
+    if (r > 1) paths.push(`rework-${r}.md`);
+    for (const k of REVIEWERS) paths.push(`round-${r}/review-${k}.md`);
+  }
+  paths.push('decision.md');
+
+  const found = (await Promise.all(paths.map(async p => {
+    try {
+      const r = await fetch(`jobs/${job.id}/${p}?t=` + Date.now(), { cache: 'no-store' });
+      return r.ok ? { path: p, text: await r.text() } : null;
+    } catch { return null; }
+  }))).filter(Boolean);
+
+  const tabs = document.getElementById('tabs');
+  tabs.replaceChildren(...found.map(f => {
+    const b = document.createElement('button');
+    b.textContent = f.path;
+    b.onclick = () => {
+      [...tabs.children].forEach(c => c.setAttribute('aria-selected', c === b));
+      document.getElementById('doc').innerHTML = md(f.text);
+    };
+    return b;
+  }));
+  if (found.length) tabs.firstChild.click();
+  else document.getElementById('doc').textContent = 'No files written yet.';
+}
+
+function closeJob() {
+  open = null;
+  document.getElementById('scrim').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'true');
+}
+document.getElementById('close').onclick = closeJob;
+document.getElementById('scrim').onclick = closeJob;
+addEventListener('keydown', e => { if (e.key === 'Escape') closeJob(); });
+
+/* ---------- a small markdown subset ---------- */
+
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const span = s => esc(s)
+  .replace(/`([^`]+)`/g, '<code>$1</code>')
+  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+function md(src) {
+  const lines = src.replace(/\r/g, '').split('\n');
+  let out = '', list = null, fence = null, table = null;
+
+  const head = lines[0].trim();
+  const m = head.match(/^(VERDICT:\s*)?(PASS|CHANGES|APPROVE|ESCALATE)$/);
+  if (m) {
+    const good = /PASS|APPROVE/.test(m[2]);
+    out += `<div class="badge ${good ? 'good' : 'bad'}">${head}</div>`;
+    lines.shift();
+  }
+  let para = [];
+  const shut = () => {
+    if (para.length) { out += `<p>${span(para.join(' '))}</p>`; para = []; }
+    if (list) { out += `</${list}>`; list = null; }
+    if (table) { out += '</table>'; table = null; }
+  };
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (/^\s*```/.test(line)) {
+      if (fence === null) { shut(); fence = ''; } else { out += `<pre><code>${esc(fence)}</code></pre>`; fence = null; }
+      continue;
+    }
+    if (fence !== null) { fence += raw + '\n'; continue; }
+
+    let t;
+    if ((t = line.match(/^(#{1,6})\s+(.*)$/))) {
+      shut(); out += `<h${t[1].length}>${span(t[2])}</h${t[1].length}>`;
+    } else if (/^\|.*\|$/.test(line)) {
+      if (/^\|[\s:|-]+\|$/.test(line)) continue;
+      const cells = line.split('|').slice(1, -1);
+      const tag = table ? 'td' : 'th';
+      if (!table) { shut(); out += '<table>'; table = 1; }
+      out += '<tr>' + cells.map(c => `<${tag}>${span(c.trim())}</${tag}>`).join('') + '</tr>';
+    } else if ((t = line.match(/^\s*([-*])\s+(.*)$/))) {
+      if (table) shut();
+      if (list !== 'ul') { shut(); out += '<ul>'; list = 'ul'; }
+      out += `<li>${span(t[2])}</li>`;
+    } else if ((t = line.match(/^\s*\d+[.)]\s+(.*)$/))) {
+      if (table) shut();
+      if (list !== 'ol') { shut(); out += '<ol>'; list = 'ol'; }
+      out += `<li>${span(t[1])}</li>`;
+    } else if (!line.trim()) {
+      shut();
+    } else {
+      if (list || table) shut();
+      para.push(line.trim());
+    }
+  }
+  shut();
+  if (fence !== null) out += `<pre><code>${esc(fence)}</code></pre>`;
+  return out;
+}
+
+poll();
+</script>
+</body>
+</html>
