@@ -17,9 +17,16 @@ pre-commit:
     # Guarded on the toolchain as well as the glob, so contributors without Swift can
     # still commit; CI (ci-swift.yml) is the enforcement point. `swift format` is only
     # a toolchain subcommand on recent Swift releases, hence the --version probe.
+    # The echo message stays unquoted: lefthook mangles quoted multi-word strings
+    # in run: on Windows.
     swift-fmt:
       glob: "sdk/swift/**"
-      run: if swift format --version >/dev/null 2>&1; then swift format lint --strict --recursive sdk/swift/Sources sdk/swift/Tests; else echo swift format unavailable - skipping swift-fmt; fi
+      run: |
+        if swift format --version >/dev/null 2>&1; then
+          swift format lint --strict --recursive sdk/swift/Sources sdk/swift/Tests
+        else
+          echo swift format unavailable - skipping swift-fmt
+        fi
 
 pre-push:
   commands:
@@ -42,6 +49,13 @@ pre-push:
       run: ./sdk/kotlin/gradlew -p sdk/kotlin test
     # Guarded on the toolchain as well as the glob: on the first push of a branch the
     # glob is ignored (see above), and this repo must stay pushable without Swift.
+    # if/then/else, not `cmd && cmd || echo`: the latter returns 0 when swift test
+    # itself fails, which would make the hook silently useless.
     swift-tests:
       glob: "sdk/swift/**"
-      run: if command -v swift >/dev/null 2>&1; then swift test --package-path sdk/swift; else echo swift toolchain not found - skipping swift-tests; fi
+      run: |
+        if command -v swift >/dev/null 2>&1; then
+          swift test --package-path sdk/swift
+        else
+          echo swift toolchain not found - skipping swift-tests
+        fi
