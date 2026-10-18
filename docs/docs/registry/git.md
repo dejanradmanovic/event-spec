@@ -55,15 +55,25 @@ Anything that is none of the three is rejected before anything is cloned, includ
 The cache is always left on a detached HEAD, never on a local branch, so nothing a pull checks out can go stale.
 
 :::warning Two things of the same name
-All three forms are looked up, and if any two of them resolve to **different** commits the pull fails and names every SHA it found, instead of picking one. The usual shape is a tag and a branch both called `v1.4.0`; the sharper one is a branch whose name is the 40-hex SHA of the commit you pinned, which git allows. Picking a winner silently would mean that anyone who can push a branch — even where tags and `main` are protected — could redirect every consumer pinned to that tag or that commit. To pin past an ambiguity, set `ref` to the commit SHA: a SHA is the one spelling nothing pushed to the remote can shadow.
+All three forms are looked up, and if any two of them resolve to **different** commits the pull fails and names every SHA it found, instead of picking one. The usual shape is a tag and a branch both called `v1.4.0`; the sharper one is a branch whose name is the 40-hex SHA of the commit you pinned, which git allows. Picking a winner silently would mean that anyone who can push a branch — even where tags and `main` are protected — could redirect every consumer pinned to that tag or that commit. For a tag/branch clash, set `ref` to the commit SHA: a SHA is the one spelling nothing pushed to the remote can shadow.
 
 Two of the same name at the *same* commit is not ambiguous and resolves normally, so a release tag and a release branch on one commit are fine. Annotated tags are compared by the commit they point at, not by the tag object's own SHA.
+
+The refusal is deliberate — a pin that could mean two commits is not a pin — but it does mean **anyone who can push a ref to the tracking plan can stop your pulls**, and two things follow.
+
+If the ambiguity is a ref named after the SHA you already pinned, pinning harder cannot route around it: that ref has to be removed from the remote, which is a remote-admin action, not a config change.
+
+And removing it is not quite enough. A pull prunes neither branches nor tags, so a cache that already holds the extra ref keeps refusing after the remote is cleaned up; finish with `event-spec pull --force`.
+
+`ref:` is the exposed key here, including when it names a branch. A tag named `main` — tags are often less protected than the branch itself — is enough to block every consumer whose `ref` is `main`. The same value under `branch:` cannot be blocked that way, because no ambiguity check runs when `ref` is unset. If you follow a branch, say so with `branch:`.
 :::
 
 :::note A pin means a full clone
 Without `ref`, the first pull clones with `--depth 1`, which also means a single branch and no tags. A shallow clone holds only the tip of the tracked branch, which is exactly what a pinned commit or a tag is not, so setting `ref` clones the full history instead — the only way the pin can resolve. The costs are a slower first pull on a large tracking-plan repo, and every commit and branch of that repo on disk in the cache, where a shallow clone kept only the tip.
 
-A cache cloned before you added the pin is still shallow, and a fetch never deepens one. When that is why a ref cannot be found, `event-spec pull` says so and tells you to re-clone with `event-spec pull --force`. It only says that when re-cloning would actually help: if the remote has no tag or branch of that name, the pull says *that* instead and shows you the `git ls-remote` command that lists what the remote does have, because re-cloning a typo just reproduces the error.
+A ref-less cache stays shallow: fetching the tracked branch does not deepen it, and no tags are fetched. A pinned pull additionally fetches the one tag its own `ref` names, and nothing else — so a pin brings in the history behind that tag, and a config that names no tag brings in no tags at all.
+
+A cache cloned before you added the pin is still shallow. When that is why a ref cannot be found, `event-spec pull` says so and tells you to re-clone with `event-spec pull --force`. It only says that when re-cloning would actually help: if the remote has no tag or branch of that name, the pull says *that* instead and shows you the `git ls-remote` command that lists what the remote does have, because re-cloning a typo just reproduces the error. Asking the remote costs a round trip, so a `ref` that cannot be resolved takes as long to fail as your network takes to answer — on an unreachable remote, as long as your OS's connect timeout.
 :::
 
 ## Version pinning
