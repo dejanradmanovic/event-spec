@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -264,6 +265,15 @@ func (r *refRemote) pushTagOnly(t *testing.T, sha, name string) {
 	t.Helper()
 	testutil.RunGit(t, r.work, "tag", name, sha)
 	testutil.RunGit(t, r.work, "push", r.bare, "refs/tags/"+name)
+}
+
+// moveTag retargets an existing tag on the bare remote, which is what git
+// refuses to replicate into a cache that already has it. Force is needed on
+// the push only: the fixture is playing the upstream, not the cache.
+func (r *refRemote) moveTag(t *testing.T, sha, name string) {
+	t.Helper()
+	testutil.RunGit(t, r.work, "tag", "-f", name, sha)
+	testutil.RunGit(t, r.work, "push", "-f", r.bare, "refs/tags/"+name)
 }
 
 // url is the Remote the resolver is configured with. It is a file:// URL, not
@@ -683,47 +693,225 @@ func TestPull_refResolution(t *testing.T) {
 	})
 }
 
-// TestPull_rejectsRefsThatCannotName covers the values docs/docs/registry/git.md
-// promises are refused. Candidates 1 and 2 build a revision *expression*, so
-// before this check "main~1" and friends resolved and quietly followed a
-// moving branch. Rejected before any clone, so no fixture remote is needed.
-func TestPull_rejectsRefsThatCannotName(t *testing.T) {
+// TestPull_tagMovedUpstream is the case whose absence let round 3's
+// "fetch origin --tags" past three review rounds: every tag fixture until now
+// *added* a tag the cache did not have, and adding one always succeeds. Moving
+// one the cache already holds is what git refuses — correctly, because that
+// refusal is what stops an upstream tag move from retargeting a pin — but git
+// reports the refusal as a failed ref update and exits non-zero, so fetching
+// the whole tag namespace turned any cached tag moving anywhere on the remote
+// into a hard failure of every later pull.
+func TestPull_tagMovedUpstream(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	// cacheWithTag leaves a cache that holds remote.tag at remote.first,
+	// then moves that tag upstream to a second commit on main and returns
+	// the new tip. A pin set beforehand makes the first clone a full one, so
+	// the cache really does carry the tag before it moves.
+	cacheWithTag := func(t *testing.T, remote *refRemote, cacheDir string) string {
+		t.Helper()
+		cfg := git.Config{Remote: remote.url(), Branch: "main", CacheDir: cacheDir, Ref: remote.tag}
+		if _, err := git.NewWithPull(context.Background(), cfg); err != nil {
+			t.Fatalf("first pull: %v", err)
+		}
+		if got := tagSHA(t, cacheDir, remote.tag); got != remote.first {
+			t.Fatalf("fixture precondition: cache tag %s = %q, want %s", remote.tag, got, remote.first)
+		}
+		moved := remote.commit(t, "auth", "user_signed_up")
+		remote.push(t)
+		remote.moveTag(t, moved, remote.tag)
+		return moved
+	}
+
+	// Each case starts from that cache and pulls again with its own config.
+	// None of them names a tag that is supposed to move, and none of them
+	// may fail.
 	tests := []struct {
-		ref  string
-		want string
+		name string
+		// config is the second pull's configuration.
+		config func(remote *refRemote, moved string) (ref string, branch string)
+		// wantHead is the commit the second pull must land on.
+		wantHead func(remote *refRemote, moved string) string
 	}{
-		{ref: "HEAD", want: "not a ref the"},
-		{ref: "main~1", want: "revision-expression syntax"},
-		{ref: "main^", want: "revision-expression syntax"},
-		{ref: "v1.4.0^{}", want: "revision-expression syntax"},
-		{ref: "main@{upstream}", want: "revision-expression syntax"},
-		{ref: "v1..v2", want: "revision-expression syntax"},
-		{ref: "a b", want: "revision-expression syntax"},
-		{ref: "refs/heads/main", want: "without the refs/ prefix"},
-		{ref: "refs/tags/v1", want: "without the refs/ prefix"},
-		{ref: "--upload-pack=calc", want: "revision-expression syntax"},
+		{
+			// The documented default, and the configuration the approver
+			// reproduced the breakage on: nothing here names a tag at all.
+			name:     "a ref-less branch-tracking pull",
+			config:   func(*refRemote, string) (string, string) { return "", "main" },
+			wantHead: func(_ *refRemote, moved string) string { return moved },
+		},
+		{
+			// The configuration spec.md says every existing user has
+			// committed, which security's one-line gate would still have
+			// broken: Ref is set, so the gate lets the tag fetch run, and
+			// only narrowing it to refs/tags/main keeps this working.
+			name:     "a branch-named ref",
+			config:   func(*refRemote, string) (string, string) { return "main", "main" },
+			wantHead: func(_ *refRemote, moved string) string { return moved },
+		},
+		{
+			// A commit pin, which must be unaffected by any tag anywhere.
+			name: "a commit pin",
+			config: func(remote *refRemote, _ string) (string, string) {
+				return remote.first, "main"
+			},
+			wantHead: func(remote *refRemote, _ string) string { return remote.first },
+		},
+		{
+			// The pin that names the tag that moved. The pull must succeed
+			// and must keep the commit it was cached at: an upstream tag move
+			// retargeting a cached pin is the thing the unforced refspec
+			// exists to prevent.
+			name: "a pin on the tag that moved",
+			config: func(remote *refRemote, _ string) (string, string) {
+				return remote.tag, "main"
+			},
+			wantHead: func(remote *refRemote, _ string) string { return remote.first },
+		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.ref, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
+			remote := newRefRemote(t)
 			cacheDir := filepath.Join(t.TempDir(), "cache")
-			_, err := git.NewWithPull(context.Background(), git.Config{
+			moved := cacheWithTag(t, remote, cacheDir)
+
+			ref, branch := tt.config(remote, moved)
+			resolver, err := git.NewWithPull(context.Background(), git.Config{
+				Remote:   remote.url(),
+				Branch:   branch,
+				CacheDir: cacheDir,
+				Ref:      ref,
+			})
+			if err != nil {
+				t.Fatalf("second pull after an upstream tag move: %v", err)
+			}
+			if got := headSHA(t, cacheDir); got != tt.wantHead(remote, moved) {
+				t.Errorf("cache HEAD = %s, want %s", got, tt.wantHead(remote, moved))
+			}
+			if _, err := resolver.ListEvents(context.Background(), registry.ListFilter{}); err != nil {
+				t.Fatalf("ListEvents: %v", err)
+			}
+			// Whatever else happened, the cached tag must not have followed
+			// the remote: that is the property the refspec stays unforced for.
+			if got := tagSHA(t, cacheDir, remote.tag); got != remote.first {
+				t.Errorf("cached tag %s = %s, want the commit it was cached at %s",
+					remote.tag, got, remote.first)
+			}
+		})
+	}
+}
+
+// TestPull_refLessPullLeavesCacheShallow pins the sentence the docs and the
+// shallow-cache remedy both state: a fetch does not deepen the cache the
+// documented ref-less default creates. Round 3's whole-namespace tag fetch
+// dragged in the commits every tag pointed at and made both of them false.
+func TestPull_refLessPullLeavesCacheShallow(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	remote := newRefRemote(t)
+	// Tagged history off to the side, which a tag fetch would pull in: the
+	// tag is on a commit no branch reaches, so nothing but an explicit tag
+	// fetch can bring it or its commit into the cache.
+	side := remote.commitOnBranch(t, "release-1", "billing", "invoice_paid")
+	remote.pushTagOnly(t, side, "v2")
+	remote.commit(t, "auth", "user_signed_up")
+	remote.push(t)
+
+	cacheDir := filepath.Join(t.TempDir(), "cache")
+	cfg := git.Config{Remote: remote.url(), Branch: "main", CacheDir: cacheDir}
+	if _, err := git.NewWithPull(context.Background(), cfg); err != nil {
+		t.Fatalf("first pull: %v", err)
+	}
+	before := commitCount(t, cacheDir)
+
+	// A second commit upstream, so the second pull has real work to do.
+	remote.commit(t, "ecommerce", "cart_viewed")
+	remote.push(t)
+	resolver, err := git.NewWithPull(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("second pull: %v", err)
+	}
+	if _, err := resolver.ListEvents(context.Background(), registry.ListFilter{}); err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+
+	if !isShallow(t, cacheDir) {
+		t.Error("a ref-less pull left the cache non-shallow")
+	}
+	// One new commit on main is the work this fetch legitimately had to do.
+	// Anything beyond that is tagged history the cache was never asked for.
+	if got, want := commitCount(t, cacheDir), before+1; got != want {
+		t.Errorf("a ref-less fetch deepened the cache: %d commits, want %d", got, want)
+	}
+	if sha := tagSHA(t, cacheDir, "v2"); sha != "" {
+		t.Errorf("a ref-less fetch brought tag v2 (%s) into the cache", sha)
+	}
+	if hasCommit(t, cacheDir, side) {
+		t.Errorf("a ref-less fetch brought the tagged side commit %s into the cache", side)
+	}
+}
+
+// TestPull_rejectsRefsThatCannotName covers the values docs/docs/registry/git.md
+// promises are refused. Candidates 1 and 2 build a revision *expression*, so
+// before this check "main~1" and friends resolved and quietly followed a
+// moving branch. registry.branch goes through the same rule, since it reaches
+// "clone --branch" and the ls-remote remedy probe. Rejected before any clone,
+// so no fixture remote is needed.
+func TestPull_rejectsRefsThatCannotName(t *testing.T) {
+	tests := []struct {
+		// key is the config field under test.
+		key   string
+		value string
+		want  string
+	}{
+		{key: "registry.ref", value: "HEAD", want: "not a ref the"},
+		{key: "registry.ref", value: "main~1", want: "revision-expression syntax"},
+		{key: "registry.ref", value: "main^", want: "revision-expression syntax"},
+		{key: "registry.ref", value: "v1.4.0^{}", want: "revision-expression syntax"},
+		{key: "registry.ref", value: "main@{upstream}", want: "revision-expression syntax"},
+		{key: "registry.ref", value: "v1..v2", want: "revision-expression syntax"},
+		{key: "registry.ref", value: "a b", want: "revision-expression syntax"},
+		{key: "registry.ref", value: "refs/heads/main", want: "without the refs/ prefix"},
+		{key: "registry.ref", value: "refs/tags/v1", want: "without the refs/ prefix"},
+		// A leading dash is an argument-injection guard, not revision syntax,
+		// and says so rather than listing characters the value does not have.
+		{key: "registry.ref", value: "--upload-pack=calc", want: "cannot begin with \"-\""},
+		{key: "registry.ref", value: "-rf", want: "cannot begin with \"-\""},
+		{key: "registry.branch", value: "--upload-pack=calc", want: "cannot begin with \"-\""},
+		{key: "registry.branch", value: "main~1", want: "revision-expression syntax"},
+		{key: "registry.branch", value: "refs/heads/main", want: "without the refs/ prefix"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key+" "+tt.value, func(t *testing.T) {
+			cacheDir := filepath.Join(t.TempDir(), "cache")
+			cfg := git.Config{
 				Remote:   "file:///does-not-matter",
 				Branch:   "main",
 				CacheDir: cacheDir,
-				Ref:      tt.ref,
-			})
-			if err == nil {
-				t.Fatalf("expected %q to be refused", tt.ref)
 			}
-			for _, want := range []string{"registry.ref", tt.ref, tt.want} {
+			if tt.key == "registry.branch" {
+				cfg.Branch = tt.value
+			} else {
+				cfg.Ref = tt.value
+			}
+			_, err := git.NewWithPull(context.Background(), cfg)
+			if err == nil {
+				t.Fatalf("expected %s %q to be refused", tt.key, tt.value)
+			}
+			for _, want := range []string{tt.key, tt.value, tt.want} {
 				if !strings.Contains(err.Error(), want) {
 					t.Errorf("error does not mention %q:\n%v", want, err)
 				}
 			}
 			// Refused before the network, so nothing was cloned.
 			if _, statErr := os.Stat(cacheDir); !os.IsNotExist(statErr) {
-				t.Errorf("%s exists: an unusable ref must be refused before any clone", cacheDir)
+				t.Errorf("%s exists: an unusable value must be refused before any clone", cacheDir)
 			}
 		})
 	}
@@ -937,4 +1125,34 @@ func TestPull_RejectsExtTransport(t *testing.T) {
 	if _, err := os.Stat(sentinel); err == nil {
 		t.Fatal("the ext:: payload executed; GIT_ALLOW_PROTOCOL did not block it")
 	}
+}
+
+// tagSHA returns the commit a tag in dir points at, peeled, or "" when the
+// tag is not in dir at all. Used to assert that a cached tag did not follow
+// an upstream move.
+func tagSHA(t *testing.T, dir, name string) string {
+	t.Helper()
+	out, err := testutil.GitCommand(context.Background(), dir,
+		"rev-parse", "--verify", "--quiet", "refs/tags/"+name+"^{commit}").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// commitCount is how many commits dir holds, which is how a fetch that
+// deepens a shallow cache shows up.
+func commitCount(t *testing.T, dir string) int {
+	t.Helper()
+	n, err := strconv.Atoi(gitOutput(t, dir, "rev-list", "--count", "--all"))
+	if err != nil {
+		t.Fatalf("parse commit count in %s: %v", dir, err)
+	}
+	return n
+}
+
+// hasCommit reports whether dir holds the commit object sha.
+func hasCommit(t *testing.T, dir, sha string) bool {
+	t.Helper()
+	return testutil.GitCommand(context.Background(), dir, "cat-file", "-e", sha+"^{commit}").Run() == nil
 }

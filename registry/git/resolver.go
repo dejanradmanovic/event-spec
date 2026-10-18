@@ -110,11 +110,11 @@ func NewWithPull(ctx context.Context, cfg Config) (*Resolver, error) {
 // against the remote and always left detached. After a successful pull the
 // in-memory index is rebuilt from the updated cache.
 func (r *Resolver) Pull(ctx context.Context) error {
-	// Checked before anything is cloned: a Ref that cannot name a ref or a
+	// Checked before anything is cloned: a value that cannot name a ref or a
 	// commit is a config mistake, and a pinned config clones the whole
 	// history, so finding out after the clone would be an expensive way to
 	// learn it.
-	if err := r.cfg.checkRef(); err != nil {
+	if err := r.cfg.checkRefs(); err != nil {
 		return err
 	}
 
@@ -135,16 +135,10 @@ func (r *Resolver) Pull(ctx context.Context) error {
 			return fmt.Errorf("git clone: %w", err)
 		}
 	} else {
-		// --tags, because the ambiguity check below compares what the cache
-		// holds: git only auto-follows tags reachable from the fetched heads,
-		// so without it a tag on a commit no branch reaches never arrives, the
-		// tag side of the comparison stays empty, and a branch pushed under
-		// that tag name wins by default (#211 round 2). Without --force it
-		// still cannot move a tag the cache already has, so an upstream tag
-		// move cannot retarget an existing pin.
-		if err := r.runGit(ctx, "-C", cacheDir, "fetch", "origin", "--tags"); err != nil {
+		if err := r.runGit(ctx, "-C", cacheDir, "fetch", "origin"); err != nil {
 			return fmt.Errorf("git fetch: %w", err)
 		}
+		r.fetchPinnedTag(ctx, cacheDir)
 	}
 
 	// Both paths end the same way, so the cache is a detached snapshot of a
@@ -179,6 +173,52 @@ func (r *Resolver) cloneArgs(cacheDir string) []string {
 	return append(args, "--branch", r.cfg.branch(), r.cfg.Remote, cacheDir)
 }
 
+// fetchPinnedTag fetches the one tag a configured Ref could name, so that the
+// tag side of resolveCheckoutRef's agreement check is as fresh as the branch
+// side. git only auto-follows tags that point into the history it just
+// fetched, so a tag on a commit no branch reaches never arrives on its own,
+// the tag candidate stays empty, and a branch pushed under that tag's name
+// wins by default (#211).
+//
+// Three deliberate choices, each of which an earlier round got wrong:
+//
+// Gated on Ref, because the Ref == "" path of resolveCheckoutRef returns
+// before any tag is probed. A branch-tracking cache has no use for tags, and
+// fetching them drags in the commits they point at, which silently de-shallows
+// the --depth 1 cache that path is built on.
+//
+// One tag wide, not --tags. The refspec must stay unforced — that is what
+// stops an upstream tag move from retargeting a pin the cache already holds —
+// but git reports a refused tag update as a failed ref update and exits
+// non-zero, so a whole-namespace "fetch --tags" turned any cached tag moving
+// anywhere on the remote into a hard failure of every later pull, including
+// for configs that name no tag at all. Naming one tag means a pull can only
+// ever be affected by the tag its own config asks for.
+//
+// The exit status is discarded, and only here. For this call a non-zero exit
+// is an expected outcome rather than an error: "! [rejected] ... (would
+// clobber existing tag)" is the no-retarget property doing its job, and a Ref
+// that names a branch or a commit has no refs/tags/<Ref> upstream at all, so
+// git exits 128 having correctly found nothing. Nothing downstream depends on
+// this call having succeeded: resolveCheckoutRef reads the cache either way
+// and reports exactly what it did and did not find, so a tag that genuinely
+// could not be fetched surfaces as an error naming registry.ref rather than
+// as a bare exit status. The branch fetch above keeps its error — that one is
+// not expected to fail.
+//
+// Output goes nowhere for the same reason, and like every other git
+// invocation in this package the environment is gitEnv(), so the #184 scrub
+// applies here too.
+func (r *Resolver) fetchPinnedTag(ctx context.Context, cacheDir string) {
+	if r.cfg.Ref == "" {
+		return
+	}
+	tag := "refs/tags/" + r.cfg.Ref
+	cmd := exec.CommandContext(ctx, "git", "-C", cacheDir, "fetch", "origin", tag+":"+tag)
+	cmd.Env = gitEnv()
+	_ = cmd.Run()
+}
+
 // refCandidate is one revision resolveCheckoutRef probes for, together with
 // what the cache resolved it to.
 type refCandidate struct {
@@ -207,29 +247,52 @@ var shaRe = regexp.MustCompile(`^[0-9a-fA-F]{7,40}$`)
 // the remote has.
 var revExprRe = regexp.MustCompile(`[\s~^:?*\[\\]|\.\.|@\{|^-`)
 
-// checkRef rejects a Ref that cannot name a ref or a commit, before Pull
-// touches the network. Candidates 1 and 2 concatenate Ref into a revision
-// *expression* handed to rev-parse, so without this "main~1", "main^" and
-// "v1.4.0^{}" all resolved through refs/remotes/origin/<expr> and quietly
-// followed a moving branch, while docs/docs/registry/git.md promised they
-// were refused. It is also defence in depth for the argument-injection
-// surface: nothing reaching the probes can begin with "-".
-func (c Config) checkRef() error {
+// checkRefs rejects a Ref or a Branch that cannot name a ref or a commit,
+// before Pull touches the network. Candidates 1 and 2 concatenate Ref into a
+// revision *expression* handed to rev-parse, so without this "main~1" and
+// friends resolved and quietly followed a moving branch, while
+// docs/docs/registry/git.md promised they were refused. Branch is checked by
+// the same rule: it reaches "clone --branch" and the ls-remote remedy probe,
+// and an invalid value there used to come back as "the remote advertises no
+// tag or branch of that name", which describes a value that is merely absent
+// rather than one that could never exist.
+//
+// It is also defence in depth for the argument-injection surface: nothing
+// reaching a probe or a clone can begin with "-".
+func (c Config) checkRefs() error {
+	if err := checkRefName("registry.ref", c.Ref); err != nil {
+		return err
+	}
+	return checkRefName("registry.branch", c.Branch)
+}
+
+// checkRefName applies git's own refname rules to one configured value. The
+// leading dash is reported separately from the rest: it is an
+// argument-injection guard rather than revision syntax, and a reader told to
+// look for "~ ^ : ? * [" would not find the dash among them. revExprRe
+// matches it too, so the value stays rejected even if these cases are ever
+// reordered.
+func checkRefName(key, value string) error {
 	switch {
-	case c.Ref == "":
+	case value == "":
 		return nil
-	case revExprRe.MatchString(c.Ref):
-		return invalidRefError{value: c.Ref, why: []string{
+	case strings.HasPrefix(value, "-"):
+		return invalidRefError{key: key, value: value, why: []string{
+			"a ref name cannot begin with \"-\", which a command line would",
+			"read as an option rather than a name",
+		}}
+	case revExprRe.MatchString(value):
+		return invalidRefError{key: key, value: value, why: []string{
 			"it contains revision-expression syntax — a space, ~ ^ : ? * [ \\,",
 			"\"..\" or \"@{\" — which git does not allow in a ref name",
 		}}
-	case c.Ref == "HEAD":
-		return invalidRefError{value: c.Ref, why: []string{
+	case value == "HEAD":
+		return invalidRefError{key: key, value: value, why: []string{
 			"HEAD is whichever commit the cache is already on, not a ref the",
 			"remote has: to follow the default branch, use registry.branch",
 		}}
-	case strings.HasPrefix(c.Ref, "refs/"):
-		return invalidRefError{value: c.Ref, why: []string{
+	case strings.HasPrefix(value, "refs/"):
+		return invalidRefError{key: key, value: value, why: []string{
 			"name it the way the remote names it, without the refs/ prefix:",
 			"main, not refs/heads/main",
 		}}
@@ -431,8 +494,8 @@ func (e unresolvedRefError) Error() string {
 	case remedyShallowCommit:
 		lines = append(lines,
 			"this cache is shallow, holding only the tip of the tracked branch,",
-			"and a fetch never deepens it. if the remote still has that commit,",
-			"re-running 'event-spec pull --force' will re-clone the full history")
+			"and fetching that branch never deepens it. if the remote still has",
+			"that commit, 'event-spec pull --force' will re-clone the full history")
 	case remedyUnknown:
 		lines = append(lines, "check "+e.key+" against what the remote actually has")
 	}
@@ -474,14 +537,26 @@ func (e ambiguousRefError) Error() string {
 		lines = append(lines, fmt.Sprintf("  %-7s%s", c.kind, c.sha), "    "+c.rev)
 	}
 	if e.namesCommit() {
+		// The stock closing advice below is "pin the SHA", which is already
+		// what this user did, and the shadowing ref here need not be a branch
+		// at all — so this shape gets the action that is actually open to
+		// them instead.
 		lines = append(lines,
-			"a ref whose name is a commit SHA is nothing a tracking plan needs;",
-			"treat it as suspect and have it removed from the remote")
+			"a ref whose name is a commit SHA is nothing a tracking plan needs,",
+			"and pinning harder cannot route around it: ask whoever can push to",
+			"the remote to remove it")
+	} else {
+		lines = append(lines,
+			"event-spec resolves a tag before a branch, as git does, but will not",
+			"guess when the two disagree: a branch pushed under a tag's name would",
+			"redirect the pin. set registry.ref to the commit SHA you mean")
 	}
+	// Removing the extra ref upstream does not fix a cache that already has
+	// it: a fetch prunes neither branches nor tags, so the refusal outlives
+	// its own remediation until the cache is rebuilt.
 	return strings.Join(append(lines,
-		"event-spec resolves a tag before a branch, as git does, but will not",
-		"guess when the two disagree: a branch pushed under a tag's name would",
-		"redirect the pin. set registry.ref to the commit SHA you mean",
+		"a cache that already holds the extra ref keeps refusing after it is",
+		"removed from the remote, so finish with 'event-spec pull --force'",
 	), "\n")
 }
 
@@ -496,9 +571,12 @@ func (e ambiguousRefError) namesCommit() bool {
 	return false
 }
 
-// invalidRefError is returned for a Ref that cannot name anything on the
-// remote, before any clone or fetch is attempted.
+// invalidRefError is returned for a configured value that cannot name
+// anything on the remote, before any clone or fetch is attempted.
 type invalidRefError struct {
+	// key is the config key at fault, registry.ref or registry.branch.
+	key string
+	// value is the key's configured value.
 	value string
 	// why explains this particular shape, already broken into lines.
 	why []string
@@ -508,15 +586,21 @@ type invalidRefError struct {
 // with the rule rather than a remedy: there is nothing to re-clone or re-ask,
 // the value itself has to change.
 func (e invalidRefError) Error() string {
-	lines := []string{
-		"registry.ref is not a tag, a branch or a commit SHA",
-		"  registry.ref: " + e.value,
-	}
-	lines = append(lines, e.why...)
-	return strings.Join(append(lines,
+	what := "a tag, a branch or a commit SHA"
+	rule := []string{
 		"name a tag or branch the way the remote names it, or give a commit",
 		"SHA of 7 to 40 hex digits",
-	), "\n")
+	}
+	if e.key == "registry.branch" {
+		what = "a branch name"
+		rule = []string{"name the branch the way the remote names it"}
+	}
+	lines := []string{
+		e.key + " is not " + what,
+		"  " + e.key + ": " + e.value,
+	}
+	lines = append(lines, e.why...)
+	return strings.Join(append(lines, rule...), "\n")
 }
 
 // gitProbe runs a read-only git query in the cache and returns its trimmed
@@ -568,7 +652,11 @@ func gitResolveCommit(ctx context.Context, cacheDir, rev string) (string, error)
 // the answer is filtered back down to the two exact spellings a Ref can mean,
 // and a pattern-shaped value cannot smuggle an unrelated ref into it.
 func gitRemoteRefs(ctx context.Context, cacheDir, remote, name string) ([]string, error) {
-	out, err := gitProbe(ctx, cacheDir, "ls-remote", "--heads", "--tags", remote, name)
+	// The "--" is belt and braces: git 2.41 stops parsing options after the
+	// repository argument, so a pattern cannot be re-read as one, but that is
+	// an argv ordering rather than a guarantee, and checkRefName is the other
+	// half of it.
+	out, err := gitProbe(ctx, cacheDir, "ls-remote", "--heads", "--tags", remote, "--", name)
 	if err != nil {
 		return nil, err
 	}

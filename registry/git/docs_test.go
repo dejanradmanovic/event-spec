@@ -288,6 +288,18 @@ func TestRefErrorsFitEightyColumns(t *testing.T) {
 			data: []string{remote, ref, tagRev, branchRev, tagSHA, branchSHA},
 		},
 		{
+			name: "ambiguous ref, tag against branch, stale cache remedy",
+			err: ambiguousRefError{
+				ref:    ref,
+				remote: remote,
+				resolved: []refCandidate{
+					{kind: "tag", rev: tagRev, sha: tagSHA},
+					{kind: "branch", rev: branchRev, sha: branchSHA},
+				},
+			},
+			data: []string{remote, ref, tagRev, branchRev, tagSHA, branchSHA},
+		},
+		{
 			name: "ambiguous ref, branch named after the pinned commit",
 			err: ambiguousRefError{
 				ref:    tagSHA,
@@ -329,22 +341,28 @@ func TestRefErrorsFitEightyColumns(t *testing.T) {
 		},
 	}
 
-	// Every invalidRefError checkRef can produce, so no rejection shape can
-	// grow a line nobody measured.
+	// Every invalidRefError checkRefs can produce, for both keys, so no
+	// rejection shape can grow a line nobody measured.
 	for _, value := range []string{"main~1", "HEAD", "refs/heads/main", "-rf", strings.Repeat("x~", 60)} {
-		err := Config{Ref: value}.checkRef()
-		if err == nil {
-			t.Fatalf("checkRef(%q) = nil, want an invalidRefError to measure", value)
+		for _, key := range []string{"registry.ref", "registry.branch"} {
+			cfg := Config{Ref: value}
+			if key == "registry.branch" {
+				cfg = Config{Branch: value}
+			}
+			err := cfg.checkRefs()
+			if err == nil {
+				t.Fatalf("checkRefs(%s=%q) = nil, want an invalidRefError to measure", key, value)
+			}
+			tests = append(tests, struct {
+				name string
+				err  error
+				data []string
+			}{
+				name: "invalid " + key + " " + value,
+				err:  err,
+				data: []string{value},
+			})
 		}
-		tests = append(tests, struct {
-			name string
-			err  error
-			data []string
-		}{
-			name: "invalid ref " + value,
-			err:  err,
-			data: []string{value},
-		})
 	}
 
 	for _, tt := range tests {
