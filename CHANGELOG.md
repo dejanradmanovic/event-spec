@@ -87,16 +87,24 @@ version heading in a separate pull request just before the release is dispatched
   Four consequences worth knowing. Setting `registry.ref` makes the first clone a full
   one, because a `--depth 1` clone holds neither an older commit nor any tag — a slower
   first pull on a large tracking-plan repo, and that repo's whole history on disk in the
-  cache. A fetch now also fetches tags, so the tag a pin names is as fresh as the
-  branches beside it; an upstream tag that moved still cannot retarget a cache that
-  already has it. A `registry.ref` that resolves to two different commits is refused
-  with every SHA named, rather than resolved to one of them. And when a ref cannot be
-  found at all, the error asks the remote before recommending anything: it says
-  `event-spec pull --force` only when the remote really does have that ref and the cache
-  does not, and otherwise says the remote has no such tag or branch and prints the
+  cache. A pinned pull also fetches the one tag its `registry.ref` names, so the tag a
+  pin names is as fresh as the branches beside it; an upstream tag that moved cannot
+  retarget a cache that already has it, and no other tag is fetched, so a ref-less cache
+  stays shallow and a tag moving on the remote cannot affect a pull that does not name
+  it. A `registry.ref` that resolves to two different commits is refused with every SHA
+  named rather than resolved to one of them, which means **anyone who can push a ref to
+  the tracking plan can stop your pulls**: a tag named `main` is enough to block every
+  consumer whose `registry.ref` is `main`, where the same value under `registry.branch`
+  cannot be blocked at all, so prefer `registry.branch` when you mean to follow a
+  branch. Recovering from a refusal takes `event-spec pull --force` as well as removing
+  the extra ref upstream, because a pull prunes neither branches nor tags. And when a
+  ref cannot be found at all, the error asks the remote before recommending anything: it
+  says `event-spec pull --force` only when the remote really does have that ref and the
+  cache does not, and otherwise says the remote has no such tag or branch and prints the
   `git ls-remote` command that lists what it does have — re-cloning never fixes a typo.
-  A `registry.ref` that is neither a tag, a remote branch nor a SHA — `HEAD`, `main~2`,
-  `v1.4.0^{}`, `refs/heads/main` — is refused before anything is cloned.
+  A `registry.ref` or `registry.branch` that is not a name the remote could have —
+  `HEAD`, `main~2`, `v1.4.0^{}`, `refs/heads/main`, anything starting with `-` — is
+  refused before anything is cloned.
 
   Details: [git registry docs](https://event-spec.io/docs/registry/git),
   [issue #211](https://github.com/dejanradmanovic/event-spec/issues/211).
