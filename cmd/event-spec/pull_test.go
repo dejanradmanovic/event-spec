@@ -71,7 +71,7 @@ func TestPullCmd_ClonesAndIndexes(t *testing.T) {
 
 	root := t.TempDir()
 	cacheDir := filepath.Join(t.TempDir(), "cache")
-	writePullWorkspaceConfig(t, root, remote, cacheDir)
+	writePullWorkspaceConfig(t, root, remote, cacheDir, "")
 	withWorkDir(t, root)
 
 	cmd := newPullCmd()
@@ -85,6 +85,48 @@ func TestPullCmd_ClonesAndIndexes(t *testing.T) {
 	out := stdout.String()
 	if !strings.Contains(out, "Pulling") {
 		t.Errorf("expected progress line, got: %s", out)
+	}
+	// With no registry.ref the branch is what the pull follows, so that is
+	// what the line must name.
+	if !strings.Contains(out, "@main") {
+		t.Errorf("expected the progress line to name the branch, got: %s", out)
+	}
+	if !strings.Contains(out, "Indexed 1 event(s)") {
+		t.Errorf("expected index count, got: %s", out)
+	}
+}
+
+// TestPullCmd_ProgressLineNamesRef pins the progress line to what the pull
+// actually checks out: registry.ref overrides registry.branch, so printing
+// the branch under a pin named a ref the cache never lands on.
+func TestPullCmd_ProgressLineNamesRef(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	remote := pullTestBareRepo(t, map[string]string{
+		"ecommerce/product_viewed/1-0-0.yaml": pullEventYAML("ecommerce", "product_viewed", "1-0-0", "active"),
+	})
+
+	root := t.TempDir()
+	cacheDir := filepath.Join(t.TempDir(), "cache")
+	writePullWorkspaceConfig(t, root, remote, cacheDir, pullTestTag)
+	withWorkDir(t, root)
+
+	cmd := newPullCmd()
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&bytes.Buffer{})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("pull: %v", err)
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "@"+pullTestTag) {
+		t.Errorf("expected the progress line to name the pinned ref %q, got: %s", pullTestTag, out)
+	}
+	if strings.Contains(out, "@main") {
+		t.Errorf("progress line names the branch instead of the pin, got: %s", out)
 	}
 	if !strings.Contains(out, "Indexed 1 event(s)") {
 		t.Errorf("expected index count, got: %s", out)
@@ -102,7 +144,7 @@ func TestPullCmd_Force(t *testing.T) {
 
 	root := t.TempDir()
 	cacheDir := filepath.Join(t.TempDir(), "cache")
-	writePullWorkspaceConfig(t, root, remote, cacheDir)
+	writePullWorkspaceConfig(t, root, remote, cacheDir, "")
 	withWorkDir(t, root)
 
 	// Initial pull to populate the cache.
@@ -134,6 +176,10 @@ func TestPullCmd_Force(t *testing.T) {
 
 // --- local helpers ---
 
+// pullTestTag is the tag pullTestBareRepo puts on its single commit, so a
+// test can pin registry.ref to something that is not a branch name.
+const pullTestTag = "v1"
+
 func pullTestBareRepo(t *testing.T, events map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
@@ -163,14 +209,22 @@ func pullTestBareRepo(t *testing.T, events map[string]string) string {
 	}
 	mustRun(work, "add", ".")
 	mustRun(work, "commit", "-m", "init")
+	mustRun(work, "tag", pullTestTag)
 	mustRun(root, "clone", "--bare", work, bare)
 	return bare
 }
 
-func writePullWorkspaceConfig(t *testing.T, dir, remote, cacheDir string) {
+// writePullWorkspaceConfig writes a git-mode workspace config. ref becomes
+// registry.ref when non-empty; empty leaves the branch to be followed.
+func writePullWorkspaceConfig(t *testing.T, dir, remote, cacheDir, ref string) {
 	t.Helper()
+	registryRef := ""
+	if ref != "" {
+		registryRef = "  ref: " + ref + "\n"
+	}
 	content := "version: 1\nworkspace: test-workspace\nregistry:\n  mode: git\n  remote: " + remote +
-		"\n  branch: main\n  cache_dir: " + cacheDir + "\n  specs_dir: specs\nsources_dir: sources\ndestinations_dir: destinations\n"
+		"\n  branch: main\n" + registryRef + "  cache_dir: " + cacheDir +
+		"\n  specs_dir: specs\nsources_dir: sources\ndestinations_dir: destinations\n"
 	if err := os.WriteFile(filepath.Join(dir, "event-spec.yaml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}

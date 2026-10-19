@@ -17,7 +17,7 @@ event-spec pull [flags]
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--force` | `false` | Re-clone the remote repository even if a local cache already exists |
-| `--ref` | `""` | Override the branch, tag, or commit SHA to check out (overrides `registry.ref` in workspace config) |
+| `--ref` | `""` | Check out this ref instead of the configured one — a commit SHA, a tag, or a branch name, resolved against the remote (overrides both `registry.ref` and `registry.branch` in the workspace config) |
 
 ## Usage
 
@@ -29,7 +29,7 @@ workspace: "my-company"
 registry:
   mode: git
   remote: https://github.com/my-org/analytics-specs.git
-  ref: main
+  branch: main
 specs_dir: ./specs
 ```
 
@@ -39,7 +39,9 @@ Then pull the remote specs:
 event-spec pull
 ```
 
-The CLI clones or fetches the remote repository into a local cache directory and indexes the spec files.
+The CLI clones or fetches the remote repository into a local cache directory and indexes the spec files. The progress line names the ref the pull will check out, which is `registry.ref` when set and `registry.branch` otherwise.
+
+To pin the cache to an exact commit or tag instead of following a branch, set `registry.ref` — see [Registry — Git](../registry/git.md#branch-vs-ref).
 
 ## After pulling
 
