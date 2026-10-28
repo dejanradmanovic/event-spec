@@ -55,13 +55,13 @@ jobs:
           cache: true
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4.38.3
+        uses: github/codeql-action/init@v4.39.1
         with:
           languages: go
           build-mode: autobuild
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4.38.3
+        uses: github/codeql-action/analyze@v4.39.1
         with:
           category: /language:go
 
@@ -89,13 +89,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4.38.3
+        uses: github/codeql-action/init@v4.39.1
         with:
           languages: javascript-typescript
           build-mode: none
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4.38.3
+        uses: github/codeql-action/analyze@v4.39.1
         with:
           category: /language:javascript-typescript
 
@@ -117,7 +117,7 @@ jobs:
           cache: gradle
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4.38.3
+        uses: github/codeql-action/init@v4.39.1
         with:
           languages: java-kotlin
           build-mode: manual
@@ -126,7 +126,7 @@ jobs:
         run: ./gradlew build -x test
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4.38.3
+        uses: github/codeql-action/analyze@v4.39.1
         with:
           category: /language:java-kotlin
 
@@ -154,7 +154,7 @@ jobs:
 
       - name: Initialize CodeQL
         if: steps.detect.outputs.present == 'true'
-        uses: github/codeql-action/init@v4.38.3
+        uses: github/codeql-action/init@v4.39.1
         with:
           languages: swift
           build-mode: manual
@@ -165,6 +165,6 @@ jobs:
 
       - name: Perform CodeQL Analysis
         if: steps.detect.outputs.present == 'true'
-        uses: github/codeql-action/analyze@v4.38.3
+        uses: github/codeql-action/analyze@v4.39.1
         with:
           category: /language:swift
